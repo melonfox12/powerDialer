@@ -156,6 +156,88 @@ class DialerSessionTests(unittest.TestCase):
             self.assertEqual(dialer.session["conversations"], 1)
             self.assertEqual(dialer.session["goal"], 1)
 
+    def test_answer_starts_transcription_while_holding_agent_audio_until_human_detection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = CRMStore(Path(directory) / "crm.json")
+            lead = {
+                "id": "prospect-1", "name": "Onyx", "business": "Onyx",
+                "phone": "+12025550123", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [lead]
+            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer.public_base_url = "https://example.test"
+            dialer.save_settings({"session_goal": 20})
+            dialer.running = True
+            call = dialer._new_call("prospect", lead)
+            call["call_uuid"] = "CA-test"
+
+            status, _, twiml = dialer.handle_webhook(call["token"], "answer", {"CallSid": "CA-test"})
+            self.assertEqual(status, 200)
+            self.assertIn("<Transcription", twiml)
+            self.assertIn("<Pause", twiml)
+            self.assertNotIn("<Conference", twiml)
+            self.assertEqual(call["state"], "listening")
+
+            dialer._machine_result(call, {"AnsweredBy": "unknown"})
+            self.assertIsNone(dialer.active)
+            self.assertIn(call["token"], dialer.in_flight)
+            self.assertEqual(dialer.public_state()["live_transcript"]["lead_id"], lead["id"])
+
+            transferred = []
+            dialer._transfer = lambda call_uuid, url: transferred.append((call_uuid, url))
+            dialer._machine_result(call, {"AnsweredBy": "human"})
+            self.assertIs(dialer.active, call)
+            self.assertEqual(call["state"], "live")
+            self.assertEqual(transferred, [("CA-test", "https://example.test/hooks/" + call["token"] + "/winner")])
+            self.assertIsNone(call["answer_detection_timer"])
+
+    def test_rep_can_manually_enter_listening_line(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = CRMStore(Path(directory) / "crm.json")
+            lead = {
+                "id": "prospect-1", "name": "Onyx", "business": "Onyx",
+                "phone": "+12025550123", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [lead]
+            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer.public_base_url = "https://example.test"
+            dialer.save_settings({"session_goal": 20})
+            dialer.running = True
+            dialer.agent_ready = True
+            call = dialer._new_call("prospect", lead)
+            call.update({"call_uuid": "CA-test", "state": "listening"})
+            transferred = []
+            dialer._transfer = lambda call_uuid, url: transferred.append(call_uuid)
+
+            result = dialer.enter_live_line()
+
+            self.assertIs(dialer.active, call)
+            self.assertEqual(result["active_lead"]["id"], lead["id"])
+            self.assertEqual(transferred, ["CA-test"])
+
+    def test_answer_detection_timeout_marks_unclassified_answer_for_later(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = CRMStore(Path(directory) / "crm.json")
+            lead = {
+                "id": "prospect-1", "name": "Onyx", "business": "Onyx",
+                "phone": "+12025550123", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [lead]
+            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            call = dialer._new_call("prospect", lead)
+            call.update({"call_uuid": "CA-test", "state": "listening"})
+
+            dialer._answer_detection_timeout(call)
+
+            self.assertNotIn(call["token"], dialer.in_flight)
+            self.assertEqual(crm.snapshot()[0]["status"], "call")
+            with self.assertRaisesRegex(ValueError, "(?i)no prospect line"):
+                dialer.enter_live_line()
+
 
 if __name__ == "__main__":
     unittest.main()

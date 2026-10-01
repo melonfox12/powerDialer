@@ -140,6 +140,9 @@ def write_env(path, updates):
     return values
 
 
+ANSWER_DETECTION_GRACE_SECONDS = 18
+
+
 class TwilioDialer:
     def __init__(self, crm, env_path, metrics=None):
         self.crm = crm
@@ -215,9 +218,20 @@ class TwilioDialer:
         with self.lock:
             active_id = self.active.get("lead_id") if self.active else None
             active_call = self.active
+            transcript_call = active_call or next(
+                (
+                    call for call in self.in_flight.values()
+                    if call["kind"] == "prospect" and call["state"] == "listening"
+                ),
+                None,
+            )
             pending_id = self.pending_outcome
             records = [
-                {"lead_id": call["lead_id"], "state": call["state"]}
+                {
+                    "lead_id": call["lead_id"],
+                    "name": (call.get("lead") or {}).get("name") or (call.get("lead") or {}).get("business"),
+                    "state": call["state"],
+                }
                 for call in self.in_flight.values() if call["kind"] == "prospect"
             ]
             callers = list(self.callers)
@@ -233,9 +247,9 @@ class TwilioDialer:
                 "last_event": self.last_event,
                 "activity_log": list(self.activity_log),
                 "live_transcript": {
-                    "lead_id": active_id,
-                    "partials": list(active_call.get("transcript_partials", {}).values()) if active_call else [],
-                    "transcribing": bool(active_call and active_call.get("transcribing")),
+                    "lead_id": transcript_call.get("lead_id") if transcript_call else None,
+                    "partials": list(transcript_call.get("transcript_partials", {}).values()) if transcript_call else [],
+                    "transcribing": bool(transcript_call and transcript_call.get("transcribing")),
                 },
                 "session": dict(self.session) if self.session else None,
                 "advance_at": self.advance_at,
@@ -491,8 +505,8 @@ class TwilioDialer:
             "machine": False,
             "transcribing": False,
             "transcript_partials": {},
-            "transcribing": False,
-            "transcript_partials": {},
+            "transcription_started": False,
+            "answer_detection_timer": None,
         }
         self.calls[token] = call
         if kind == "prospect":
@@ -606,7 +620,26 @@ class TwilioDialer:
                    f'endConferenceOnExit="true">{escape_xml(self.conference)}</Conference></Dial></Response>')
             return 200, "application/xml", xml
         if action == "answer":
-            return 200, "application/xml", "<Response><Say>Please hold while we connect you.</Say><Pause length=\"45\"/></Response>"
+            with self.lock:
+                if call["kind"] != "prospect" or call["handled"] or call["cancelled"]:
+                    return 200, "application/xml", "<Response><Hangup/></Response>"
+                call["state"] = "listening"
+                start_transcription = not call["transcription_started"]
+                call["transcription_started"] = True
+                if not call["answer_detection_timer"]:
+                    timer = threading.Timer(
+                        ANSWER_DETECTION_GRACE_SECONDS, self._answer_detection_timeout, args=(call,)
+                    )
+                    timer.daemon = True
+                    call["answer_detection_timer"] = timer
+                    timer.start()
+            response = VoiceResponse()
+            if start_transcription:
+                self._start_transcription(response, call)
+            response.say("Please hold while we connect you.")
+            response.pause(length=45)
+            self.record_activity("Prospect answered; listening for answer detection", "call")
+            return 200, "application/xml", str(response)
         if action == "machine":
             return self._machine_result(call, params)
         if action == "transcript":
@@ -619,17 +652,6 @@ class TwilioDialer:
             return 200, "application/xml", "<Response/>"
         if action == "winner":
             response = VoiceResponse()
-            response.start().transcription(
-                status_callback_url=self._url(call, "transcript"),
-                name=f"crm-{call['token']}",
-                track="both_tracks",
-                inbound_track_label="prospect",
-                outbound_track_label="agent",
-                partial_results=True,
-                language_code="en-US",
-                speech_model="telephony",
-                enable_automatic_punctuation=True,
-            )
             response.dial().conference(
                 self.conference,
                 beep="false",
@@ -639,6 +661,19 @@ class TwilioDialer:
             self.record_activity("Starting live two-track transcription", "transcription")
             return 200, "application/xml", str(response)
         return 404, "text/plain", "Unknown callback"
+
+    def _start_transcription(self, response, call):
+        response.start().transcription(
+            status_callback_url=self._url(call, "transcript"),
+            name=f"crm-{call['token']}",
+            track="both_tracks",
+            inbound_track_label="prospect",
+            outbound_track_label="agent",
+            partial_results=True,
+            language_code="en-US",
+            speech_model="telephony",
+            enable_automatic_punctuation=True,
+        )
 
     def _transcription_event(self, call, params):
         event = params.get("TranscriptionEvent", "")
@@ -700,12 +735,16 @@ class TwilioDialer:
         )).lower()
         machine = any(term in result for term in ("machine", "voicemail", "answering service"))
         human = "human" in result
-        if machine or not human:
+        if machine:
             with self.lock:
                 if call["handled"] or call["cancelled"]:
                     return 200, "text/plain", "OK"
                 call["handled"] = True
                 call["machine"] = True
+                timer = call.get("answer_detection_timer")
+                if timer:
+                    timer.cancel()
+                    call["answer_detection_timer"] = None
                 self.in_flight.pop(call["token"], None)
                 self.last_event = f"No human answer detected for {call['lead'].get('name') or call['lead']['phone']}"
                 self._bump("voicemail")
@@ -719,8 +758,47 @@ class TwilioDialer:
             threading.Thread(target=self.fill_slots, daemon=True).start()
             return 200, "text/plain", "OK"
 
+        if not human:
+            self.record_activity("Answer detection is still listening", "call")
+            return 200, "text/plain", "OK"
+
         self._select_human(call)
         return 200, "text/plain", "OK"
+
+    def _answer_detection_timeout(self, call):
+        with self.lock:
+            call["answer_detection_timer"] = None
+            if call["handled"] or call["cancelled"] or call["state"] != "listening":
+                return
+            call["handled"] = True
+            call["machine"] = True
+            self.in_flight.pop(call["token"], None)
+            self.last_event = f"Answer detection timed out for {call['lead'].get('name') or call['lead']['phone']}"
+            self._bump("voicemail")
+            call_uuid = call.get("call_uuid")
+        self.record_activity("Answer detection timed out; prospect marked for later", "call")
+        try:
+            self.crm.set_status(call["lead_id"], "call")
+        except (KeyError, ValueError):
+            pass
+        if call_uuid:
+            threading.Thread(target=self._hangup_call, args=(call_uuid,), daemon=True).start()
+        threading.Thread(target=self.fill_slots, daemon=True).start()
+
+    def enter_live_line(self):
+        with self.lock:
+            call = next(
+                (
+                    item for item in self.in_flight.values()
+                    if item["kind"] == "prospect" and item["state"] == "listening"
+                ),
+                None,
+            )
+            if call is None:
+                raise ValueError("There is no prospect line waiting for answer detection.")
+        self.record_activity("Rep entered the line before automatic answer detection completed", "call")
+        self._select_human(call)
+        return self.public_state()
 
     def _select_human(self, call):
         with self.lock:
@@ -731,8 +809,12 @@ class TwilioDialer:
                 call_uuid = call.get("call_uuid")
             else:
                 call["handled"] = True
-                call["state"] = "connecting"
+                call["state"] = "live"
                 call["connected_at"] = datetime.now(timezone.utc).isoformat()
+                timer = call.get("answer_detection_timer")
+                if timer:
+                    timer.cancel()
+                    call["answer_detection_timer"] = None
                 self.active = call
                 self.last_event = f"Connecting {call['lead'].get('name') or call['lead']['phone']}"
                 if self.session:
@@ -771,6 +853,10 @@ class TwilioDialer:
             was_connected = self.active is call
             call["handled"] = True
             call["state"] = "ended"
+            timer = call.get("answer_detection_timer")
+            if timer:
+                timer.cancel()
+                call["answer_detection_timer"] = None
             self.in_flight.pop(call["token"], None)
             self.active = None
             outcome_already_chosen = call.get("outcome_chosen")

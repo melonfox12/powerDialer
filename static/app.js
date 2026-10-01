@@ -30,6 +30,7 @@ const state = {
 let toastTimer;
 let pollBusy = false;
 let outcomeSubmitting = false;
+let enteringLiveLine = false;
 let dashboardTab = "performance";
 let performanceMode = "summary";
 let observedActiveLeadId = null;
@@ -261,7 +262,28 @@ function openTranscript(lead) {
   byId("transcriptDialogTitle").textContent = `${lead.name || lead.business || lead.phone} · Transcript`;
   byId("transcriptDialogMeta").textContent = `${lead.phone || ""} · ${entries.length} utterance${entries.length === 1 ? "" : "s"}`;
   renderTranscriptEntries(byId("transcriptDialogBody"), entries, "No transcript has been captured for this call.");
+  byId("downloadTranscriptButton").dataset.leadId = lead.id;
   byId("transcriptDialog").showModal();
+}
+
+function downloadTranscript(lead) {
+  const entries = lead.transcript || [];
+  const content = entries
+    .map((entry) => `[${entry.timestamp || "Time unavailable"}] ${entry.speaker || "Speaker"}: ${entry.text || ""}`)
+    .join("\r\n");
+  const blobUrl = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  const filenameBase = (lead.business || lead.name || lead.phone || "prospect-transcript")
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 80) || "prospect-transcript";
+  anchor.href = blobUrl;
+  anchor.download = `${filenameBase}-transcript.txt`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 }
 
 function importedColumns() {
@@ -573,13 +595,25 @@ function renderCallMonitor() {
   }));
   activityList.scrollTop = activityList.scrollHeight;
 
-  const lead = state.active_lead || state.pending_outcome;
   const liveTranscript = state.live_transcript || {};
+  const lead = state.active_lead || state.pending_outcome ||
+    state.leads.find((item) => item.id === liveTranscript.lead_id) || null;
   const partials = lead && liveTranscript.lead_id === lead.id ? liveTranscript.partials || [] : [];
   const entries = [...(lead?.transcript || []), ...partials];
-  const status = lead
-    ? liveTranscript.transcribing ? "Transcribing" : state.active_lead ? "Call connected" : "Call ended"
-    : state.agent_ready ? "Waiting for prospect" : state.running ? "Connecting" : "Idle";
+  const waitingCall = (state.in_flight || []).find((call) => call.state === "listening");
+  const dialingCall = (state.in_flight || []).some((call) => ["creating", "ringing"].includes(call.state));
+  const monitorActivity = byId("monitorActivity");
+  const status = state.active_lead
+    ? "Live"
+    : waitingCall ? "Listening"
+      : dialingCall ? "Dialing"
+        : state.pending_outcome ? "Wrap-up"
+          : state.agent_ready ? "Waiting"
+            : state.running ? "Connecting" : "Idle";
+  const statusState = status.toLowerCase();
+  monitorActivity.dataset.state = ["dialing", "listening", "live"].includes(statusState) ? statusState : "idle";
+  byId("enterLiveButton").hidden = !waitingCall;
+  byId("enterLiveButton").disabled = enteringLiveLine;
   setText("monitorStatus", status);
   setText("transcriptLiveStatus", liveTranscript.lead_id === lead?.id && liveTranscript.transcribing
     ? "Listening"
@@ -695,10 +729,6 @@ function renderSessionMomentum() {
   const stats = state.session_stats || {};
   const goal = Number(stats.goal || state.settings?.session_goal || 20);
   const conversations = Number(stats.conversations || 0);
-  setText("sessionDials", String(stats.dials || 0));
-  setText("sessionConnects", String(stats.connects || 0));
-  setText("sessionConversations", String(conversations));
-  setText("sessionMeetings", String(stats.meetings_booked || 0));
   setText("sessionGoalLabel", `${conversations} / ${goal} conversations`);
   const progress = byId("sessionGoalTrack");
   progress.setAttribute("aria-valuemax", String(goal));
@@ -721,7 +751,7 @@ function renderSessionMomentum() {
     localStorage.setItem(`prospect-desk-goal-${sessionId}`, "shown");
     showToast("Session goal reached — great work!");
   }
-  if (Number(stats.meetings_booked || 0) > previousMeetings) byId("sessionMeetings").classList.add("meeting-highlight");
+  if (Number(stats.meetings_booked || 0) > previousMeetings) byId("statBookedToday").classList.add("meeting-highlight");
   previousMeetings = Number(stats.meetings_booked || 0);
   previousSessionConversations = conversations;
   const nudgeMinutes = Number(state.settings?.break_nudge_minutes || 90);
@@ -732,11 +762,11 @@ function renderSessionMomentum() {
 
 function renderCallStage(stage, target) {
   const container = byId("callStage");
+  container.hidden = stage === "idle";
   container.dataset.stage = stage;
   const fragment = document.createDocumentFragment();
   const heading = document.createElement("strong");
   const detail = document.createElement("span");
-  const stats = state.session_stats || {};
   if (stage === "connected" && target) {
     heading.textContent = "LIVE";
     const started = state.active_call_started_at ? Date.parse(state.active_call_started_at) : Date.now();
@@ -768,9 +798,7 @@ function renderCallStage(stage, target) {
     heading.textContent = stage === "ringing" ? "Ring in progress" : "Dialing next prospect";
     detail.textContent = calls.map((call) => `${call.lead?.business || call.lead?.name || "Prospect"} · ${call.state === "ringing" ? "Ringing" : "Dialing"}`).join(" · ") || state.last_event || "Connecting to the next prospect…";
     container.classList.remove("call-stage-live");
-  } else {
-    const goal = Number(stats.goal || state.settings?.session_goal || 20);
-    heading.textContent = stats.conversations ? `${stats.conversations} of ${goal} conversations toward your goal` : "Your next conversation starts here";
+  } else if (stage !== "idle") {
     const next = state.next_lead;
     const clock = next ? localTimeLabel(next.timezone) : "";
     const context = next && Object.entries(next.fields || {}).find(([key, value]) => /notes?/i.test(key) && value);
@@ -781,7 +809,7 @@ function renderCallStage(stage, target) {
           state.skipped_outside_hours && `${state.skipped_outside_hours} skipped: outside calling hours; they’ll be dialed when local hours open.`,
           state.skipped_unknown_timezone && `${state.skipped_unknown_timezone} skipped: timezone unavailable.`,
         ].filter(Boolean).join(" ")
-        : "Import prospects or adjust the timezone filter to build your queue.";
+        : "No prospects available in this queue.";
     container.classList.remove("call-stage-live");
   }
 
@@ -803,7 +831,7 @@ function renderCallStage(stage, target) {
       throw error;
     }
   }
-  fragment.append(heading, detail);
+  if (stage !== "idle") fragment.append(heading, detail);
   container.replaceChildren(fragment);
   if (stage !== previousStage && stage !== "idle") {
     setText("stageAnnouncer", stage === "connected" ? "Human prospect connected" : stage === "wrapup" ? "Call ended. Choose a disposition." : stage === "paused" ? "Dialing session paused." : stage === "ringing" ? "Prospect line is ringing." : "Dialing next prospect.");
@@ -984,6 +1012,7 @@ function renderMetrics() {
   setText("statBookedAll", String(allTime.booked || 0));
   setText("statTalkToday", formatMinutes(today.talk_seconds));
   setText("statTalkAll", formatMinutes(allTime.talk_seconds));
+  setText("statSessionConversations", String(state.session_stats?.conversations || 0));
   buildMetricsLineChart(daily);
   buildStatusPieChart(state.leads);
   buildConnectionPieChart(allTime);
@@ -1448,6 +1477,10 @@ for (const modeButton of document.querySelectorAll("[data-performance-mode]")) {
   modeButton.addEventListener("click", () => setPerformanceMode(modeButton.dataset.performanceMode));
 }
 byId("closeTranscript").addEventListener("click", () => byId("transcriptDialog").close());
+byId("downloadTranscriptButton").addEventListener("click", () => {
+  const lead = state.leads.find((item) => item.id === byId("downloadTranscriptButton").dataset.leadId);
+  if (lead) downloadTranscript(lead);
+});
 byId("transcriptDialog").addEventListener("click", (event) => {
   if (event.target === byId("transcriptDialog")) byId("transcriptDialog").close();
 });
@@ -1562,6 +1595,19 @@ byId("skipVoicemailButton").addEventListener("click", async () => {
     render();
   } catch (error) {
     showToast(error.message, true);
+  }
+});
+byId("enterLiveButton").addEventListener("click", async () => {
+  enteringLiveLine = true;
+  renderCallMonitor();
+  try {
+    Object.assign(state, await postJson("/api/enter-live"));
+    render();
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    enteringLiveLine = false;
+    renderCallMonitor();
   }
 });
 for (const selector of [byId("dialerTimezoneFilter"), byId("poolTimezoneFilter")]) {

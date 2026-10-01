@@ -38,12 +38,6 @@
           <div class="dashboard-top-row">
             <section class="dialer-run-panel" aria-labelledby="liveTitle" tabindex="0">
               <div class="session-momentum" aria-label="Current session progress">
-                <div class="momentum-stats">
-                  <div><span>Dials</span><strong id="sessionDials">0</strong></div>
-                  <div><span>Connects</span><strong id="sessionConnects">0</strong></div>
-                  <div><span>Conversations</span><strong id="sessionConversations">0</strong></div>
-                  <div><span>Meetings</span><strong id="sessionMeetings">0</strong></div>
-                </div>
                 <div class="session-goal">
                   <div><span>Session goal</span><strong id="sessionGoalLabel">0 / 20 conversations</strong></div>
                   <div id="sessionGoalTrack" class="goal-track" role="progressbar" aria-label="Session conversation goal" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><span id="sessionGoalProgress"></span></div>
@@ -53,14 +47,9 @@
               </div>
               <div class="live-panel-top">
                 <span class="live-indicator"><i></i><span id="liveLabel">DIALER STANDBY</span></span>
-                <span id="lineCount" class="line-count">0 / 2 lines</span>
                 <div id="callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
               </div>
               <h2 id="liveTitle">Call desk</h2>
-              <div id="activeCall" class="active-call">
-                <div class="active-avatar">PD</div>
-                <div class="active-copy"><strong>Ready when you are</strong><span></span></div>
-              </div>
               <div id="dialerMessage" class="dialer-message" role="status">Your call session is stopped.</div>
               <div class="dialer-controls">
                 <button id="startButton" class="button button-primary" type="button"><span class="button-symbol" aria-hidden="true">▶</span>Start dialing</button>
@@ -69,7 +58,6 @@
                 <button id="stopButton" class="button button-quiet" type="button" disabled>Stop</button>
                 <details class="shortcut-help"><summary aria-label="Show keyboard shortcuts">?</summary><div>Space start / pause · H hang up · Esc pause · 1–5 choose disposition</div></details>
               </div>
-              <label class="dialer-pool-filter"><span>Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
               <section id="callStage" class="call-stage" data-stage="idle" aria-live="off" tabindex="0" aria-label="Call stage"></section>
               <span id="stageAnnouncer" class="visually-hidden" role="status" aria-live="polite"></span>
               <div id="outcomeRow" class="outcome-row" hidden>
@@ -87,13 +75,21 @@
                 <p id="autoAdvance" class="auto-advance" hidden></p>
                 <button id="advanceNowButton" class="button button-quiet advance-now" type="button" hidden>Dial next now <kbd>Space</kbd></button>
               </div>
-              <details id="callMonitorDisclosure" class="call-monitor-disclosure">
+              <details id="callMonitorDisclosure" class="call-monitor-disclosure" open>
                 <summary class="call-monitor-summary">
                   <span id="callMonitorTitle" class="call-monitor-title">Call monitor</span>
-                  <span id="monitorStatus" class="monitor-status">Waiting</span>
+                  <span id="monitorActivity" class="monitor-activity" data-state="idle" aria-hidden="true">
+                    <svg class="monitor-spinner" viewBox="0 0 24 24" focusable="false">
+                      <circle cx="12" cy="3" r="1.8"/><circle cx="18.4" cy="5.6" r="1.8"/>
+                      <circle cx="21" cy="12" r="1.8"/><circle cx="18.4" cy="18.4" r="1.8"/>
+                      <circle cx="12" cy="21" r="1.8"/><circle cx="5.6" cy="18.4" r="1.8"/>
+                      <circle cx="3" cy="12" r="1.8"/><circle cx="5.6" cy="5.6" r="1.8"/>
+                    </svg>
+                    <span id="monitorStatus" class="monitor-status">Waiting</span>
+                  </span>
                 </summary>
                 <section class="call-monitor" aria-labelledby="callMonitorTitle">
-                  <div class="monitor-header-actions"><button id="skipVoicemailButton" class="button button-danger-quiet monitor-skip" type="button" disabled>Skip as voicemail</button></div>
+                  <div class="monitor-header-actions"><button id="enterLiveButton" class="button button-secondary monitor-enter-live" type="button" hidden>Enter live line</button><button id="skipVoicemailButton" class="button button-danger-quiet monitor-skip" type="button" disabled>Skip as voicemail</button></div>
                   <div class="monitor-waveform-block">
                     <div class="monitor-subheading"><span>Prospect audio</span><output id="prospectAudioLevel">0%</output></div>
                     <canvas id="prospectWaveform" height="42" role="img" aria-label="Live waveform for prospect audio"></canvas>
@@ -111,6 +107,19 @@
             </section>
 
             <section class="metrics-panel" aria-labelledby="metricsTitle">
+              <section class="queue-strip" aria-label="Call queue">
+                <div class="queue-strip-heading">
+                  <span class="eyebrow">CALL QUEUE</span>
+                  <span id="lineCount" class="line-count">0 of 0 dialed</span>
+                </div>
+                <div class="queue-strip-content">
+                  <div id="activeCall" class="active-call">
+                    <div class="active-avatar">PD</div>
+                    <div class="active-copy"><strong>Ready when you are</strong><span></span></div>
+                  </div>
+                  <label class="dialer-pool-filter"><span>Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
+                </div>
+              </section>
               <div class="dashboard-tabs" role="tablist" aria-label="Call desk views">
                 <button id="performanceTabButton" class="dashboard-tab active" type="button" role="tab" aria-selected="true" aria-controls="performanceTabPanel" tabindex="0" data-dashboard-tab="performance">Performance</button>
                 <button id="prospectsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects">Prospects <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
@@ -147,6 +156,11 @@
                     <span class="stat-label">Talk time</span>
                     <strong id="statTalkToday">0m</strong>
                     <span class="stat-sub"><span id="statTalkAll">0m</span> all time</span>
+                  </div>
+                  <div class="stat-tile session-conversations-tile">
+                    <span class="stat-label">Conversations</span>
+                    <strong id="statSessionConversations">0</strong>
+                    <span class="stat-sub">this session</span>
                   </div>
                 </div>
                 <div class="performance-chart-grid">
@@ -290,7 +304,7 @@
 
     <dialog id="transcriptDialog" class="transcript-dialog">
       <section class="transcript-dialog-content" aria-labelledby="transcriptDialogTitle">
-        <div class="dialog-heading"><div><div class="eyebrow">CALL RECORD</div><h2 id="transcriptDialogTitle">Call transcript</h2><p id="transcriptDialogMeta" class="transcript-dialog-meta"></p></div><button id="closeTranscript" class="dialog-close" type="button" aria-label="Close transcript">×</button></div>
+        <div class="dialog-heading"><div><div class="eyebrow">CALL RECORD</div><h2 id="transcriptDialogTitle">Call transcript</h2><p id="transcriptDialogMeta" class="transcript-dialog-meta"></p></div><div class="transcript-dialog-actions"><button id="downloadTranscriptButton" class="button button-secondary" type="button">Download .txt</button><button id="closeTranscript" class="dialog-close" type="button" aria-label="Close transcript">×</button></div></div>
         <div id="transcriptDialogBody" class="transcript-dialog-body"></div>
       </section>
     </dialog>

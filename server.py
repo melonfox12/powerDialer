@@ -106,6 +106,8 @@ def make_app_handler(crm, dialer, metrics, storage_name="local JSON files"):
                     self.send_json(200, dialer.hangup_active())
                 elif path == "/api/skip":
                     self.send_json(200, dialer.skip_active())
+                elif path == "/api/enter-live":
+                    self.send_json(200, dialer.enter_live_line())
                 elif path == "/api/advance":
                     self.send_json(200, dialer.advance_now())
                 elif path.startswith("/api/leads/") and path.endswith("/status"):
