@@ -1,0 +1,61 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Editor/IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local environment/config files
+.env
+.env.*
+*.env
+*.local
+*.local.*
+config.local
+settings.local
+
+# Python packaging / build outputs
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local secret/config backups or generated files
+secrets.json
+secret.key
+*.pem
+*.key
+
+# Project-specific local runtime artifacts
+call_log.csv
+crm_data.json
+metrics.json
+*.tmp
+
+# Optional: if you use Jupyter
+.ipynb_checkpoints/
