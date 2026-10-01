@@ -5,7 +5,7 @@ The app can store prospects, transcripts, statuses, and call metrics in Supabase
 ## Configure
 
 1. Create a Supabase project.
-2. In the SQL editor, run [`supabase_schema.sql`](./supabase_schema.sql). If you already installed an earlier version of this schema, run the updated script again to create the session history table.
+2. In the SQL editor, run [`supabase_schema.sql`](./supabase_schema.sql). If you already installed an earlier version of this schema, run the updated script again to create session history and update supported metrics.
 3. Add the settings shown in [`.env.example`](./.env.example) to the private `.env` file, then set:
    - `SUPABASE_URL`: the project URL, such as `https://your-project.supabase.co`
    - `SUPABASE_SECRET_KEY`: a server-only Supabase secret key (`sb_secret_...`), or for legacy projects, `SUPABASE_SERVICE_ROLE_KEY`
@@ -15,6 +15,8 @@ The app can store prospects, transcripts, statuses, and call metrics in Supabase
 Do not use a Supabase publishable/anon key for server storage. It is intended for clients and does not have the service privileges required by this app's row-level-security-protected tables. The app rejects publishable/anon keys during startup.
 
 The schema enables row-level security and grants the app's service role access. Do not use an anon/public key as the server key.
+
+Dialer preferences (session goal, conversation threshold, advance delay, sound, break reminder, calling window, and opener) are saved in the private `.env` file. Session summaries are saved with the selected metrics backend. Calling hours use each prospect's timezone; prospects with missing or unrecognized timezones are not auto-dialed.
 
 ## Move existing local data
 

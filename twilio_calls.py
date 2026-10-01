@@ -14,14 +14,56 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from dialer_session import (
-    add_connect, dialer_stage, new_session, recent_streak,
-    session_summary, status_for_disposition,
+    add_connect, dialer_stage, new_session, recent_streak, record_conversation,
+    record_disposition,
+    local_time, session_summary, status_for_disposition, within_calling_window,
 )
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 from twilio.twiml.voice_response import VoiceResponse
 
 TWILIO_API = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}"
+DIALER_DEFAULTS = {
+    "SESSION_GOAL": "20",
+    "CONVERSATION_THRESHOLD_SECONDS": "30",
+    "AUTO_ADVANCE_DELAY_SECONDS": "3",
+    "SOUNDS_ENABLED": "true",
+    "SOUND_VOLUME": "35",
+    "BREAK_NUDGE_MINUTES": "90",
+    "CALLING_START_HOUR": "8",
+    "CALLING_END_HOUR": "21",
+    "OPENING_SCRIPT": "",
+}
+
+
+def _preferences(values):
+    result = dict(DIALER_DEFAULTS)
+    for key in result:
+        if key in values:
+            result[key] = str(values[key] or "")
+    for key, minimum, maximum in (
+        ("SESSION_GOAL", 1, 1000),
+        ("CONVERSATION_THRESHOLD_SECONDS", 1, 3600),
+        ("AUTO_ADVANCE_DELAY_SECONDS", 0, 60),
+        ("SOUND_VOLUME", 0, 100),
+        ("BREAK_NUDGE_MINUTES", 1, 720),
+        ("CALLING_START_HOUR", 0, 23),
+        ("CALLING_END_HOUR", 1, 24),
+    ):
+        try:
+            value = int(result[key])
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{key.replace('_', ' ').title()} must be a whole number.") from exc
+        if not minimum <= value <= maximum:
+            raise ValueError(f"{key.replace('_', ' ').title()} must be between {minimum} and {maximum}.")
+        result[key] = str(value)
+    if int(result["CALLING_START_HOUR"]) >= int(result["CALLING_END_HOUR"]):
+        raise ValueError("Calling-hours end must be later than its start.")
+    if result["SOUNDS_ENABLED"].lower() not in ("true", "false"):
+        raise ValueError("Sounds enabled must be true or false.")
+    if len(result["OPENING_SCRIPT"]) > 2000:
+        raise ValueError("Opening script must be 2,000 characters or fewer.")
+    return result
 
 
 class TwilioError(Exception):
@@ -61,11 +103,21 @@ def read_env(path):
                 line = line.strip()
                 if line and not line.startswith("#") and "=" in line:
                     key, value = line.split("=", 1)
-                    values[key.strip()] = value.strip().strip('"').strip("'")
+                    key = key.strip()
+                    value = value.strip()
+                    if key == "OPENING_SCRIPT":
+                        try:
+                            value = json.loads(value)
+                        except json.JSONDecodeError:
+                            pass
+                    else:
+                        value = value.strip('"').strip("'")
+                    values[key] = value
     for key in (
         "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_API_KEY",
         "TWILIO_API_SECRET", "TWILIO_TWIML_APP_SID", "PUBLIC_BASE_URL",
         "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY",
+        *DIALER_DEFAULTS.keys(),
     ):
         values.setdefault(key, os.environ.get(key, ""))
     return values
@@ -73,7 +125,9 @@ def read_env(path):
 
 def write_env(path, updates):
     values = read_env(path)
-    values.update({key: value.strip() for key, value in updates.items() if value.strip()})
+    for key, value in updates.items():
+        if value.strip() or key in DIALER_DEFAULTS:
+            values[key] = json.dumps(value.strip(), ensure_ascii=False) if key == "OPENING_SCRIPT" else value.strip()
     lines = [f"{key}={value}" for key, value in values.items() if value]
     temp = path + ".tmp"
     with open(temp, "w", encoding="utf-8") as env_file:
@@ -115,6 +169,8 @@ class TwilioDialer:
         self.advance_timer = None
         self.advance_at = None
         self.advance_remaining = None
+        self.queue_total = 0
+        self.calling_window_timer = None
 
     def _save_session(self):
         if self.metrics and self.session and hasattr(self.metrics, "save_session"):
@@ -131,6 +187,8 @@ class TwilioDialer:
         timezone = str(timezone or "").strip() or None
         with self.lock:
             self.selected_timezone = timezone
+            if self.session:
+                self.queue_total = len(self._pool_leads())
             self.last_event = f"Dialing pool set to {timezone}" if timezone else "Dialing pool set to all timezones"
             should_fill = self.running and self.agent_ready and not self.paused and not self.pending_outcome and not self.active
         if should_fill:
@@ -181,6 +239,7 @@ class TwilioDialer:
                 },
                 "session": dict(self.session) if self.session else None,
                 "advance_at": self.advance_at,
+                "active_call_started_at": active_call.get("connected_at") if active_call else None,
             }
         by_id = {lead["id"]: lead for lead in leads}
         state["active_lead"] = by_id.get(active_id)
@@ -190,7 +249,42 @@ class TwilioDialer:
         state["timezone_groups"] = [{"name": name, "count": count} for name, count in groups]
         state["selected_timezone"] = self.selected_timezone
         state["pool"] = self._pool_leads(leads)
-        state["queue_count"] = len(state["pool"])
+        preferences = _preferences(read_env(self.env_path))
+        state["settings"] = {
+            "session_goal": int(preferences["SESSION_GOAL"]),
+            "conversation_threshold": int(preferences["CONVERSATION_THRESHOLD_SECONDS"]),
+            "auto_advance_delay": int(preferences["AUTO_ADVANCE_DELAY_SECONDS"]),
+            "sounds_enabled": preferences["SOUNDS_ENABLED"].lower() == "true",
+            "sound_volume": int(preferences["SOUND_VOLUME"]),
+            "break_nudge_minutes": int(preferences["BREAK_NUDGE_MINUTES"]),
+            "calling_start_hour": int(preferences["CALLING_START_HOUR"]),
+            "calling_end_hour": int(preferences["CALLING_END_HOUR"]),
+            "opening_script": preferences["OPENING_SCRIPT"],
+        }
+        state["skipped_unknown_timezone"] = sum(
+            local_time(lead.get("timezone")) is None for lead in state["pool"]
+        )
+        state["skipped_outside_hours"] = sum(
+            local_time(lead.get("timezone")) is not None
+            and not within_calling_window(
+                lead.get("timezone"),
+                state["settings"]["calling_start_hour"],
+                state["settings"]["calling_end_hour"],
+            )
+            for lead in state["pool"]
+        )
+        state["next_lead"] = next(
+            (
+                lead for lead in state["pool"]
+                if within_calling_window(
+                    lead.get("timezone"),
+                    state["settings"]["calling_start_hour"],
+                    state["settings"]["calling_end_hour"],
+                )
+            ),
+            None,
+        )
+        state["queue_count"] = self.queue_total if self.session else len(state["pool"])
         state["stage"] = dialer_stage(
             state["running"], state["paused"], active_call,
             bool(pending_id), state["in_flight"],
@@ -215,6 +309,7 @@ class TwilioDialer:
 
     def settings_state(self):
         values = read_env(self.env_path)
+        preferences = _preferences(values)
         return {
             "account_sid": values.get("TWILIO_ACCOUNT_SID", ""),
             "api_key": values.get("TWILIO_API_KEY", ""),
@@ -222,6 +317,15 @@ class TwilioDialer:
             "public_base_url": values.get("PUBLIC_BASE_URL", ""),
             "has_auth_token": bool(values.get("TWILIO_AUTH_TOKEN")),
             "has_api_secret": bool(values.get("TWILIO_API_SECRET")),
+            "session_goal": int(preferences["SESSION_GOAL"]),
+            "conversation_threshold": int(preferences["CONVERSATION_THRESHOLD_SECONDS"]),
+            "auto_advance_delay": int(preferences["AUTO_ADVANCE_DELAY_SECONDS"]),
+            "sounds_enabled": preferences["SOUNDS_ENABLED"].lower() == "true",
+            "sound_volume": int(preferences["SOUND_VOLUME"]),
+            "break_nudge_minutes": int(preferences["BREAK_NUDGE_MINUTES"]),
+            "calling_start_hour": int(preferences["CALLING_START_HOUR"]),
+            "calling_end_hour": int(preferences["CALLING_END_HOUR"]),
+            "opening_script": preferences["OPENING_SCRIPT"],
         }
 
     def validate_webhook(self, url, signature, params):
@@ -261,6 +365,18 @@ class TwilioDialer:
         return token.to_jwt()
 
     def save_settings(self, data):
+        preferences = _preferences({
+            **read_env(self.env_path),
+            "SESSION_GOAL": data.get("session_goal", DIALER_DEFAULTS["SESSION_GOAL"]),
+            "CONVERSATION_THRESHOLD_SECONDS": data.get("conversation_threshold", DIALER_DEFAULTS["CONVERSATION_THRESHOLD_SECONDS"]),
+            "AUTO_ADVANCE_DELAY_SECONDS": data.get("auto_advance_delay", DIALER_DEFAULTS["AUTO_ADVANCE_DELAY_SECONDS"]),
+            "SOUNDS_ENABLED": str(data.get("sounds_enabled", True)).lower(),
+            "SOUND_VOLUME": data.get("sound_volume", DIALER_DEFAULTS["SOUND_VOLUME"]),
+            "BREAK_NUDGE_MINUTES": data.get("break_nudge_minutes", DIALER_DEFAULTS["BREAK_NUDGE_MINUTES"]),
+            "CALLING_START_HOUR": data.get("calling_start_hour", DIALER_DEFAULTS["CALLING_START_HOUR"]),
+            "CALLING_END_HOUR": data.get("calling_end_hour", DIALER_DEFAULTS["CALLING_END_HOUR"]),
+            "OPENING_SCRIPT": data.get("opening_script", ""),
+        })
         updates = {
             "TWILIO_ACCOUNT_SID": str(data.get("account_sid", "")),
             "TWILIO_AUTH_TOKEN": str(data.get("auth_token", "")),
@@ -268,8 +384,11 @@ class TwilioDialer:
             "TWILIO_API_SECRET": str(data.get("api_secret", "")),
             "TWILIO_TWIML_APP_SID": str(data.get("twiml_app_sid", "")),
             "PUBLIC_BASE_URL": str(data.get("public_base_url", "")).rstrip("/"),
+            **preferences,
         }
         write_env(self.env_path, updates)
+        with self.lock:
+            self.settings.update(preferences)
         return self.settings_state()
 
     def start(self):
@@ -291,7 +410,8 @@ class TwilioDialer:
         parsed = urllib.parse.urlsplit(public_url)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("Public webhook URL must start with https://")
-        self.settings = values
+        preferences = _preferences(values)
+        self.settings = {**values, **preferences}
         self.public_base_url = public_url
         self.record_activity("Checking Twilio account for voice-capable caller IDs", "api")
         numbers = twilio_request(values["TWILIO_ACCOUNT_SID"], values["TWILIO_AUTH_TOKEN"],
@@ -322,7 +442,8 @@ class TwilioDialer:
             self.callers = callers
             self.caller_index = 0
             self.conference = "crm-" + secrets.token_hex(8)
-            self.session = new_session()
+            self.session = new_session(goal=int(preferences["SESSION_GOAL"]))
+            self.queue_total = len(eligible)
             self.advance_at = None
             self.advance_remaining = None
             self._save_session()
@@ -330,6 +451,7 @@ class TwilioDialer:
             self.last_event = "Connecting computer audio"
             agent_call = self._new_call("agent", None)
             self.agent_call_token = agent_call["token"]
+            self._schedule_calling_window_check()
         state = self.public_state()
         state["client_call_token"] = agent_call["token"]
         return state
@@ -577,16 +699,17 @@ class TwilioDialer:
             "AnsweredBy", "Machine", "machine", "MachineDetection", "MachineDetectionResult", "machine_detection"
         )).lower()
         machine = any(term in result for term in ("machine", "voicemail", "answering service"))
-        if machine:
+        human = "human" in result
+        if machine or not human:
             with self.lock:
                 if call["handled"] or call["cancelled"]:
                     return 200, "text/plain", "OK"
                 call["handled"] = True
                 call["machine"] = True
                 self.in_flight.pop(call["token"], None)
-                self.last_event = f"Voicemail detected for {call['lead'].get('name') or call['lead']['phone']}"
+                self.last_event = f"No human answer detected for {call['lead'].get('name') or call['lead']['phone']}"
                 self._bump("voicemail")
-            self.record_activity("Answering machine detected; prospect marked for later", "call")
+            self.record_activity("No human answer detected; prospect marked for later", "call")
             try:
                 self.crm.set_status(call["lead_id"], "call")
             except (KeyError, ValueError):
@@ -609,9 +732,11 @@ class TwilioDialer:
             else:
                 call["handled"] = True
                 call["state"] = "connecting"
+                call["connected_at"] = datetime.now(timezone.utc).isoformat()
                 self.active = call
                 self.last_event = f"Connecting {call['lead'].get('name') or call['lead']['phone']}"
                 if self.session:
+                    # Only an answer classified as human is a connect; AMD machine calls do not count.
                     add_connect(self.session)
                     self._save_session()
                 call_uuid = call.get("call_uuid")
@@ -659,8 +784,8 @@ class TwilioDialer:
                     self._bump("talk_seconds", duration)
                     # A conversation is a human-connected call lasting at least the configured threshold.
                     threshold = int(self.settings.get("CONVERSATION_THRESHOLD_SECONDS", "30"))
-                    if duration >= threshold and self.session:
-                        self.session["conversations"] += 1
+                    if self.session:
+                        record_conversation(self.session, duration, threshold)
                 self._save_session()
             should_fill = False
             should_schedule_advance = False
@@ -715,8 +840,8 @@ class TwilioDialer:
         }.get(status, "disqualified")
         self._bump(metric_key)
         with self.lock:
-            if status == "booked" and self.session:
-                self.session["meetings_booked"] += 1
+            if self.session:
+                record_disposition(self.session, status)
                 self._save_session()
             if self.pending_outcome == lead_id:
                 self.pending_outcome = None
@@ -777,12 +902,41 @@ class TwilioDialer:
                 return
             active_leads = {call["lead_id"] for call in self.in_flight.values()}
             slots = max(0, 1 - len(self.in_flight))
-            pool = [lead for lead in self._pool_leads() if lead["id"] not in active_leads]
+            pool = [
+                lead for lead in self._pool_leads()
+                if lead["id"] not in active_leads
+                and within_calling_window(
+                    lead.get("timezone"),
+                    int(self.settings.get("CALLING_START_HOUR", "8")),
+                    int(self.settings.get("CALLING_END_HOUR", "21")),
+                )
+            ]
             for lead in random.sample(pool, min(slots, len(pool))):
                 call = self._new_call("prospect", lead)
                 launches.append((call, lead["phone"]))
         for call, destination in launches:
             self._launch_call(call, destination)
+        self._schedule_calling_window_check()
+
+    def _schedule_calling_window_check(self):
+        with self.lock:
+            if self.calling_window_timer:
+                self.calling_window_timer.cancel()
+                self.calling_window_timer = None
+            if not self.running or self.paused:
+                return
+            self.calling_window_timer = threading.Timer(60, self._check_calling_window)
+            self.calling_window_timer.daemon = True
+            self.calling_window_timer.start()
+
+    def _check_calling_window(self):
+        with self.lock:
+            self.calling_window_timer = None
+            should_fill = self.running and not self.paused and not self.active and not self.pending_outcome
+        if should_fill:
+            self.fill_slots()
+        else:
+            self._schedule_calling_window_check()
 
     def pause(self):
         with self.lock:
@@ -799,10 +953,16 @@ class TwilioDialer:
                 should_fill = False
             resume_countdown = not self.paused and self.advance_remaining is not None
             remaining = self.advance_remaining
+            should_check_hours = not self.paused
+            if self.paused and self.calling_window_timer:
+                self.calling_window_timer.cancel()
+                self.calling_window_timer = None
         if should_fill:
             self.fill_slots()
         elif resume_countdown:
             self._schedule_advance(remaining)
+        if should_check_hours:
+            self._schedule_calling_window_check()
         return self.public_state()
 
     def hangup_active(self):
@@ -841,17 +1001,15 @@ class TwilioDialer:
             call["state"] = "skipped"
             self.active = None
             self.in_flight.pop(call["token"], None)
-            self.pending_outcome = None
+            self.pending_outcome = call["lead_id"] if self.running else None
             call_uuid = call.get("call_uuid")
-            continue_dialing = self.running and not self.paused and self.agent_ready
-            self.last_event = "Prospect skipped as voicemail"
-        self.crm.set_status(call["lead_id"], "call")
-        self._bump("call_later")
-        self.record_activity("Prospect skipped manually; marked for later", "call")
+            self.last_event = "Prospect skipped; choose a disposition" if self.running else "Prospect skipped"
+        if not self.running:
+            self.crm.set_status(call["lead_id"], "call")
+            self._bump("call_later")
+        self.record_activity("Prospect skipped manually; choose a disposition", "call")
         if call_uuid:
             threading.Thread(target=self._hangup_call, args=(call_uuid,), daemon=True).start()
-        if continue_dialing:
-            self.fill_slots()
         return self.public_state()
 
     def stop(self):
@@ -871,6 +1029,9 @@ class TwilioDialer:
             self.advance_timer = None
             self.advance_at = None
             self.advance_remaining = None
+            if self.calling_window_timer:
+                self.calling_window_timer.cancel()
+            self.calling_window_timer = None
             summary = session_summary(self.session) if self.session else None
             if summary:
                 self.session.update(summary)
@@ -886,7 +1047,7 @@ class TwilioDialer:
                 result["previous_session"] = next(
                     (item for item in self.metrics.recent_sessions(5) if item.get("id") != summary["id"]),
                     None,
-                )
+                    ) if hasattr(self.metrics, "recent_sessions") else None
         return result
 
     def _cancel_call(self, call):

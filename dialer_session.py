@@ -1,6 +1,6 @@
 """Pure helpers for dialer stage, session accounting, and local-time rules."""
 
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 STAGES = ("idle", "dialing", "ringing", "connected", "wrapup", "paused")
@@ -9,7 +9,7 @@ DISPOSITION_TO_STATUS = {
     "callback": "call",
     "not_interested": "disqualified",
     "no_answer": "call",
-    "do_not_call": "disqualified",
+    "do_not_call": "do_not_call",
 }
 TIMEZONE_NAMES = {
     "Eastern": "America/New_York",
@@ -49,6 +49,7 @@ def new_session(goal=20, started_at=None):
         "started_at": started,
         "ended_at": None,
         "goal": int(goal),
+        "goal_reached_at": None,
         "dials": 0,
         "connects": 0,
         "conversations": 0,
@@ -73,6 +74,23 @@ def add_connect(session, timestamp=None):
     cutoff = now - timedelta(minutes=10)
     session["connect_times"] = [value.isoformat() for value in times if value >= cutoff]
     session["connects"] = session.get("connects", 0) + 1
+
+
+def record_conversation(session, duration_seconds, threshold_seconds=30):
+    if duration_seconds < threshold_seconds:
+        return False
+    session["conversations"] = session.get("conversations", 0) + 1
+    if (
+        session["conversations"] >= session.get("goal", 20)
+        and not session.get("goal_reached_at")
+    ):
+        session["goal_reached_at"] = datetime.now(timezone.utc).isoformat()
+    return True
+
+
+def record_disposition(session, status):
+    if status == "booked":
+        session["meetings_booked"] = session.get("meetings_booked", 0) + 1
 
 
 def recent_streak(session, now=None):
@@ -104,7 +122,8 @@ def within_calling_window(timezone_name, start_hour=8, end_hour=21, now=None):
         return False
     if not (0 <= start_hour <= 23 and 1 <= end_hour <= 24 and start_hour < end_hour):
         raise ValueError("Calling hours must be a valid, non-overlapping same-day range.")
-    return time(start_hour) <= local.timetz().replace(tzinfo=None) < time(end_hour % 24)
+    local_minutes = local.hour * 60 + local.minute
+    return start_hour * 60 <= local_minutes < end_hour * 60
 
 
 def session_summary(session, ended_at=None):
@@ -114,6 +133,7 @@ def session_summary(session, ended_at=None):
     result = dict(session)
     result["ended_at"] = ended
     result["duration_seconds"] = max(0, int((finish - start).total_seconds()))
+    result["current_streak"] = result.get("best_streak", 0)
     result.pop("connect_times", None)
     result.pop("current_streak", None)
     return result

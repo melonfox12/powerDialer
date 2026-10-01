@@ -294,9 +294,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .live-panel-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .live-indicator { display: flex; align-items: center; gap: 7px; color: var(--muted); font-family: var(--mono); font-size: 9px; }
 .live-indicator i { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); }
-.live-indicator.on { color: var(--success); }
-.live-indicator.on i { background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); animation: pulse 1.8s ease-in-out infinite; }
-@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(76, 195, 138, 0); } }
+.live-indicator.on { color: var(--red); }
+.live-indicator.on i { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(235, 87, 87, 0); } }
 .line-count { color: var(--muted); font-family: var(--mono); font-size: 9px; }
 .live-panel h2 { margin-top: 9px; }
 .active-call { display: flex; align-items: center; gap: 11px; min-height: 62px; margin: 11px 0 7px; padding: 9px; border-radius: var(--radius-md); background: rgba(255, 255, 255, .03); }
@@ -523,6 +523,12 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
 .form-footnote { margin: 13px 0 20px; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .dialog-actions { display: flex; justify-content: end; gap: 8px; padding-top: 15px; border-top: 1px solid var(--line); }
 .audio-settings { margin-top: 19px; padding-top: 17px; border-top: 1px solid var(--line); }
+.call-flow-settings { margin-top: 19px; padding: 17px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.call-flow-settings textarea { width: 100%; resize: vertical; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--canvas); color: var(--ink); font: inherit; font-size: 12px; line-height: 1.5; }
+.call-flow-settings textarea:focus { border-color: var(--primary); outline: none; box-shadow: var(--focus-ring); }
+.sound-setting { display: flex; align-items: center; gap: 8px; margin: 13px 0; color: var(--ink-secondary); font-size: 11px; }
+.sound-setting input { accent-color: var(--success); }
+.call-flow-settings input[type="range"] { width: 100%; accent-color: var(--success); }
 .audio-section-heading { margin-bottom: 10px; }
 .audio-section-heading h3 { margin-top: 4px; font-size: 15px; }
 .audio-device-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -547,6 +553,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
 .transcript-dialog-body { min-height: 120px; overflow: auto; padding-right: 5px; }
 .transcript-dialog-body .transcript-entry { padding: 10px 0; }
 .transcript-dialog-body .transcript-entry p { font-size: 12px; }
+.session-summary-dialog { width: 470px; }
+.session-summary-content { padding: 24px; }
+.summary-duration { margin: -10px 0 14px; color: var(--muted); font-size: 12px; }
+.summary-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.summary-stats > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); }
+.summary-stats span { color: var(--muted); font-size: 10px; }
+.summary-stats strong { color: var(--ink); font: 17px var(--mono); }
+.session-comparison { margin: 14px 0 0; color: var(--success); font-size: 12px; }
+.session-comparison[hidden] { display: none; }
 .outcome-dialog h2 { margin: 7px 0 6px; font-size: 20px; }
 .outcome-lead-detail { margin-bottom: 19px; color: var(--muted); font-size: 12px; }
 .outcome-options { display: grid; gap: 8px; }
@@ -722,6 +737,7 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
 }
 
 .session-momentum { display: grid; gap: 9px; margin-bottom: 14px; padding: 11px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255, 255, 255, .02); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 .momentum-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .momentum-stats > div { display: grid; gap: 3px; }
 .momentum-stats span, .session-goal > div:first-child span { color: var(--muted); font-size: 9px; }
@@ -732,6 +748,13 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
 .goal-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--success); transition: width .2s ease; }
 .session-streak { margin: 0; color: var(--success); font-size: 10px; }
 .session-streak[hidden] { display: none; }
+.session-streak { color: var(--success); font-size: 10px; }
+.meeting-highlight { animation: meeting-flash .7s ease-out; }
+@keyframes meeting-flash { 50% { color: var(--success); text-shadow: 0 0 12px var(--success); transform: scale(1.12); } }
+.break-nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding-top: 7px; border-top: 1px solid var(--line); }
+.break-nudge[hidden] { display: none; }
+.break-nudge > span { flex: 1 1 100%; color: var(--ink-secondary); font-size: 10px; }
+.break-nudge .button { min-height: 25px; padding: 0 5px; font-size: 9px; }
 .call-stage { display: flex; min-height: 112px; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: 7px; margin-top: 11px; padding: 15px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); color: var(--muted); }
 .call-stage strong { color: var(--ink); font-size: 16px; font-weight: 590; }
 .call-stage span { font-size: 11px; line-height: 1.5; }
@@ -739,6 +762,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
 .call-stage[data-stage="paused"] strong { color: var(--ink-secondary); }
 .call-stage-live { border-color: rgba(235, 87, 87, .45); background: var(--red-soft); }
 .call-stage-live strong { color: var(--red); font-size: 20px; letter-spacing: .08em; }
+.call-stage-live[data-stage="connected"] { min-height: 138px; }
+.call-stage-script { padding-top: 7px; border-top: 1px solid rgba(235, 87, 87, .2); color: var(--ink-secondary); }
+.call-stage[data-stage="dialing"], .call-stage[data-stage="ringing"] { animation: dial-pulse 1.8s ease-in-out infinite; }
+@keyframes dial-pulse { 50% { border-color: rgba(225, 183, 109, .48); } }
 .stage-enter { animation: stage-enter .2s ease-out both; }
 @keyframes stage-enter { from { opacity: .55; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .dialer-run-panel { min-height: 0; }

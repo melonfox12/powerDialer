@@ -1,7 +1,7 @@
 const STATUS_STYLES = {
   new: { label: "New", color: "--muted", className: "neutral" },
   call: { label: "Callback", color: "--amber", className: "callback" },
-  disqualified: { label: "Disqualified", color: "--red", className: "negative" },
+  disqualified: { label: "Not interested", color: "--red", className: "negative" },
   booked: { label: "Booked", color: "--success", className: "positive" },
   interested: { label: "Interested", color: "--success", className: "positive" },
   do_not_call: { label: "Do not call", color: "--red", className: "negative" },
@@ -53,6 +53,11 @@ let previousStage = "";
 let previousSessionConversations = 0;
 let goalCelebrated = false;
 let connectedAt = null;
+let previousMeetings = 0;
+let dismissedBreakForSession = null;
+let userInteracted = false;
+let audioContext = null;
+let celebratedSessionId = null;
 
 const byId = (id) => document.getElementById(id);
 
@@ -84,7 +89,13 @@ function localDateTimeParts(date, timezoneName) {
 
 function nextBusinessCallback(lead) {
   const timeZone = timezoneFor(lead.timezone);
-  const local = localDateTimeParts(new Date(Date.now() + 24 * 60 * 60 * 1000), timeZone);
+  const today = localDateTimeParts(new Date(), timeZone);
+  const tomorrow = new Date(Date.UTC(Number(today.year), Number(today.month) - 1, Number(today.day) + 1));
+  const local = {
+    year: String(tomorrow.getUTCFullYear()),
+    month: String(tomorrow.getUTCMonth() + 1).padStart(2, "0"),
+    day: String(tomorrow.getUTCDate()).padStart(2, "0"),
+  };
   local.hour = "09";
   local.minute = "00";
   return `${local.year}-${local.month}-${local.day}T${local.hour}:${local.minute}`;
@@ -96,7 +107,7 @@ function timezoneFor(name) {
     Mountain: "America/Denver", Pacific: "America/Los_Angeles",
     Alaska: "America/Anchorage", Hawaii: "Pacific/Honolulu",
   };
-  return zones[name] || name || "America/New_York";
+  return zones[name] || name || Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
 function localDateTimeToUtc(value, timezoneName) {
@@ -117,6 +128,63 @@ function celebrateBooked() {
   stage.classList.remove("booked-celebration");
   void stage.offsetWidth;
   stage.classList.add("booked-celebration");
+  playCue("booked");
+}
+
+function playCue(kind) {
+  if (!userInteracted || state.settings?.sounds_enabled === false) return;
+  const volume = Number(state.settings?.sound_volume ?? 35) / 100 * 0.07;
+  if (volume <= 0) return;
+  const AudioContextType = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextType) return;
+  if (!audioContext) audioContext = new AudioContextType();
+  if (audioContext.state === "suspended") audioContext.resume().catch((error) => console.warn("Audio cue could not resume:", error));
+  const now = audioContext.currentTime;
+  const notes = kind === "booked" ? [880, 1174.66, 1396.91] : [660];
+  notes.forEach((frequency, index) => {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const start = now + index * (kind === "booked" ? 0.09 : 0);
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(volume, start + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + (kind === "booked" ? 0.14 : 0.1));
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.15);
+  });
+}
+
+function showSessionSummary(summary, previous) {
+  if (!summary) return;
+  const minutes = Math.floor((summary.duration_seconds || 0) / 60);
+  const seconds = (summary.duration_seconds || 0) % 60;
+  setText("sessionSummaryDuration", `Session length · ${minutes}m ${seconds}s`);
+  const values = [
+    ["Dials", summary.dials],
+    ["Connects", summary.connects],
+    ["Conversations", summary.conversations],
+    ["Meetings booked", summary.meetings_booked],
+    ["Best streak", summary.best_streak],
+  ];
+  byId("sessionSummaryStats").replaceChildren(...values.map(([label, value]) => {
+    const item = document.createElement("div");
+    const title = document.createElement("span");
+    title.textContent = label;
+    const count = document.createElement("strong");
+    count.textContent = String(value || 0);
+    item.append(title, count);
+    return item;
+  }));
+  const comparison = byId("sessionComparison");
+  const delta = previous ? (summary.conversations || 0) - (previous.conversations || 0) : 0;
+  comparison.hidden = !previous;
+  comparison.textContent = previous
+    ? `${delta >= 0 ? "+" : ""}${delta} conversations vs. previous session`
+    : "";
+  byId("sessionSummaryDialog").showModal();
 }
 
 function postJson(path, payload = {}) {
@@ -349,7 +417,7 @@ function renderTable() {
     for (const value of ["new", "call", "booked", "interested", "disqualified", "do_not_call"]) {
       const option = document.createElement("option");
       option.value = value;
-      option.textContent = value === "call" && statusDate(lead) ? `Call (${statusDate(lead)})` : STATUS_LABELS[value];
+      option.textContent = value === "call" && statusDate(lead) ? `Callback (${statusDate(lead)})` : STATUS_LABELS[value];
       option.selected = lead.status === value;
       if (value === "new" && state.pending_outcome?.id === lead.id) option.disabled = true;
       select.append(option);
@@ -413,7 +481,7 @@ function renderCallerPool() {
   const pool = state.pool || [];
   renderTimezoneFilters();
   setText("poolTabCount", String(pool.length));
-  setText("poolTableSummary", `${pool.length} new prospect${pool.length === 1 ? "" : "s"}${state.selected_timezone ? ` · ${state.selected_timezone}` : ""}`);
+  setText("poolTableSummary", `${pool.length} new prospect${pool.length === 1 ? "" : "s"}${state.selected_timezone ? ` · ${state.selected_timezone}` : ""}${state.skipped_outside_hours ? ` · ${state.skipped_outside_hours} skipped: outside calling hours` : ""}${state.skipped_unknown_timezone ? ` · ${state.skipped_unknown_timezone} skipped: timezone unavailable` : ""}`);
   const body = byId("poolTableBody");
   body.replaceChildren(...pool.map((lead) => {
     const row = document.createElement("tr");
@@ -576,7 +644,7 @@ function renderDialer() {
   const copy = document.createElement("div");
   copy.className = "active-copy";
   const primary = document.createElement("strong");
-  const firstUp = state.pool?.[0];
+  const firstUp = state.next_lead;
   primary.textContent = target
     ? (target.name || target.business || target.phone)
     : firstUp ? `${state.pool.length} prospects queued · First up: ${firstUp.business || firstUp.name || formatPhoneNumber(firstUp.phone)}`
@@ -639,11 +707,26 @@ function renderSessionMomentum() {
   const streakElement = byId("sessionStreak");
   streakElement.hidden = streak < 2;
   streakElement.textContent = streak >= 2 ? `${streak} connects in the last 10 min` : "";
-  if (conversations >= goal && previousSessionConversations < goal && !goalCelebrated) {
+  const sessionId = stats.id || "";
+  if (sessionId !== celebratedSessionId) {
+    celebratedSessionId = sessionId;
+    goalCelebrated = localStorage.getItem(`prospect-desk-goal-${sessionId}`) === "shown";
+    previousSessionConversations = conversations;
+    previousMeetings = Number(stats.meetings_booked || 0);
+    dismissedBreakForSession = null;
+  }
+  if (conversations >= goal && !goalCelebrated) {
     goalCelebrated = true;
+    localStorage.setItem(`prospect-desk-goal-${sessionId}`, "shown");
     showToast("Session goal reached — great work!");
   }
+  if (Number(stats.meetings_booked || 0) > previousMeetings) byId("sessionMeetings").classList.add("meeting-highlight");
+  previousMeetings = Number(stats.meetings_booked || 0);
   previousSessionConversations = conversations;
+  const nudgeMinutes = Number(state.settings?.break_nudge_minutes || 90);
+  const elapsed = (Date.now() - Date.parse(stats.started_at || Date.now())) / 60000;
+  const showNudge = state.running && elapsed >= nudgeMinutes && dismissedBreakForSession !== sessionId;
+  byId("breakNudge").hidden = !showNudge;
 }
 
 function renderCallStage(stage, target) {
@@ -655,11 +738,25 @@ function renderCallStage(stage, target) {
   const stats = state.session_stats || {};
   if (stage === "connected" && target) {
     heading.textContent = "LIVE";
-    detail.textContent = `${target.business || target.name || "Prospect"} · ${formatPhoneNumber(target.phone)}`;
+    const started = state.active_call_started_at ? Date.parse(state.active_call_started_at) : Date.now();
+    const seconds = Math.max(0, Math.floor((Date.now() - started) / 1000));
+    const clock = localTimeLabel(target.timezone);
+    detail.textContent = `${target.business || target.name || "Prospect"} · ${formatPhoneNumber(target.phone)} · ${clock || target.timezone} · ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+    const script = document.createElement("span");
+    script.className = "call-stage-script";
+    script.textContent = `Opener · ${state.settings?.opening_script || "Introduce yourself, confirm you have the right person, then ask one clear question."}`;
+    fragment.append(script);
     container.classList.add("call-stage-live");
+    if (previousStage !== "connected") playCue("connect");
   } else if (stage === "paused") {
     heading.textContent = "Session paused";
     detail.textContent = "Resume when you’re ready to continue the queue.";
+    const resume = document.createElement("button");
+    resume.type = "button";
+    resume.className = "button button-primary stage-resume";
+    resume.textContent = "Resume";
+    resume.addEventListener("click", () => byId("pauseButton").click());
+    fragment.append(resume);
     container.classList.remove("call-stage-live");
   } else if (stage === "wrapup" && target) {
     heading.textContent = "Call complete";
@@ -673,11 +770,17 @@ function renderCallStage(stage, target) {
   } else {
     const goal = Number(stats.goal || state.settings?.session_goal || 20);
     heading.textContent = stats.conversations ? `${stats.conversations} of ${goal} conversations toward your goal` : "Your next conversation starts here";
-    const next = state.pool?.[0];
+    const next = state.next_lead;
     const clock = next ? localTimeLabel(next.timezone) : "";
+    const context = next && Object.entries(next.fields || {}).find(([key, value]) => /notes?/i.test(key) && value);
     detail.textContent = next
-      ? `Next up: ${next.business || next.name || "Prospect"} · ${formatPhoneNumber(next.phone)} · ${clock || next.timezone || "Local time unavailable"}`
-      : "Import prospects or adjust the timezone filter to build your queue.";
+      ? `Next up: ${next.business || next.name || "Prospect"} · ${formatPhoneNumber(next.phone)} · ${clock || next.timezone || "Local time unavailable"} · ${context ? `Context: ${context[1]}` : `Status: ${STATUS_LABELS[next.status] || "New"}`}${state.skipped_outside_hours ? ` · ${state.skipped_outside_hours} skipped: outside calling hours` : ""}${state.skipped_unknown_timezone ? ` · ${state.skipped_unknown_timezone} skipped: timezone unavailable` : ""}`
+      : state.skipped_outside_hours || state.skipped_unknown_timezone
+        ? [
+          state.skipped_outside_hours && `${state.skipped_outside_hours} skipped: outside calling hours; they’ll be dialed when local hours open.`,
+          state.skipped_unknown_timezone && `${state.skipped_unknown_timezone} skipped: timezone unavailable.`,
+        ].filter(Boolean).join(" ")
+        : "Import prospects or adjust the timezone filter to build your queue.";
     container.classList.remove("call-stage-live");
   }
 
@@ -702,10 +805,12 @@ function renderCallStage(stage, target) {
   fragment.append(heading, detail);
   container.replaceChildren(fragment);
   if (stage !== previousStage && stage !== "idle") {
+    setText("stageAnnouncer", stage === "connected" ? "Human prospect connected" : stage === "wrapup" ? "Call ended. Choose a disposition." : stage === "paused" ? "Dialing session paused." : stage === "ringing" ? "Prospect line is ringing." : "Dialing next prospect.");
     container.classList.remove("stage-enter");
     void container.offsetWidth;
     container.classList.add("stage-enter");
   }
+  if (stage === "idle" && previousStage !== "idle") setText("stageAnnouncer", "Dialing session stopped.");
   if (stage === "connected" && previousStage !== "connected") connectedAt = Date.now();
   if (stage !== "connected") connectedAt = null;
   previousStage = stage;
@@ -1010,6 +1115,16 @@ async function openSettings() {
     byId("apiSecretInput").placeholder = settings.has_api_secret ? "Saved secret, blank to keep it" : "Twilio API Key Secret";
     byId("twimlAppSidInput").value = settings.twiml_app_sid || "";
     byId("publicUrlInput").value = settings.public_base_url || "";
+    byId("sessionGoalInput").value = settings.session_goal;
+    byId("conversationThresholdInput").value = settings.conversation_threshold;
+    byId("autoAdvanceDelayInput").value = settings.auto_advance_delay;
+    byId("callingStartHourInput").value = settings.calling_start_hour;
+    byId("callingEndHourInput").value = settings.calling_end_hour;
+    byId("breakNudgeInput").value = settings.break_nudge_minutes;
+    byId("openingScriptInput").value = settings.opening_script || "";
+    byId("soundsEnabledInput").checked = settings.sounds_enabled;
+    byId("soundVolumeInput").value = settings.sound_volume;
+    setText("soundVolumeValue", `${settings.sound_volume}%`);
     await refreshAudioDevices();
     byId("settingsDialog").showModal();
   } catch (error) {
@@ -1355,10 +1470,21 @@ byId("settingsForm").addEventListener("submit", async (event) => {
       api_secret: byId("apiSecretInput").value,
       twiml_app_sid: byId("twimlAppSidInput").value,
       public_base_url: byId("publicUrlInput").value,
+      session_goal: byId("sessionGoalInput").value,
+      conversation_threshold: byId("conversationThresholdInput").value,
+      auto_advance_delay: byId("autoAdvanceDelayInput").value,
+      calling_start_hour: byId("callingStartHourInput").value,
+      calling_end_hour: byId("callingEndHourInput").value,
+      break_nudge_minutes: byId("breakNudgeInput").value,
+      opening_script: byId("openingScriptInput").value,
+      sounds_enabled: byId("soundsEnabledInput").checked,
+      sound_volume: byId("soundVolumeInput").value,
     });
+    state.settings = settings;
     byId("authTokenInput").value = "";
     byId("apiSecretInput").value = "";
     byId("settingsDialog").close();
+    render();
     showToast("Dialer settings saved");
   } catch (error) {
     showToast(error.message, true);
@@ -1388,14 +1514,42 @@ byId("pauseButton").addEventListener("click", async () => {
 });
 byId("stopButton").addEventListener("click", async () => {
   try {
-    Object.assign(state, await postJson("/api/stop"));
+    const result = await postJson("/api/stop");
+    Object.assign(state, result);
     voiceDevice?.destroy();
     voiceDevice = null;
     voiceCall = null;
     render();
+    showSessionSummary(result.session_summary, result.previous_session);
   }
   catch (error) { showToast(error.message, true); }
 });
+byId("closeSessionSummary").addEventListener("click", () => byId("sessionSummaryDialog").close());
+byId("startNewSession").addEventListener("click", () => {
+  byId("sessionSummaryDialog").close();
+  startDialing();
+});
+byId("breakPauseButton").addEventListener("click", () => {
+  byId("pauseButton").click();
+  byId("breakNudge").hidden = true;
+});
+byId("breakDismissButton").addEventListener("click", () => {
+  dismissedBreakForSession = state.session_stats?.id || null;
+  byId("breakNudge").hidden = true;
+});
+byId("soundVolumeInput").addEventListener("input", (event) => {
+  setText("soundVolumeValue", `${event.target.value}%`);
+});
+document.addEventListener("pointerdown", () => {
+  userInteracted = true;
+  const AudioContextType = window.AudioContext || window.webkitAudioContext;
+  if (AudioContextType && !audioContext) audioContext = new AudioContextType();
+}, { once: true });
+document.addEventListener("keydown", () => {
+  userInteracted = true;
+  const AudioContextType = window.AudioContext || window.webkitAudioContext;
+  if (AudioContextType && !audioContext) audioContext = new AudioContextType();
+}, { once: true });
 byId("hangupButton").addEventListener("click", async () => {
   try { Object.assign(state, await postJson("/api/hangup")); render(); }
   catch (error) { showToast(error.message, true); }
@@ -1469,6 +1623,9 @@ byId("outcomeCallButton").addEventListener("click", () => {
     return;
   }
   if (state.pending_outcome) byId("callbackAt").value = nextBusinessCallback(state.pending_outcome);
+  byId("callbackPicker").querySelector("label").textContent = state.pending_outcome?.timezone && state.pending_outcome.timezone !== "Unknown"
+    ? `Call again in ${state.pending_outcome.timezone} local time`
+    : "Timezone unavailable; use your local time";
   picker.dataset.open = "true";
   renderDialer();
   byId("callbackAt").focus();

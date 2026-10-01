@@ -178,6 +178,8 @@ class SupabaseCRMStore:
                     raise ValueError("Callback time must be a valid ISO datetime.") from exc
                 if due.tzinfo is None:
                     raise ValueError("Callback time must include a timezone.")
+                if due <= utc_now():
+                    raise ValueError("Callback time must be in the future.")
                 lead["scheduled_until"] = due.isoformat()
             else:
                 lead["scheduled_until"] = (

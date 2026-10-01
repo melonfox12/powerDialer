@@ -49,6 +49,7 @@
                   <div id="sessionGoalTrack" class="goal-track" role="progressbar" aria-label="Session conversation goal" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><span id="sessionGoalProgress"></span></div>
                 </div>
                 <p id="sessionStreak" class="session-streak" hidden></p>
+                <div id="breakNudge" class="break-nudge" hidden><span>Good work. Consider a 5-minute break.</span><button id="breakPauseButton" class="button button-quiet" type="button">Pause</button><button id="breakDismissButton" class="button button-quiet" type="button">Dismiss</button></div>
               </div>
               <div class="live-panel-top">
                 <span class="live-indicator"><i></i><span id="liveLabel">DIALER STANDBY</span></span>
@@ -69,7 +70,8 @@
                 <details class="shortcut-help"><summary aria-label="Show keyboard shortcuts">?</summary><div>Space start / pause · H hang up · Esc pause · 1–5 choose disposition</div></details>
               </div>
               <label class="dialer-pool-filter"><span>Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
-              <section id="callStage" class="call-stage" data-stage="idle" aria-live="polite" aria-atomic="true" tabindex="0" aria-label="Call stage"></section>
+              <section id="callStage" class="call-stage" data-stage="idle" aria-live="off" tabindex="0" aria-label="Call stage"></section>
+              <span id="stageAnnouncer" class="visually-hidden" role="status" aria-live="polite"></span>
               <div id="outcomeRow" class="outcome-row" hidden>
                 <span class="outcome-row-label">Disposition</span>
                 <div class="outcome-buttons">
@@ -79,7 +81,7 @@
                   <button id="outcomeNoAnswerButton" class="outcome-btn outcome-btn-call" type="button" disabled><kbd>4</kbd>Voicemail / No answer</button>
                   <button id="outcomeDncButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled><kbd>5</kbd>Wrong number / Do not call</button>
                 </div>
-                <label id="callbackPicker" class="callback-picker" hidden><span>Call again in prospect’s local time</span><input id="callbackAt" type="datetime-local" aria-label="Callback date and time"><button id="saveCallbackButton" class="button button-secondary" type="button">Save callback</button></label>
+                <div id="callbackPicker" class="callback-picker" hidden><label for="callbackAt">Call again in prospect’s local time</label><input id="callbackAt" type="datetime-local" aria-label="Callback date and time"><button id="saveCallbackButton" class="button button-secondary" type="button">Save callback</button></div>
                 <p id="autoAdvance" class="auto-advance" hidden></p>
                 <button id="advanceNowButton" class="button button-quiet advance-now" type="button" hidden>Dial next now <kbd>Space</kbd></button>
               </div>
@@ -237,6 +239,20 @@
         <label class="form-field"><span>Twilio TwiML App SID</span><input id="twimlAppSidInput" name="twiml_app_sid" required></label>
         <label class="form-field"><span>Public HTTPS callback URL</span><input id="publicUrlInput" name="public_base_url" type="url" placeholder="https://your-tunnel.example" required></label>
         <p class="form-footnote">Forward your tunnel to port 8765. Set the TwiML App Voice URL to this HTTPS address followed by /hooks/voice using POST.</p>
+        <section class="call-flow-settings" aria-labelledby="callFlowSettingsTitle">
+          <div class="audio-section-heading"><div class="eyebrow">CALL FLOW</div><h3 id="callFlowSettingsTitle">Session preferences</h3></div>
+          <label class="form-field"><span>Session conversation goal</span><input id="sessionGoalInput" type="number" min="1" max="1000"></label>
+          <label class="form-field"><span>Conversation threshold (seconds)</span><input id="conversationThresholdInput" type="number" min="1" max="3600"></label>
+          <label class="form-field"><span>Auto-advance delay (seconds)</span><input id="autoAdvanceDelayInput" type="number" min="0" max="60"></label>
+          <div class="audio-device-grid">
+            <label class="form-field"><span>Calling starts (local hour, 0–23)</span><input id="callingStartHourInput" type="number" min="0" max="23"></label>
+            <label class="form-field"><span>Calling ends (local hour, 1–24)</span><input id="callingEndHourInput" type="number" min="1" max="24"></label>
+          </div>
+          <label class="form-field"><span>Break nudge interval (minutes)</span><input id="breakNudgeInput" type="number" min="1" max="720"></label>
+          <label class="form-field"><span>Opener / talking points</span><textarea id="openingScriptInput" rows="3" maxlength="2000" placeholder="A short opener and reminders for this session"></textarea></label>
+          <label class="sound-setting"><input id="soundsEnabledInput" type="checkbox"> Connect and booked sounds</label>
+          <label class="form-field"><span>Sound volume <output id="soundVolumeValue">35%</output></span><input id="soundVolumeInput" type="range" min="0" max="100"></label>
+        </section>
         <section class="audio-settings" aria-labelledby="audioSettingsTitle">
           <div class="audio-section-heading"><div class="eyebrow">COMPUTER AUDIO</div><h3 id="audioSettingsTitle">Devices &amp; test</h3></div>
           <div class="audio-device-grid">
@@ -258,6 +274,16 @@
         </section>
         <div class="dialog-actions"><button id="cancelSettings" class="button button-quiet" type="button">Cancel</button><button class="button button-primary" type="submit">Save settings</button></div>
       </form>
+    </dialog>
+
+    <dialog id="sessionSummaryDialog" class="session-summary-dialog" aria-labelledby="sessionSummaryTitle">
+      <section class="session-summary-content">
+        <div class="dialog-heading"><div><div class="eyebrow">SESSION COMPLETE</div><h2 id="sessionSummaryTitle">Your call session</h2></div><button id="closeSessionSummary" class="dialog-close" type="button" aria-label="Close summary">×</button></div>
+        <p id="sessionSummaryDuration" class="summary-duration"></p>
+        <div id="sessionSummaryStats" class="summary-stats"></div>
+        <p id="sessionComparison" class="session-comparison" hidden></p>
+        <div class="dialog-actions"><button id="startNewSession" class="button button-primary" type="button">Start new session</button></div>
+      </section>
     </dialog>
 
     <dialog id="transcriptDialog" class="transcript-dialog">

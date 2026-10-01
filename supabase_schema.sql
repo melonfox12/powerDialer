@@ -32,6 +32,25 @@ create table if not exists public.dialer_sessions (
     data jsonb not null check (jsonb_typeof(data) = 'object')
 );
 
+alter table public.dialer_metric_daily
+    drop constraint if exists dialer_metric_daily_metric_key_check;
+alter table public.dialer_metric_daily
+    add constraint dialer_metric_daily_metric_key_check check (
+        metric_key in (
+            'booked', 'call_later', 'connected', 'disqualified', 'interested',
+            'dials', 'failed', 'talk_seconds', 'voicemail'
+        )
+    );
+alter table public.dialer_metric_totals
+    drop constraint if exists dialer_metric_totals_metric_key_check;
+alter table public.dialer_metric_totals
+    add constraint dialer_metric_totals_metric_key_check check (
+        metric_key in (
+            'booked', 'call_later', 'connected', 'disqualified', 'interested',
+            'dials', 'failed', 'talk_seconds', 'voicemail'
+        )
+    );
+
 alter table public.prospects enable row level security;
 alter table public.dialer_metric_daily enable row level security;
 alter table public.dialer_metric_totals enable row level security;
