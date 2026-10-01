@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090a">
+  <title>Prospect Desk</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app.css">
+  <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#crm" aria-label="Prospect Desk home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Prospect<span class="brand-light">Desk</span></span>
+      </a>
+      <div class="top-actions">
+        <span id="connectionState" class="connection-state"><span class="connection-dot"></span><span>Ready</span></span>
+        <button id="settingsButton" class="icon-label-button" type="button" aria-haspopup="dialog">Settings</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="crmView" class="view active-view" aria-labelledby="pageTitle">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">WORKSPACE / CONTACTS</div>
+            <h1 id="pageTitle">Prospects</h1>
+          </div>
+          <div class="heading-metrics" aria-label="CRM totals">
+            <div><strong id="totalCount">0</strong><span>all prospects</span></div>
+            <div><strong id="newCount">0</strong><span>in caller pool</span></div>
+            <div><strong id="bookedCount">0</strong><span>booked</span></div>
+          </div>
+        </div>
+
+        <div class="dashboard-stack">
+          <div class="dashboard-top-row">
+            <section class="dialer-run-panel" aria-labelledby="liveTitle">
+              <div class="live-panel-top">
+                <span class="live-indicator"><i></i><span id="liveLabel">DIALER STANDBY</span></span>
+                <span id="lineCount" class="line-count">0 / 2 lines</span>
+              </div>
+              <h2 id="liveTitle">Call desk</h2>
+              <div id="activeCall" class="active-call">
+                <div class="active-avatar">PD</div>
+                <div class="active-copy"><strong>Ready when you are</strong><span>Start to connect computer audio and begin dialing.</span></div>
+              </div>
+              <div id="dialerMessage" class="dialer-message" role="status">Your call session is stopped.</div>
+              <div class="dialer-controls">
+                <button id="startButton" class="button button-primary" type="button"><span class="button-symbol" aria-hidden="true">▶</span>Start dialing</button>
+                <button id="pauseButton" class="button button-secondary" type="button" disabled>Pause</button>
+                <button id="hangupButton" class="button button-danger-quiet" type="button" disabled>Hang up</button>
+                <button id="stopButton" class="button button-quiet" type="button" disabled>Stop</button>
+              </div>
+              <label class="dialer-pool-filter"><span>Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
+              <div class="outcome-row">
+                <span id="outcomeRowLabel" class="outcome-row-label">Outcome</span>
+                <div class="outcome-buttons">
+                  <button id="outcomeCallButton" class="outcome-btn outcome-btn-call" type="button" disabled>Call tomorrow</button>
+                  <button id="outcomeBookedButton" class="outcome-btn outcome-btn-booked" type="button" disabled>Booked</button>
+                  <button id="outcomeDisqualifiedButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled>Disqualified</button>
+                </div>
+              </div>
+              <div id="callerIdLine" class="caller-id-line">Caller ID <span>Not connected</span></div>
+              <section class="call-monitor" aria-labelledby="callMonitorTitle">
+                <div class="monitor-header">
+                  <div><span class="eyebrow">LIVE SESSION</span><h3 id="callMonitorTitle">Call monitor</h3></div>
+                  <div class="monitor-header-actions"><span id="monitorStatus" class="monitor-status">Waiting</span><button id="skipVoicemailButton" class="button button-danger-quiet monitor-skip" type="button" disabled>Skip as voicemail</button></div>
+                </div>
+                <div class="monitor-waveform-block">
+                  <div class="monitor-subheading"><span>Prospect audio</span><output id="prospectAudioLevel">0%</output></div>
+                  <canvas id="prospectWaveform" height="42" role="img" aria-label="Live waveform for prospect audio"></canvas>
+                </div>
+                <div class="monitor-transcript-block">
+                  <div class="monitor-subheading"><span>Live transcript</span><span id="transcriptLiveStatus">Waiting for a human answer</span></div>
+                  <div id="liveTranscript" class="live-transcript" role="log" aria-live="polite"><span class="monitor-empty">Utterances appear here during a connected call.</span></div>
+                </div>
+                <div class="monitor-log-block">
+                  <div class="monitor-subheading"><span>Process queue</span><span id="activityCount">0 events</span></div>
+                  <ol id="activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
+                </div>
+              </section>
+            </section>
+
+            <section class="metrics-panel" aria-labelledby="metricsTitle">
+              <div class="dashboard-tabs" role="tablist" aria-label="Call desk views">
+                <button id="performanceTabButton" class="dashboard-tab active" type="button" role="tab" aria-selected="true" aria-controls="performanceTabPanel" tabindex="0" data-dashboard-tab="performance">Performance</button>
+                <button id="prospectsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects">Prospects <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
+                <button id="transcriptTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="transcriptTabPanel" tabindex="-1" data-dashboard-tab="transcript">Live transcript</button>
+                <button id="poolTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="poolTabPanel" tabindex="-1" data-dashboard-tab="pool">Caller pool <span id="poolTabCount" class="dashboard-tab-count">0</span></button>
+              </div>
+              <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton" data-mode="summary">
+                <div class="section-heading">
+                  <div>
+                    <div class="eyebrow">PERFORMANCE</div>
+                    <h2 id="metricsTitle">Live metrics</h2>
+                  </div>
+                  <div class="performance-mode-control" role="group" aria-label="Performance display mode">
+                    <button id="summaryModeButton" class="performance-mode-button active" type="button" aria-pressed="true" data-performance-mode="summary">Summary</button>
+                    <button id="allVisualsModeButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-mode="all">All visuals</button>
+                  </div>
+                </div>
+                <div class="metrics-stats">
+                  <div class="stat-tile">
+                    <span class="stat-label">Dials</span>
+                    <strong id="statDialsToday">0</strong>
+                    <span class="stat-sub"><span id="statDialsAll">0</span> all time</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-label">Connected</span>
+                    <strong id="statConnectedToday">0</strong>
+                    <span class="stat-sub"><span id="statConnectedAll">0</span> all time</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-label">Booked</span>
+                    <strong id="statBookedToday">0</strong>
+                    <span class="stat-sub"><span id="statBookedAll">0</span> all time</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-label">Talk time</span>
+                    <strong id="statTalkToday">0m</strong>
+                    <span class="stat-sub"><span id="statTalkAll">0m</span> all time</span>
+                  </div>
+                </div>
+                <div class="performance-chart-grid">
+                  <section class="performance-chart-panel chart-wide" aria-labelledby="trendTitle">
+                    <div class="chart-panel-heading"><span class="eyebrow">LAST 7 DAYS</span><h3 id="trendTitle">Call trends</h3></div>
+                    <div class="chart-legend line-chart-legend">
+                      <span class="legend-item"><i class="legend-line legend-line-dials" aria-hidden="true"></i>Dials</span>
+                      <span class="legend-item"><i class="legend-line legend-line-connected" aria-hidden="true"></i>Connected</span>
+                    </div>
+                    <div id="metricsLineChart" class="line-chart" role="img" aria-label="Dials and connected calls trend over the last 7 days"></div>
+                  </section>
+                  <section class="performance-chart-panel status-chart-panel" aria-labelledby="statusMixTitle" data-performance-detail="all">
+                    <div class="chart-panel-heading"><span class="eyebrow">CRM MIX</span><h3 id="statusMixTitle">Prospect status</h3></div>
+                    <div class="status-chart-layout">
+                      <div id="statusPieChart" class="status-pie-chart" role="img" aria-label="Prospects by call status"></div>
+                      <ul id="statusPieLegend" class="status-pie-legend"></ul>
+                    </div>
+                  </section>
+                  <section class="performance-chart-panel" aria-labelledby="connectionMixTitle" data-performance-detail="all">
+                    <div class="chart-panel-heading"><span class="eyebrow">ALL TIME</span><h3 id="connectionMixTitle">Dial outcomes</h3></div>
+                    <div class="status-chart-layout">
+                      <div id="connectionPieChart" class="status-pie-chart" role="img" aria-label="Connected versus unconnected dials"></div>
+                      <ul id="connectionPieLegend" class="status-pie-legend"></ul>
+                    </div>
+                  </section>
+                </div>
+              </div>
+              <div id="prospectsTabPanel" class="dashboard-tab-panel prospects-tab-panel" role="tabpanel" aria-labelledby="prospectsTabButton" hidden>
+                <section class="crm-table-panel" aria-label="Prospect table">
+                  <div class="table-toolbar">
+                    <div class="toolbar-leading">
+                      <label class="search-box">
+                        <span class="search-icon" aria-hidden="true"></span>
+                        <input id="searchInput" type="search" placeholder="Search prospects" autocomplete="off">
+                      </label>
+                      <select id="statusFilter" class="filter-select" aria-label="Filter by status">
+                        <option value="all">All statuses</option>
+                        <option value="new">New</option>
+                        <option value="call">Call later</option>
+                        <option value="disqualified">Disqualified</option>
+                        <option value="booked">Booked</option>
+                      </select>
+                    </div>
+                    <div class="toolbar-actions">
+                      <input id="csvInput" type="file" accept=".csv,.tsv,.txt,text/csv" hidden>
+                      <button id="importButton" class="button button-secondary" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
+                      <a id="exportButton" class="button button-quiet" href="/api/export.csv"><span class="button-symbol" aria-hidden="true">↓</span>Export</a>
+                    </div>
+                  </div>
+                  <div class="table-scroll" role="region" aria-label="Prospects table" tabindex="0">
+                    <table id="crmTable">
+                      <thead><tr id="tableHead"></tr></thead>
+                      <tbody id="tableBody"></tbody>
+                    </table>
+                    <div id="emptyState" class="empty-state">
+                      <span class="empty-glyph" aria-hidden="true">＋</span>
+                      <h2>Your CRM starts here</h2>
+                      <p>Import a CSV to add prospects to your workspace.</p>
+                      <button class="button button-primary" type="button" data-import>Import prospects</button>
+                    </div>
+                  </div>
+                  <div class="table-footer"><span id="tableSummary">0 prospects</span><button id="deleteSelectedButton" class="button button-danger-quiet table-delete-button" type="button" hidden>Delete selected</button><span id="saveState">All changes saved</span></div>
+                </section>
+              </div>
+              <div id="transcriptTabPanel" class="dashboard-tab-panel transcript-tab-panel" role="tabpanel" aria-labelledby="transcriptTabButton" hidden>
+                <section class="transcript-workspace" aria-label="Live call transcript">
+                  <div class="transcript-workspace-heading">
+                    <div><div class="eyebrow">LIVE / RECENT CALL</div><h2 id="transcriptTabLead">Waiting for a connected prospect</h2><p id="transcriptTabPhone" class="transcript-dialog-meta"></p></div>
+                    <span id="transcriptTabStatus" class="monitor-status">No active transcript</span>
+                  </div>
+                  <div id="transcriptTabBody" class="transcript-tab-body" role="log" aria-live="polite"><p class="transcript-empty">Transcript lines appear here after a prospect answers.</p></div>
+                </section>
+              </div>
+              <div id="poolTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="poolTabButton" hidden>
+                <section class="pool-table-panel" aria-label="Eligible new prospects">
+                  <div class="pool-table-toolbar">
+                    <div><div class="eyebrow">ELIGIBLE PROSPECTS</div><h2>Caller pool</h2><span id="poolTableSummary" class="pool-table-summary">0 new prospects</span></div>
+                    <label class="pool-timezone-filter"><span>Timezone</span><select id="poolTimezoneFilter" aria-label="Filter caller pool by timezone"><option value="">All time zones</option></select></label>
+                  </div>
+                  <div class="table-scroll pool-table-scroll" role="region" aria-label="New prospect pool table" tabindex="0">
+                    <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
+                    <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p>Only prospects marked New appear in this pool.</p></div>
+                  </div>
+                </section>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <dialog id="settingsDialog" class="settings-dialog">
+      <form id="settingsForm" method="dialog">
+        <div class="dialog-heading"><div><div class="eyebrow">ACCOUNT</div><h2>Dialer settings</h2></div><button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">×</button></div>
+        <label class="form-field"><span>Twilio Account SID</span><input id="accountSidInput" name="account_sid" autocomplete="username" required></label>
+        <label class="form-field"><span>Twilio Auth Token</span><input id="authTokenInput" name="auth_token" type="password" autocomplete="new-password" placeholder="Saved token, blank to keep it"></label>
+        <label class="form-field"><span>Twilio API Key SID</span><input id="apiKeyInput" name="api_key" autocomplete="username" required></label>
+        <label class="form-field"><span>Twilio API Key Secret</span><input id="apiSecretInput" name="api_secret" type="password" autocomplete="new-password" placeholder="Saved secret, blank to keep it"></label>
+        <label class="form-field"><span>Twilio TwiML App SID</span><input id="twimlAppSidInput" name="twiml_app_sid" required></label>
+        <label class="form-field"><span>Public HTTPS callback URL</span><input id="publicUrlInput" name="public_base_url" type="url" placeholder="https://your-tunnel.example" required></label>
+        <p class="form-footnote">Forward your tunnel to port 8765. Set the TwiML App Voice URL to this HTTPS address followed by /hooks/voice using POST.</p>
+        <section class="audio-settings" aria-labelledby="audioSettingsTitle">
+          <div class="audio-section-heading"><div class="eyebrow">COMPUTER AUDIO</div><h3 id="audioSettingsTitle">Devices &amp; test</h3></div>
+          <div class="audio-device-grid">
+            <label class="form-field"><span>Microphone</span><select id="audioInputSelect" aria-label="Microphone device"><option value="default">System default</option></select></label>
+            <label class="form-field"><span>Speakers / headphones</span><select id="audioOutputSelect" aria-label="Speaker or headphone device"><option value="default">System default</option></select></label>
+          </div>
+          <div class="audio-test-actions">
+            <button id="refreshAudioDevices" class="button button-quiet" type="button">Refresh devices</button>
+            <button id="startMicTest" class="button button-secondary" type="button">Test microphone</button>
+            <button id="stopMicTest" class="button button-quiet" type="button" disabled>Stop &amp; play back</button>
+            <button id="outputTestButton" class="button button-secondary" type="button">Test output</button>
+          </div>
+          <div class="mic-level-row"><span>Live microphone level</span><span id="micQualityStatus">Speak to test</span><output id="micLevelValue">0%</output></div>
+          <div id="microphoneLevel" class="mic-level" role="meter" aria-label="Live microphone level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="microphoneLevelBar"></span></div>
+          <label class="form-field audio-volume-field"><span>Test playback volume <output id="testVolumeValue">70%</output></span><input id="testVolumeInput" type="range" min="10" max="100" value="70"></label>
+          <p id="audioTestStatus" class="audio-test-status" role="status">Mic samples stay in this browser. Playback uses the selected output.</p>
+          <audio id="audioPlayback" controls hidden playsinline></audio>
+          <audio id="outputTestPlayback" hidden playsinline></audio>
+        </section>
+        <div class="dialog-actions"><button id="cancelSettings" class="button button-quiet" type="button">Cancel</button><button class="button button-primary" type="submit">Save settings</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="transcriptDialog" class="transcript-dialog">
+      <section class="transcript-dialog-content" aria-labelledby="transcriptDialogTitle">
+        <div class="dialog-heading"><div><div class="eyebrow">CALL RECORD</div><h2 id="transcriptDialogTitle">Call transcript</h2><p id="transcriptDialogMeta" class="transcript-dialog-meta"></p></div><button id="closeTranscript" class="dialog-close" type="button" aria-label="Close transcript">×</button></div>
+        <div id="transcriptDialogBody" class="transcript-dialog-body"></div>
+      </section>
+    </dialog>
+
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+</body>
+</html>
