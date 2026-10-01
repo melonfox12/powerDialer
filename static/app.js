@@ -679,6 +679,7 @@ function renderDialer() {
   const callbackPicker = byId("callbackPicker");
   callbackPicker.hidden = !state.pending_outcome || !callbackPicker.dataset.open;
   const advancing = Boolean(state.advance_at && !state.paused);
+  byId("advanceControls").hidden = !advancing;
   byId("autoAdvance").hidden = !advancing;
   byId("advanceNowButton").hidden = !advancing;
   if (advancing) {

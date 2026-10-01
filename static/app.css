@@ -391,7 +391,9 @@ tbody tr:last-child td { border-bottom: 0; }
 .callback-picker[hidden] { display: none; }
 .callback-picker input { height: 31px; padding: 0 7px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--canvas); color: var(--ink); font-size: 10px; }
 .callback-picker .button { min-height: 31px; font-size: 10px; }
-.auto-advance { margin: 5px 0 0; color: var(--amber); font-size: 10px; }
+.advance-controls { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 8px; }
+.advance-controls[hidden] { display: none; }
+.auto-advance { margin: 0; color: var(--amber); font-size: 10px; }
 .auto-advance[hidden], .advance-now[hidden] { display: none; }
 .advance-now { min-height: 28px; padding: 0 6px; font-size: 10px; }
 .shortcut-help { position: relative; display: flex; align-items: center; }
