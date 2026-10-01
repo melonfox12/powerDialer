@@ -35,6 +35,8 @@ let outcomeSubmitting = false;
 let dashboardTab = "performance";
 let performanceMode = "summary";
 let observedActiveLeadId = null;
+let lastLiveTranscriptKey = "";
+let lastCrmTableSignature = null;
 let voiceDevice = null;
 let voiceCall = null;
 let micTestStream = null;
@@ -98,12 +100,16 @@ function transcriptTimestamp(value) {
   return Number.isNaN(date.getTime()) ? "Time unavailable" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-function renderTranscriptEntries(container, entries, emptyMessage) {
+function renderTranscriptEntries(container, entries, emptyMessage, followLatest = false) {
+  const previousScrollTop = container.scrollTop;
+  const shouldFollowLatest = followLatest &&
+    container.scrollHeight - container.scrollTop - container.clientHeight <= 28;
   if (!entries.length) {
     const empty = document.createElement("p");
     empty.className = "transcript-empty";
     empty.textContent = emptyMessage;
     container.replaceChildren(empty);
+    if (followLatest) container.scrollTop = shouldFollowLatest ? container.scrollHeight : previousScrollTop;
     return;
   }
   const ordered = [...entries].sort((left, right) => new Date(left.timestamp) - new Date(right.timestamp));
@@ -123,6 +129,7 @@ function renderTranscriptEntries(container, entries, emptyMessage) {
     row.append(meta, text);
     return row;
   }));
+  if (followLatest) container.scrollTop = shouldFollowLatest ? container.scrollHeight : previousScrollTop;
 }
 
 function openTranscript(lead) {
@@ -155,7 +162,25 @@ function filteredLeads() {
   });
 }
 
+function crmTableSignature() {
+  return JSON.stringify([
+    state.pending_outcome?.id || null,
+    state.leads.map((lead) => [
+      lead.id,
+      lead.name,
+      lead.business,
+      lead.phone,
+      lead.timezone,
+      lead.status,
+      lead.scheduled_until,
+      lead.fields,
+      lead.transcript?.length || 0,
+    ]),
+  ]);
+}
+
 function renderTable() {
+  lastCrmTableSignature = crmTableSignature();
   const head = byId("tableHead");
   const body = byId("tableBody");
   const leads = filteredLeads();
@@ -258,6 +283,7 @@ function renderTable() {
     }
 
     const statusCell = document.createElement("td");
+    statusCell.className = "status-cell";
     const select = document.createElement("select");
     select.className = `status-select status-${lead.status}`;
     select.setAttribute("aria-label", `Call status for ${lead.name || lead.phone}`);
@@ -293,7 +319,6 @@ function renderTable() {
   empty.querySelector("p").textContent = state.leads.length === 0
     ? "Import a CSV to add prospects to your workspace."
     : "Change the search or status filter to see more rows.";
-  empty.querySelector("[data-import]").hidden = state.leads.length > 0;
   byId("crmTable").hidden = state.leads.length === 0;
   const summary = `${leads.length} of ${state.leads.length} prospect${state.leads.length === 1 ? "" : "s"}`;
   setText("tableSummary", selectedLeadIds.size ? `${selectedLeadIds.size} selected · ${summary}` : summary);
@@ -371,23 +396,6 @@ function renderCallerPool() {
   byId("poolTableEmpty").classList.toggle("visible", pool.length === 0);
 }
 
-function renderTranscriptTab() {
-  const current = state.active_lead || state.pending_outcome;
-  const recent = [...state.leads].filter((lead) => lead.transcript?.length).sort((left, right) => {
-    const leftTime = left.transcript[left.transcript.length - 1]?.timestamp || "";
-    const rightTime = right.transcript[right.transcript.length - 1]?.timestamp || "";
-    return rightTime.localeCompare(leftTime);
-  })[0];
-  const lead = current || recent;
-  const live = state.live_transcript || {};
-  const partials = lead && live.lead_id === lead.id ? live.partials || [] : [];
-  const entries = [...(lead?.transcript || []), ...partials];
-  setText("transcriptTabLead", lead ? lead.name || lead.business || lead.phone : "Waiting for a connected prospect");
-  setText("transcriptTabPhone", lead?.phone || "");
-  setText("transcriptTabStatus", live.lead_id === lead?.id && live.transcribing ? "Live · partials enabled" : lead?.transcript?.length ? "Saved transcript" : "No active transcript");
-  renderTranscriptEntries(byId("transcriptTabBody"), entries, "Transcript lines appear here after a prospect answers.");
-}
-
 function drawProspectWaveform(level = 0) {
   const canvas = byId("prospectWaveform");
   const bounds = canvas.getBoundingClientRect();
@@ -440,24 +448,42 @@ function renderCallMonitor() {
 
   const lead = state.active_lead || state.pending_outcome;
   const liveTranscript = state.live_transcript || {};
-  const matchingPartials = lead && liveTranscript.lead_id === lead.id ? liveTranscript.partials || [] : [];
-  const segments = [...(lead?.transcript || []), ...matchingPartials];
+  const partials = lead && liveTranscript.lead_id === lead.id ? liveTranscript.partials || [] : [];
+  const entries = [...(lead?.transcript || []), ...partials];
   const status = lead
     ? liveTranscript.transcribing ? "Transcribing" : state.active_lead ? "Call connected" : "Call ended"
     : state.agent_ready ? "Waiting for prospect" : state.running ? "Connecting" : "Idle";
   setText("monitorStatus", status);
-  setText("transcriptLiveStatus", liveTranscript.transcribing ? "Live · partials enabled" : lead ? "Final utterances saved" : "Waiting for a human answer");
-  renderTranscriptEntries(
-    byId("liveTranscript"),
-    segments.slice(-8),
-    lead ? "Waiting for the first utterance…" : "Utterances appear here during a connected call.",
-  );
+  setText("transcriptLiveStatus", liveTranscript.lead_id === lead?.id && liveTranscript.transcribing
+    ? "Listening"
+    : lead?.transcript?.length ? "Saved" : "Waiting");
+  const transcriptKey = JSON.stringify([lead?.id || null, entries]);
+  if (transcriptKey !== lastLiveTranscriptKey) {
+    lastLiveTranscriptKey = transcriptKey;
+    renderTranscriptEntries(
+      byId("liveTranscript"),
+      entries,
+      lead ? "Waiting for the first words…" : "Transcript appears here as the prospect and agent speak.",
+      true,
+    );
+  }
 }
+
+byId("callMonitorDisclosure").addEventListener("toggle", () => {
+  if (byId("callMonitorDisclosure").open) {
+    renderCallMonitor();
+    byId("liveTranscript").scrollTop = byId("liveTranscript").scrollHeight;
+    drawProspectWaveform();
+  }
+});
 
 function renderDialer() {
   const connected = state.running && state.agent_ready;
   const pending = state.pending_outcome;
   const active = state.active_lead;
+  const activeLeadId = active?.id || null;
+  if (activeLeadId && activeLeadId !== observedActiveLeadId) byId("callMonitorDisclosure").open = true;
+  observedActiveLeadId = activeLeadId;
   const busy = state.running || Boolean(pending);
   const connection = byId("connectionState");
   connection.classList.toggle("busy", busy && !state.last_error);
@@ -470,12 +496,14 @@ function renderDialer() {
   indicator.classList.toggle("on", connected && !state.paused);
   setText("liveLabel", pending ? "OUTCOME REQUIRED" : active ? "LIVE CALL" : state.paused ? "DIALER PAUSED" : connected ? "DIALING" : state.running ? "CONNECTING" : "DIALER STANDBY");
   setText("lineCount", `${state.in_flight?.length || 0} / 1 prospect`);
-  setText("dialerMessage", state.last_error || (pending
+  const dialerMessage = state.last_error || (pending
     ? "Choose an outcome to continue dialing."
     : state.paused ? "Paused. Existing calls stay connected."
       : connected ? "One new prospect is called at a time."
         : state.running ? "Waiting for computer audio to connect."
-          : state.last_event || "Your call session is stopped."));
+          : "");
+  byId("dialerMessage").hidden = !dialerMessage;
+  setText("dialerMessage", dialerMessage);
   byId("dialerMessage").classList.toggle("error", Boolean(state.last_error));
 
   const target = active || (state.in_flight?.find((call) => call.state === "connecting")?.lead);
@@ -491,7 +519,7 @@ function renderDialer() {
   const secondary = document.createElement("span");
   secondary.textContent = target
     ? [target.business, target.phone].filter(Boolean).join(" · ")
-    : "Start to connect computer audio and begin dialing.";
+    : "";
   copy.append(primary, secondary);
   activeCall.append(avatar, copy);
 
@@ -502,15 +530,16 @@ function renderDialer() {
   byId("skipVoicemailButton").disabled = !active && !(state.in_flight?.length);
   byId("stopButton").disabled = !state.running;
   const caller = state.caller_ids?.[0];
+  byId("callerIdLine").hidden = !caller;
   byId("callerIdLine").querySelector("span").textContent = caller || "Not connected";
   renderCallMonitor();
 
   const outcomeLead = pending || active;
   const outcomeDisabled = !outcomeLead || outcomeSubmitting;
+  byId("outcomeRow").hidden = !outcomeLead;
   byId("outcomeCallButton").disabled = outcomeDisabled;
   byId("outcomeBookedButton").disabled = outcomeDisabled;
   byId("outcomeDisqualifiedButton").disabled = outcomeDisabled;
-  setText("outcomeRowLabel", outcomeLead ? `Outcome · ${outcomeLead.name || outcomeLead.phone}` : "Outcome");
 }
 
 function formatMinutes(totalSeconds) {
@@ -526,6 +555,15 @@ function dayLabel(dateStr) {
 
 function buildMetricsLineChart(series) {
   const container = byId("metricsLineChart");
+  const hasActivity = series.some((day) => (day.dials || 0) > 0 || (day.connected || 0) > 0);
+  const panel = container.closest(".performance-chart-panel");
+  panel.classList.toggle("has-no-data", !hasActivity);
+  if (!hasActivity) {
+    container.textContent = "No call activity in the last 7 days.";
+    container.setAttribute("aria-label", "No call activity in the last 7 days");
+    return;
+  }
+  container.setAttribute("aria-label", "Dials and connected calls trend over the last 7 days");
   const width = 620;
   const height = 190;
   const left = 36;
@@ -677,12 +715,11 @@ function renderMetrics() {
 }
 
 function setDashboardTab(name, moveFocus = false) {
-  const tabs = ["performance", "prospects", "transcript", "pool"];
+  const tabs = ["performance", "prospects", "pool"];
   dashboardTab = tabs.includes(name) ? name : "performance";
   const tabButtons = {
     performance: "performanceTabButton",
     prospects: "prospectsTabButton",
-    transcript: "transcriptTabButton",
     pool: "poolTabButton",
   };
   const selectedButton = byId(tabButtons[dashboardTab]);
@@ -695,7 +732,6 @@ function setDashboardTab(name, moveFocus = false) {
   for (const tab of tabs) byId(`${tab}TabPanel`).hidden = dashboardTab !== tab;
   if (dashboardTab === "prospects") renderTable();
   if (dashboardTab === "pool") renderCallerPool();
-  if (dashboardTab === "transcript") renderTranscriptTab();
   if (moveFocus) selectedButton.focus();
 }
 
@@ -710,13 +746,10 @@ function setPerformanceMode(mode) {
 }
 
 function render() {
-  setText("totalCount", String(state.counts?.total ?? state.leads.length));
-  setText("newCount", String(state.counts?.new ?? state.pool.length));
-  setText("bookedCount", String(state.counts?.booked ?? 0));
+  byId("headingImportButton").hidden = state.leads.length > 0;
   setText("prospectTabCount", String(state.counts?.total ?? state.leads.length));
-  renderTable();
+  if (crmTableSignature() !== lastCrmTableSignature) renderTable();
   renderCallerPool();
-  renderTranscriptTab();
   renderDialer();
   renderMetrics();
 }
@@ -730,9 +763,6 @@ async function refreshState() {
       request("/api/metrics").catch(() => null),
     ]);
     Object.assign(state, stateResult);
-    const activeLeadId = state.active_lead_id || null;
-    if (activeLeadId && activeLeadId !== observedActiveLeadId) setDashboardTab("transcript");
-    observedActiveLeadId = activeLeadId;
     if (metricsResult) state.metrics = metricsResult;
     render();
   } catch (error) {
@@ -1044,6 +1074,7 @@ async function importCsv(file) {
   if (!file) return;
   const button = byId("importButton");
   button.disabled = true;
+  byId("headingImportButton").disabled = true;
   button.textContent = "Importing…";
   try {
     const buffer = await file.arrayBuffer();
@@ -1061,6 +1092,7 @@ async function importCsv(file) {
     showToast(error?.message || "Import failed. Check the console for details.", true);
   } finally {
     button.disabled = false;
+    byId("headingImportButton").disabled = false;
     button.innerHTML = '<span class="button-symbol" aria-hidden="true">↑</span>Import CSV';
     byId("csvInput").value = "";
   }
@@ -1118,7 +1150,7 @@ for (const tabButton of document.querySelectorAll("[data-dashboard-tab]")) {
   tabButton.addEventListener("keydown", (event) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const tabs = ["performance", "prospects", "transcript", "pool"];
+    const tabs = ["performance", "prospects", "pool"];
     const index = tabs.indexOf(tabButton.dataset.dashboardTab);
     const next = event.key === "Home" ? 0
       : event.key === "End" ? tabs.length - 1
@@ -1167,6 +1199,7 @@ byId("settingsForm").addEventListener("submit", async (event) => {
 });
 
 byId("importButton").addEventListener("click", () => byId("csvInput").click());
+byId("headingImportButton").addEventListener("click", () => byId("csvInput").click());
 byId("deleteSelectedButton").addEventListener("click", deleteSelectedProspects);
 byId("csvInput").addEventListener("change", (event) => {
   const file = event.target.files[0];
@@ -1177,7 +1210,6 @@ byId("csvInput").addEventListener("change", (event) => {
   console.log(`CSV file selected: ${file.name} (${file.size} bytes, type "${file.type}")`);
   importCsv(file);
 });
-document.querySelectorAll("[data-import]").forEach((button) => button.addEventListener("click", () => byId("csvInput").click()));
 byId("searchInput").addEventListener("input", renderTable);
 byId("statusFilter").addEventListener("change", renderTable);
 byId("startButton").addEventListener("click", startDialing);

@@ -28,16 +28,22 @@ class QuietThreadingHTTPServer(ThreadingHTTPServer):
     allow_reuse_address = True
 
 
-def make_app_handler(crm, dialer, metrics):
+def make_app_handler(crm, dialer, metrics, storage_name="local JSON files"):
     class AppHandler(BaseHTTPRequestHandler):
         def do_GET(self):
             path = urllib.parse.urlsplit(self.path).path
             if path.startswith("/api/") and path not in ("/api/state", "/api/metrics", "/api/health"):
                 dialer.record_activity(f"GET {path}", "web")
             if path == "/api/state":
-                self.send_json(200, dialer.public_state())
+                try:
+                    self.send_json(200, dialer.public_state())
+                except OSError as exc:
+                    self.report_storage_error(exc)
             elif path == "/api/metrics":
-                self.send_json(200, metrics.snapshot())
+                try:
+                    self.send_json(200, metrics.snapshot())
+                except OSError as exc:
+                    self.report_storage_error(exc)
             elif path == "/api/settings":
                 self.send_json(200, dialer.settings_state())
             elif path == "/api/voice-token":
@@ -46,18 +52,34 @@ def make_app_handler(crm, dialer, metrics):
                 except ValueError as exc:
                     self.send_json(400, {"error": str(exc)})
             elif path == "/api/export.csv":
-                content = crm.csv_bytes()
-                self.send_bytes(200, content, "text/csv; charset=utf-8", {
-                    "Content-Disposition": "attachment; filename=crm-export.csv",
-                })
+                try:
+                    content = crm.csv_bytes()
+                    self.send_bytes(200, content, "text/csv; charset=utf-8", {
+                        "Content-Disposition": "attachment; filename=crm-export.csv",
+                    })
+                except OSError as exc:
+                    self.report_storage_error(exc)
             elif path in ("/", "/index.html", "/static/", "/static/index.html"):
                 self.send_file("index.html")
             elif path in ("/app.css", "/app.js", "/static/app.css", "/static/app.js"):
                 self.send_file(os.path.basename(path))
             elif path == "/api/health":
-                self.send_json(200, {"ok": True})
+                try:
+                    crm.snapshot()
+                    metrics.snapshot()
+                    self.send_json(200, {"ok": True, "storage": storage_name})
+                except OSError as exc:
+                    self.send_json(503, {
+                        "ok": False,
+                        "storage": storage_name,
+                        "error": str(exc),
+                    })
             else:
                 self.send_json(404, {"error": "Not found"})
+
+        def report_storage_error(self, exc):
+            dialer.record_activity(f"Storage request failed: {exc}", "error")
+            self.send_json(502, {"error": f"Could not read persistent data: {exc}"})
 
         def do_POST(self):
             path = urllib.parse.urlsplit(self.path).path
@@ -218,13 +240,30 @@ def make_hook_handler(dialer):
 
 
 def serve():
-    crm = CRMStore(CRM_PATH)
-    metrics = MetricsStore(METRICS_PATH)
+    from supabase_store import SupabaseCRMStore, SupabaseMetricsStore, SupabaseClient
+    from twilio_calls import read_env
+
+    values = read_env(ENV_PATH)
+    client = SupabaseClient.from_env(values)
+    if client:
+        crm = SupabaseCRMStore(client)
+        metrics = SupabaseMetricsStore(client)
+        crm.snapshot()
+        metrics.snapshot()
+        storage_name = "Supabase"
+    else:
+        crm = CRMStore(CRM_PATH)
+        metrics = MetricsStore(METRICS_PATH)
+        storage_name = "local JSON files"
     dialer = TwilioDialer(crm, ENV_PATH, metrics=metrics)
-    app_server = QuietThreadingHTTPServer((APP_HOST, APP_PORT), make_app_handler(crm, dialer, metrics))
+    app_server = QuietThreadingHTTPServer(
+        (APP_HOST, APP_PORT),
+        make_app_handler(crm, dialer, metrics, storage_name),
+    )
     hook_server = QuietThreadingHTTPServer((HOOK_HOST, HOOK_PORT), make_hook_handler(dialer))
     threading.Thread(target=hook_server.serve_forever, name="twilio-callback-server", daemon=True).start()
     print(f"CRM web app: http://{APP_HOST}:{APP_PORT}")
+    print(f"Persistent storage: {storage_name}")
     print(f"Twilio callback server: http://{HOOK_HOST}:{HOOK_PORT} (expose this port with HTTPS)")
     try:
         app_server.serve_forever()

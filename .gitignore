@@ -18,6 +18,7 @@ ENV/
 # Local environment/config files
 .env
 .env.*
+!.env.example
 *.env
 *.local
 *.local.*

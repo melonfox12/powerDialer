@@ -29,14 +29,9 @@
       <section id="crmView" class="view active-view" aria-labelledby="pageTitle">
         <div class="page-heading">
           <div>
-            <div class="eyebrow">WORKSPACE / CONTACTS</div>
             <h1 id="pageTitle">Prospects</h1>
           </div>
-          <div class="heading-metrics" aria-label="CRM totals">
-            <div><strong id="totalCount">0</strong><span>all prospects</span></div>
-            <div><strong id="newCount">0</strong><span>in caller pool</span></div>
-            <div><strong id="bookedCount">0</strong><span>booked</span></div>
-          </div>
+          <button id="headingImportButton" class="button button-secondary heading-import-button" type="button" hidden>Import CSV</button>
         </div>
 
         <div class="dashboard-stack">
@@ -45,11 +40,12 @@
               <div class="live-panel-top">
                 <span class="live-indicator"><i></i><span id="liveLabel">DIALER STANDBY</span></span>
                 <span id="lineCount" class="line-count">0 / 2 lines</span>
+                <div id="callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
               </div>
               <h2 id="liveTitle">Call desk</h2>
               <div id="activeCall" class="active-call">
                 <div class="active-avatar">PD</div>
-                <div class="active-copy"><strong>Ready when you are</strong><span>Start to connect computer audio and begin dialing.</span></div>
+                <div class="active-copy"><strong>Ready when you are</strong><span></span></div>
               </div>
               <div id="dialerMessage" class="dialer-message" role="status">Your call session is stopped.</div>
               <div class="dialer-controls">
@@ -59,40 +55,41 @@
                 <button id="stopButton" class="button button-quiet" type="button" disabled>Stop</button>
               </div>
               <label class="dialer-pool-filter"><span>Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
-              <div class="outcome-row">
-                <span id="outcomeRowLabel" class="outcome-row-label">Outcome</span>
+              <div id="outcomeRow" class="outcome-row" hidden>
+                <span class="outcome-row-label">Outcome</span>
                 <div class="outcome-buttons">
                   <button id="outcomeCallButton" class="outcome-btn outcome-btn-call" type="button" disabled>Call tomorrow</button>
                   <button id="outcomeBookedButton" class="outcome-btn outcome-btn-booked" type="button" disabled>Booked</button>
                   <button id="outcomeDisqualifiedButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled>Disqualified</button>
                 </div>
               </div>
-              <div id="callerIdLine" class="caller-id-line">Caller ID <span>Not connected</span></div>
-              <section class="call-monitor" aria-labelledby="callMonitorTitle">
-                <div class="monitor-header">
-                  <div><span class="eyebrow">LIVE SESSION</span><h3 id="callMonitorTitle">Call monitor</h3></div>
-                  <div class="monitor-header-actions"><span id="monitorStatus" class="monitor-status">Waiting</span><button id="skipVoicemailButton" class="button button-danger-quiet monitor-skip" type="button" disabled>Skip as voicemail</button></div>
-                </div>
-                <div class="monitor-waveform-block">
-                  <div class="monitor-subheading"><span>Prospect audio</span><output id="prospectAudioLevel">0%</output></div>
-                  <canvas id="prospectWaveform" height="42" role="img" aria-label="Live waveform for prospect audio"></canvas>
-                </div>
-                <div class="monitor-transcript-block">
-                  <div class="monitor-subheading"><span>Live transcript</span><span id="transcriptLiveStatus">Waiting for a human answer</span></div>
-                  <div id="liveTranscript" class="live-transcript" role="log" aria-live="polite"><span class="monitor-empty">Utterances appear here during a connected call.</span></div>
-                </div>
-                <div class="monitor-log-block">
-                  <div class="monitor-subheading"><span>Process queue</span><span id="activityCount">0 events</span></div>
-                  <ol id="activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
-                </div>
-              </section>
+              <details id="callMonitorDisclosure" class="call-monitor-disclosure">
+                <summary class="call-monitor-summary">
+                  <span id="callMonitorTitle" class="call-monitor-title">Call monitor</span>
+                  <span id="monitorStatus" class="monitor-status">Waiting</span>
+                </summary>
+                <section class="call-monitor" aria-labelledby="callMonitorTitle">
+                  <div class="monitor-header-actions"><button id="skipVoicemailButton" class="button button-danger-quiet monitor-skip" type="button" disabled>Skip as voicemail</button></div>
+                  <div class="monitor-waveform-block">
+                    <div class="monitor-subheading"><span>Prospect audio</span><output id="prospectAudioLevel">0%</output></div>
+                    <canvas id="prospectWaveform" height="42" role="img" aria-label="Live waveform for prospect audio"></canvas>
+                  </div>
+                  <div class="monitor-transcript-block">
+                    <div class="monitor-subheading"><span>Live transcript</span><span id="transcriptLiveStatus">Waiting for a human answer</span></div>
+                    <div id="liveTranscript" class="live-transcript" role="log" aria-live="polite" aria-relevant="additions text"><p class="transcript-empty">Transcript appears here as the prospect and agent speak.</p></div>
+                  </div>
+                  <details class="activity-log-disclosure">
+                    <summary class="monitor-subheading"><span>Recent activity</span><span id="activityCount">0 events</span></summary>
+                    <ol id="activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
+                  </details>
+                </section>
+              </details>
             </section>
 
             <section class="metrics-panel" aria-labelledby="metricsTitle">
               <div class="dashboard-tabs" role="tablist" aria-label="Call desk views">
                 <button id="performanceTabButton" class="dashboard-tab active" type="button" role="tab" aria-selected="true" aria-controls="performanceTabPanel" tabindex="0" data-dashboard-tab="performance">Performance</button>
                 <button id="prospectsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects">Prospects <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
-                <button id="transcriptTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="transcriptTabPanel" tabindex="-1" data-dashboard-tab="transcript">Live transcript</button>
                 <button id="poolTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="poolTabPanel" tabindex="-1" data-dashboard-tab="pool">Caller pool <span id="poolTabCount" class="dashboard-tab-count">0</span></button>
               </div>
               <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton" data-mode="summary">
@@ -184,19 +181,9 @@
                       <span class="empty-glyph" aria-hidden="true">＋</span>
                       <h2>Your CRM starts here</h2>
                       <p>Import a CSV to add prospects to your workspace.</p>
-                      <button class="button button-primary" type="button" data-import>Import prospects</button>
                     </div>
                   </div>
                   <div class="table-footer"><span id="tableSummary">0 prospects</span><button id="deleteSelectedButton" class="button button-danger-quiet table-delete-button" type="button" hidden>Delete selected</button><span id="saveState">All changes saved</span></div>
-                </section>
-              </div>
-              <div id="transcriptTabPanel" class="dashboard-tab-panel transcript-tab-panel" role="tabpanel" aria-labelledby="transcriptTabButton" hidden>
-                <section class="transcript-workspace" aria-label="Live call transcript">
-                  <div class="transcript-workspace-heading">
-                    <div><div class="eyebrow">LIVE / RECENT CALL</div><h2 id="transcriptTabLead">Waiting for a connected prospect</h2><p id="transcriptTabPhone" class="transcript-dialog-meta"></p></div>
-                    <span id="transcriptTabStatus" class="monitor-status">No active transcript</span>
-                  </div>
-                  <div id="transcriptTabBody" class="transcript-tab-body" role="log" aria-live="polite"><p class="transcript-empty">Transcript lines appear here after a prospect answers.</p></div>
                 </section>
               </div>
               <div id="poolTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="poolTabButton" hidden>

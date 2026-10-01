@@ -60,6 +60,7 @@ def read_env(path):
     for key in (
         "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_API_KEY",
         "TWILIO_API_SECRET", "TWILIO_TWIML_APP_SID", "PUBLIC_BASE_URL",
+        "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY",
     ):
         values.setdefault(key, os.environ.get(key, ""))
     return values

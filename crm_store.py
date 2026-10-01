@@ -335,26 +335,29 @@ class CRMStore:
         return sorted(counts.items(), key=lambda item: (item[0] == "Unknown", -item[1], item[0]))
 
     def csv_bytes(self):
-        leads = self.snapshot()
-        field_names = []
-        for lead in leads:
-            for key in lead.get("fields", {}):
-                if key not in field_names and key.strip().lower() not in {
-                    "name", "business", "phone", "call_status", "scheduled_until"
-                }:
-                    field_names.append(key)
-        output = StringIO(newline="")
-        headers = field_names + ["Name", "Business", "Phone", "call_status", "scheduled_until"]
-        writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore")
-        writer.writeheader()
-        for lead in leads:
-            row = dict(lead.get("fields", {}))
-            row.update({
-                "Name": lead.get("name", ""),
-                "Business": lead.get("business", ""),
-                "Phone": lead.get("phone", ""),
-                "call_status": lead.get("status", "new"),
-                "scheduled_until": lead.get("scheduled_until") or "",
-            })
-            writer.writerow(row)
-        return output.getvalue().encode("utf-8-sig")
+        return csv_bytes_for(self.snapshot())
+
+
+def csv_bytes_for(leads):
+    field_names = []
+    for lead in leads:
+        for key in lead.get("fields", {}):
+            if key not in field_names and key.strip().lower() not in {
+                "name", "business", "phone", "call_status", "scheduled_until"
+            }:
+                field_names.append(key)
+    output = StringIO(newline="")
+    headers = field_names + ["Name", "Business", "Phone", "call_status", "scheduled_until"]
+    writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore")
+    writer.writeheader()
+    for lead in leads:
+        row = dict(lead.get("fields", {}))
+        row.update({
+            "Name": lead.get("name", ""),
+            "Business": lead.get("business", ""),
+            "Phone": lead.get("phone", ""),
+            "call_status": lead.get("status", "new"),
+            "scheduled_until": lead.get("scheduled_until") or "",
+        })
+        writer.writerow(row)
+    return output.getvalue().encode("utf-8-sig")
