@@ -1,15 +1,11 @@
-const STATUS_LABELS = {
-  new: "New",
-  call: "Call later",
-  disqualified: "Disqualified",
-  booked: "Booked",
+const STATUS_STYLES = {
+  new: { label: "New", color: "--muted", className: "neutral" },
+  call: { label: "Call later", color: "--amber", className: "callback" },
+  disqualified: { label: "Disqualified", color: "--red", className: "negative" },
+  booked: { label: "Booked", color: "--success", className: "positive" },
 };
-const STATUS_COLOR_VARS = {
-  new: "--success",
-  call: "--amber",
-  disqualified: "--red",
-  booked: "--blue",
-};
+const STATUS_LABELS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.label]));
+const STATUS_COLOR_VARS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.color]));
 
 const state = {
   leads: [],
@@ -88,6 +84,14 @@ function initials(name) {
   return words.length > 1 ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase() : (words[0] || "?").slice(0, 2).toUpperCase();
 }
 
+function formatPhoneNumber(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return phone || "—";
+}
+
 function statusDate(lead) {
   if (!lead.scheduled_until) return "";
   const due = new Date(lead.scheduled_until);
@@ -142,7 +146,7 @@ function openTranscript(lead) {
 
 function importedColumns() {
   const columns = [];
-  const standard = /^(name|full name|contact|first name|last name|business|company|organization|organisation|phone|mobile|cell|telephone|time\s?zone|tz|call.?status|status)$/i;
+  const standard = /^(name|full name|contact|first name|last name|business|company|organization|organisation|phone(?: number| e\.?164)?|mobile|cell|telephone|time\s?zone|tz|call.?status|status)$/i;
   for (const lead of state.leads) {
     for (const key of Object.keys(lead.fields || {})) {
       if (!standard.test(key) && !columns.includes(key)) columns.push(key);
@@ -213,7 +217,7 @@ function renderTable() {
   selectAllCell.append(selectAll);
   head.append(selectAllCell);
 
-  for (const label of ["Prospect", "Company", "Phone", "Timezone", ...extras, "Call status", "Call transcript"]) {
+  for (const label of ["Prospect", "Company", "Phone Number", "Timezone", ...extras, "Call status", "Call transcript"]) {
     const cell = document.createElement("th");
     cell.scope = "col";
     cell.textContent = label;
@@ -270,8 +274,11 @@ function renderTable() {
 
     for (const value of [lead.business, lead.phone, lead.timezone || "Unknown"]) {
       const cell = document.createElement("td");
-      cell.textContent = value || "—";
-      if (value === lead.phone) cell.className = "phone-cell";
+      cell.textContent = value === lead.phone ? formatPhoneNumber(lead.phone) : value || "—";
+      if (value === lead.phone) {
+        cell.className = "phone-cell";
+        cell.title = lead.phone || "";
+      }
       row.append(cell);
     }
 
@@ -285,7 +292,7 @@ function renderTable() {
     const statusCell = document.createElement("td");
     statusCell.className = "status-cell";
     const select = document.createElement("select");
-    select.className = `status-select status-${lead.status}`;
+    select.className = `status-select status-${STATUS_STYLES[lead.status]?.className || "neutral"}`;
     select.setAttribute("aria-label", `Call status for ${lead.name || lead.phone}`);
     for (const value of ["new", "call", "booked", "disqualified"]) {
       const option = document.createElement("option");
@@ -495,7 +502,7 @@ function renderDialer() {
   const indicator = document.querySelector(".live-indicator");
   indicator.classList.toggle("on", connected && !state.paused);
   setText("liveLabel", pending ? "OUTCOME REQUIRED" : active ? "LIVE CALL" : state.paused ? "DIALER PAUSED" : connected ? "DIALING" : state.running ? "CONNECTING" : "DIALER STANDBY");
-  setText("lineCount", `${state.in_flight?.length || 0} / 1 prospect`);
+  setText("lineCount", `${state.session_stats?.dials || 0} of ${state.queue_count ?? state.pool?.length ?? 0} dialed`);
   const dialerMessage = state.last_error || (pending
     ? "Choose an outcome to continue dialing."
     : state.paused ? "Paused. Existing calls stay connected."
@@ -515,7 +522,11 @@ function renderDialer() {
   const copy = document.createElement("div");
   copy.className = "active-copy";
   const primary = document.createElement("strong");
-  primary.textContent = target ? (target.name || target.business || target.phone) : "Ready when you are";
+  const firstUp = state.pool?.[0];
+  primary.textContent = target
+    ? (target.name || target.business || target.phone)
+    : firstUp ? `${state.pool.length} prospects queued · First up: ${firstUp.business || firstUp.name || formatPhoneNumber(firstUp.phone)}`
+      : "No prospects queued";
   const secondary = document.createElement("span");
   secondary.textContent = target
     ? [target.business, target.phone].filter(Boolean).join(" · ")
@@ -527,6 +538,8 @@ function renderDialer() {
   byId("pauseButton").disabled = !state.running;
   byId("pauseButton").textContent = state.paused ? "Resume" : "Pause";
   byId("hangupButton").disabled = !active;
+  byId("hangupButton").classList.toggle("button-danger-quiet", Boolean(active));
+  byId("hangupButton").classList.toggle("button-secondary", !active);
   byId("skipVoicemailButton").disabled = !active && !(state.in_flight?.length);
   byId("stopButton").disabled = !state.running;
   const caller = state.caller_ids?.[0];

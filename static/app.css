@@ -249,10 +249,10 @@ tbody tr:last-child td { border-bottom: 0; }
 .status-cell { position: relative; overflow: visible; }
 .status-cell:focus-within { z-index: 3; }
 .status-select { max-width: 156px; min-width: 115px; height: 27px; padding: 0 25px 0 9px; border: 1px solid transparent; border-radius: var(--radius-full); appearance: auto; font-size: 11px; font-weight: 510; cursor: pointer; }
-.status-select.status-new { background: var(--success-soft); color: var(--success); }
-.status-select.status-call { background: var(--amber-soft); color: var(--amber); }
-.status-select.status-booked { background: var(--blue-soft); color: var(--blue); }
-.status-select.status-disqualified { background: var(--red-soft); color: var(--red); }
+.status-select.status-neutral { background: rgba(138, 143, 152, .14); color: var(--ink-secondary); }
+.status-select.status-callback { background: var(--amber-soft); color: var(--amber); }
+.status-select.status-positive { background: var(--success-soft); color: var(--success); }
+.status-select.status-negative { background: var(--red-soft); color: var(--red); }
 .status-select:focus { border-color: currentColor; outline: none; }
 .status-cell-label { display: inline-flex; align-items: center; gap: 6px; }
 .status-date { color: var(--amber); font-family: var(--mono); font-size: 10px; }
