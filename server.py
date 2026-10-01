@@ -106,10 +106,15 @@ def make_app_handler(crm, dialer, metrics, storage_name="local JSON files"):
                     self.send_json(200, dialer.hangup_active())
                 elif path == "/api/skip":
                     self.send_json(200, dialer.skip_active())
+                elif path == "/api/advance":
+                    self.send_json(200, dialer.advance_now())
                 elif path.startswith("/api/leads/") and path.endswith("/status"):
                     lead_id = urllib.parse.unquote(path.removeprefix("/api/leads/").removesuffix("/status"))
                     data = self.read_json(body)
-                    lead = dialer.update_status(lead_id, data.get("status", ""))
+                    lead = dialer.update_status(
+                        lead_id, data.get("status"), data.get("scheduled_until"),
+                        data.get("disposition"),
+                    )
                     self.send_json(200, {"lead": lead, "state": dialer.public_state()})
                 else:
                     self.send_json(404, {"error": "Not found"})

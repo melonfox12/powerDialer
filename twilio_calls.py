@@ -8,11 +8,15 @@ import os
 import random
 import secrets
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
-from dialer_session import add_connect, dialer_stage, new_session, recent_streak, session_summary
+from dialer_session import (
+    add_connect, dialer_stage, new_session, recent_streak,
+    session_summary, status_for_disposition,
+)
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 from twilio.twiml.voice_response import VoiceResponse
@@ -108,6 +112,9 @@ class TwilioDialer:
         self.activity_log = []
         self.activity_sequence = 0
         self.session = None
+        self.advance_timer = None
+        self.advance_at = None
+        self.advance_remaining = None
 
     def _save_session(self):
         if self.metrics and self.session and hasattr(self.metrics, "save_session"):
@@ -173,6 +180,7 @@ class TwilioDialer:
                     "transcribing": bool(active_call and active_call.get("transcribing")),
                 },
                 "session": dict(self.session) if self.session else None,
+                "advance_at": self.advance_at,
             }
         by_id = {lead["id"]: lead for lead in leads}
         state["active_lead"] = by_id.get(active_id)
@@ -315,6 +323,8 @@ class TwilioDialer:
             self.caller_index = 0
             self.conference = "crm-" + secrets.token_hex(8)
             self.session = new_session()
+            self.advance_at = None
+            self.advance_remaining = None
             self._save_session()
             self.last_error = ""
             self.last_event = "Connecting computer audio"
@@ -653,10 +663,11 @@ class TwilioDialer:
                         self.session["conversations"] += 1
                 self._save_session()
             should_fill = False
+            should_schedule_advance = False
             if self.running:
                 if outcome_already_chosen:
                     self.last_event = "Call ended"
-                    should_fill = True
+                    should_schedule_advance = True
                 else:
                     self.pending_outcome = call["lead_id"]
                     self.last_event = "Choose an outcome before the next calls"
@@ -665,6 +676,8 @@ class TwilioDialer:
                 others = []
         for other in others:
             self._cancel_call(other)
+        if should_schedule_advance:
+            self._schedule_advance()
         if should_fill:
             self.fill_slots()
 
@@ -685,17 +698,21 @@ class TwilioDialer:
                 return self.active.get("lead_id")
             return None
 
-    def choose_outcome(self, lead_id, status):
-        if status not in ("call", "disqualified", "booked"):
-            raise ValueError("Choose call, disqualified, or booked as the call outcome.")
+    def choose_outcome(self, lead_id, status, scheduled_until=None):
+        if status not in ("call", "disqualified", "booked", "interested", "do_not_call"):
+            raise ValueError("Choose a valid call outcome.")
         with self.lock:
             live_call = self.active if self.active and self.active.get("lead_id") == lead_id else None
             if self.pending_outcome != lead_id and not live_call:
                 raise ValueError("That prospect is not waiting for an outcome.")
             if live_call:
                 live_call["outcome_chosen"] = True
-        result = self.crm.set_status(lead_id, status)
-        metric_key = "call_later" if status == "call" else status
+        result = self.crm.set_status(lead_id, status, scheduled_until)
+        metric_key = {
+            "call": "call_later",
+            "interested": "interested",
+            "booked": "booked",
+        }.get(status, "disqualified")
         self._bump(metric_key)
         with self.lock:
             if status == "booked" and self.session:
@@ -706,15 +723,52 @@ class TwilioDialer:
             self.last_event = f"{result['name'] or result['phone']} marked {status}"
             can_continue = self.running and not self.paused and not live_call
         if can_continue:
-            self.fill_slots()
+            self._schedule_advance()
         return result
 
-    def update_status(self, lead_id, status):
+    def update_status(self, lead_id, status=None, scheduled_until=None, disposition=None):
+        if disposition:
+            status = status_for_disposition(disposition)
         with self.lock:
-            is_outcome = self.live_outcome_lead_id() == lead_id and status in ("call", "disqualified", "booked")
+            is_outcome = self.live_outcome_lead_id() == lead_id and status in (
+                "call", "disqualified", "booked", "interested", "do_not_call"
+            )
         if is_outcome:
-            return self.choose_outcome(lead_id, status)
-        return self.crm.set_status(lead_id, status)
+            return self.choose_outcome(lead_id, status, scheduled_until)
+        return self.crm.set_status(lead_id, status, scheduled_until)
+
+    def _schedule_advance(self, delay=None):
+        with self.lock:
+            if not self.running or self.paused or self.pending_outcome or self.active:
+                return
+            if self.advance_timer:
+                self.advance_timer.cancel()
+            seconds = max(0, float(delay if delay is not None else self.settings.get("AUTO_ADVANCE_DELAY_SECONDS", 3)))
+            self.advance_at = time.time() + seconds
+            self.advance_remaining = seconds
+            self.advance_timer = threading.Timer(seconds, self._advance_queue)
+            self.advance_timer.daemon = True
+            self.advance_timer.start()
+
+    def _advance_queue(self):
+        with self.lock:
+            self.advance_timer = None
+            self.advance_at = None
+            self.advance_remaining = None
+            should_fill = self.running and not self.paused and not self.pending_outcome
+        if should_fill:
+            self.fill_slots()
+
+    def advance_now(self):
+        with self.lock:
+            if not self.advance_timer or not self.running or self.paused:
+                raise ValueError("There is no active auto-advance countdown.")
+            self.advance_timer.cancel()
+            self.advance_timer = None
+            self.advance_at = None
+            self.advance_remaining = None
+        self.fill_slots()
+        return self.public_state()
 
     def fill_slots(self):
         launches = []
@@ -737,13 +791,38 @@ class TwilioDialer:
             self.paused = not self.paused
             self.last_event = "Paused" if self.paused else "Resumed"
             should_fill = not self.paused and self.agent_ready and not self.pending_outcome
+            if self.paused and self.advance_timer:
+                self.advance_remaining = max(0, self.advance_at - time.time()) if self.advance_at else 0
+                self.advance_timer.cancel()
+                self.advance_timer = None
+                self.advance_at = None
+                should_fill = False
+            resume_countdown = not self.paused and self.advance_remaining is not None
+            remaining = self.advance_remaining
         if should_fill:
             self.fill_slots()
+        elif resume_countdown:
+            self._schedule_advance(remaining)
         return self.public_state()
 
     def hangup_active(self):
         with self.lock:
-            call_uuid = self.active.get("call_uuid") if self.active else None
+            call = self.active or next(
+                (
+                    item for item in self.in_flight.values()
+                    if item["kind"] == "prospect" and item["state"] == "ringing"
+                ),
+                None,
+            )
+            call_uuid = call.get("call_uuid") if call else None
+            if call and call is not self.active:
+                call["handled"] = True
+                call["cancelled"] = True
+                call["state"] = "ended"
+                self.in_flight.pop(call["token"], None)
+                if self.running:
+                    self.pending_outcome = call["lead_id"]
+                    self.last_event = "Call ended; choose a disposition"
         if call_uuid:
             threading.Thread(target=self._hangup_call, args=(call_uuid,), daemon=True).start()
         return self.public_state()
@@ -787,6 +866,11 @@ class TwilioDialer:
             self.pending_outcome = None
             self.in_flight.clear()
             self.last_event = "Stopped"
+            if self.advance_timer:
+                self.advance_timer.cancel()
+            self.advance_timer = None
+            self.advance_at = None
+            self.advance_remaining = None
             summary = session_summary(self.session) if self.session else None
             if summary:
                 self.session.update(summary)

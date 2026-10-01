@@ -10,7 +10,7 @@ from decimal import Decimal, InvalidOperation
 from io import StringIO
 from pathlib import Path
 
-STATUSES = ("new", "call", "disqualified", "booked")
+STATUSES = ("new", "call", "disqualified", "booked", "interested", "do_not_call")
 PHONE_HEADER_WORDS = ("phone", "mobile", "cell", "tel", "number", "whatsapp")
 BUSINESS_HEADER_WORDS = ("business", "company", "organization", "organisation", "employer", "account", "firm")
 TIMEZONE_HEADER_WORDS = ("timezone", "time zone", "tz")
@@ -278,7 +278,7 @@ class CRMStore:
             info["total"] = len(self.leads)
             return info
 
-    def set_status(self, lead_id, status):
+    def set_status(self, lead_id, status, scheduled_until=None):
         if status not in STATUSES:
             raise ValueError("Unknown prospect status")
         with self.lock:
@@ -287,7 +287,16 @@ class CRMStore:
             if lead is None:
                 raise KeyError("Prospect not found")
             lead["status"] = status
-            lead["scheduled_until"] = (utc_now() + timedelta(hours=24)).isoformat() if status == "call" else None
+            if scheduled_until:
+                try:
+                    due = datetime.fromisoformat(str(scheduled_until))
+                except ValueError as exc:
+                    raise ValueError("Callback time must be a valid ISO datetime.") from exc
+                if due.tzinfo is None:
+                    raise ValueError("Callback time must include a timezone.")
+                lead["scheduled_until"] = due.isoformat()
+            else:
+                lead["scheduled_until"] = (utc_now() + timedelta(hours=24)).isoformat() if status == "call" else None
             self.save()
             return dict(lead)
 

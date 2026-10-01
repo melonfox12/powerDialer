@@ -1,8 +1,10 @@
 const STATUS_STYLES = {
   new: { label: "New", color: "--muted", className: "neutral" },
-  call: { label: "Call later", color: "--amber", className: "callback" },
+  call: { label: "Callback", color: "--amber", className: "callback" },
   disqualified: { label: "Disqualified", color: "--red", className: "negative" },
   booked: { label: "Booked", color: "--success", className: "positive" },
+  interested: { label: "Interested", color: "--success", className: "positive" },
+  do_not_call: { label: "Do not call", color: "--red", className: "negative" },
 };
 const STATUS_LABELS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.label]));
 const STATUS_COLOR_VARS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.color]));
@@ -69,6 +71,52 @@ async function request(path, options = {}) {
   const result = type.includes("application/json") ? await response.json() : await response.text();
   if (!response.ok) throw new Error(result?.error || `Request failed (${response.status})`);
   return result;
+}
+
+function localDateTimeParts(date, timezoneName) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezoneName,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(date);
+  return Object.fromEntries(parts.filter((part) => part.type !== "literal").map((part) => [part.type, part.value]));
+}
+
+function nextBusinessCallback(lead) {
+  const timeZone = timezoneFor(lead.timezone);
+  const local = localDateTimeParts(new Date(Date.now() + 24 * 60 * 60 * 1000), timeZone);
+  local.hour = "09";
+  local.minute = "00";
+  return `${local.year}-${local.month}-${local.day}T${local.hour}:${local.minute}`;
+}
+
+function timezoneFor(name) {
+  const zones = {
+    Eastern: "America/New_York", Central: "America/Chicago",
+    Mountain: "America/Denver", Pacific: "America/Los_Angeles",
+    Alaska: "America/Anchorage", Hawaii: "Pacific/Honolulu",
+  };
+  return zones[name] || name || "America/New_York";
+}
+
+function localDateTimeToUtc(value, timezoneName) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) throw new Error("Choose a valid callback date and time.");
+  const desired = Date.UTC(...[Number(match[1]), Number(match[2]) - 1, Number(match[3]), Number(match[4]), Number(match[5])]);
+  let candidate = desired;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const parts = localDateTimeParts(new Date(candidate), timezoneName);
+    const observed = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+    candidate += desired - observed;
+  }
+  return new Date(candidate).toISOString();
+}
+
+function celebrateBooked() {
+  const stage = byId("callStage");
+  stage.classList.remove("booked-celebration");
+  void stage.offsetWidth;
+  stage.classList.add("booked-celebration");
 }
 
 function postJson(path, payload = {}) {
@@ -298,7 +346,7 @@ function renderTable() {
     const select = document.createElement("select");
     select.className = `status-select status-${STATUS_STYLES[lead.status]?.className || "neutral"}`;
     select.setAttribute("aria-label", `Call status for ${lead.name || lead.phone}`);
-    for (const value of ["new", "call", "booked", "disqualified"]) {
+    for (const value of ["new", "call", "booked", "interested", "disqualified", "do_not_call"]) {
       const option = document.createElement("option");
       option.value = value;
       option.textContent = value === "call" && statusDate(lead) ? `Call (${statusDate(lead)})` : STATUS_LABELS[value];
@@ -519,6 +567,7 @@ function renderDialer() {
   byId("dialerMessage").classList.toggle("error", Boolean(state.last_error));
 
   const target = active || pending || (state.in_flight?.find((call) => call.state === "connecting")?.lead);
+  const ringing = state.in_flight?.some((call) => call.state === "ringing");
   const activeCall = byId("activeCall");
   activeCall.replaceChildren();
   const avatar = document.createElement("div");
@@ -542,9 +591,9 @@ function renderDialer() {
   byId("startButton").disabled = state.running;
   byId("pauseButton").disabled = !state.running;
   byId("pauseButton").textContent = state.paused ? "Resume" : "Pause";
-  byId("hangupButton").disabled = !active;
-  byId("hangupButton").classList.toggle("button-danger-quiet", Boolean(active));
-  byId("hangupButton").classList.toggle("button-secondary", !active);
+  byId("hangupButton").disabled = !active && !ringing;
+  byId("hangupButton").classList.toggle("button-danger-quiet", Boolean(active || ringing));
+  byId("hangupButton").classList.toggle("button-secondary", !active && !ringing);
   byId("skipVoicemailButton").disabled = !active && !(state.in_flight?.length);
   byId("stopButton").disabled = !state.running;
   const caller = state.caller_ids?.[0];
@@ -552,12 +601,23 @@ function renderDialer() {
   byId("callerIdLine").querySelector("span").textContent = caller || "Not connected";
   renderCallMonitor();
 
-  const outcomeLead = pending || active;
+  const outcomeLead = pending;
   const outcomeDisabled = !outcomeLead || outcomeSubmitting;
   byId("outcomeRow").hidden = !outcomeLead;
   byId("outcomeCallButton").disabled = outcomeDisabled;
   byId("outcomeBookedButton").disabled = outcomeDisabled;
   byId("outcomeDisqualifiedButton").disabled = outcomeDisabled;
+  for (const id of ["outcomeNoAnswerButton", "outcomeDncButton"]) byId(id).disabled = outcomeDisabled;
+  const callbackPicker = byId("callbackPicker");
+  callbackPicker.hidden = !state.pending_outcome || !callbackPicker.dataset.open;
+  const advancing = Boolean(state.advance_at && !state.paused);
+  byId("autoAdvance").hidden = !advancing;
+  byId("advanceNowButton").hidden = !advancing;
+  if (advancing) {
+    const seconds = Math.max(0, Math.ceil(Number(state.advance_at) - Date.now() / 1000));
+    byId("autoAdvance").textContent = `Next prospect dialing in ${seconds}s · Space to skip`;
+  }
+  if (!state.pending_outcome) callbackPicker.dataset.open = "";
   renderSessionMomentum();
   renderCallStage(stage, target);
 }
@@ -721,7 +781,7 @@ function pieSlicePath(cx, cy, radius, startAngle, endAngle) {
 function buildStatusPieChart(leads) {
   const chart = byId("statusPieChart");
   const legend = byId("statusPieLegend");
-  const statuses = ["new", "call", "booked", "disqualified"];
+  const statuses = ["new", "call", "booked", "interested", "disqualified", "do_not_call"];
   const counts = Object.fromEntries(statuses.map((status) => [status, 0]));
   for (const lead of leads) {
     if (Object.hasOwn(counts, lead.status)) counts[lead.status] += 1;
@@ -1352,15 +1412,49 @@ byId("skipVoicemailButton").addEventListener("click", async () => {
 for (const selector of [byId("dialerTimezoneFilter"), byId("poolTimezoneFilter")]) {
   selector.addEventListener("change", (event) => selectTimezone(event.target.value));
 }
-async function submitOutcome(status) {
-  const lead = state.pending_outcome || state.active_lead;
+const callDesk = document.querySelector(".dialer-run-panel");
+callDesk.addEventListener("click", (event) => {
+  if (!event.target.closest("button, input, select, summary, a")) callDesk.focus();
+});
+document.addEventListener("keydown", (event) => {
+  if (!callDesk.contains(document.activeElement)) return;
+  if (event.target.matches("input, textarea, select, [contenteditable=true]")) return;
+  const key = event.key.toLowerCase();
+  if (["1", "2", "3", "4", "5"].includes(key) && state.stage === "wrapup") {
+    event.preventDefault();
+    byId(["outcomeBookedButton", "outcomeCallButton", "outcomeDisqualifiedButton", "outcomeNoAnswerButton", "outcomeDncButton"][Number(key) - 1]).click();
+    return;
+  }
+  if (event.key === " " && !event.repeat) {
+    event.preventDefault();
+    if (state.advance_at) byId("advanceNowButton").click();
+    else if (state.running) byId("pauseButton").click();
+    else byId("startButton").click();
+  } else if (key === "h" && (state.active_lead || state.in_flight?.some((call) => call.state === "ringing"))) {
+    event.preventDefault();
+    byId("hangupButton").click();
+  } else if (event.key === "Escape" && state.running) {
+    event.preventDefault();
+    if (!state.paused) byId("pauseButton").click();
+  } else if (event.key === "?") {
+    const help = document.querySelector(".shortcut-help");
+    help.open = !help.open;
+  }
+});
+async function submitOutcome(disposition, scheduledUntil = null) {
+  const lead = state.pending_outcome;
   if (!lead || outcomeSubmitting) return;
   outcomeSubmitting = true;
   render();
   try {
-    const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/status`, { status });
+    const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/status`, {
+      disposition,
+      scheduled_until: scheduledUntil,
+    });
     Object.assign(state, result.state);
-    showToast(`${lead.name || lead.phone}: ${status === "call" ? "call scheduled for tomorrow" : STATUS_LABELS[status].toLowerCase()}`);
+    byId("callbackPicker").dataset.open = "";
+    if (disposition === "booked") celebrateBooked();
+    showToast(`${lead.name || lead.phone}: ${disposition.replaceAll("_", " ")}`);
   } catch (error) {
     showToast(error.message, true);
   } finally {
@@ -1368,9 +1462,34 @@ async function submitOutcome(status) {
     render();
   }
 }
-byId("outcomeCallButton").addEventListener("click", () => submitOutcome("call"));
+byId("outcomeCallButton").addEventListener("click", () => {
+  const picker = byId("callbackPicker");
+  if (picker.dataset.open) {
+    byId("callbackAt").focus();
+    return;
+  }
+  if (state.pending_outcome) byId("callbackAt").value = nextBusinessCallback(state.pending_outcome);
+  picker.dataset.open = "true";
+  renderDialer();
+  byId("callbackAt").focus();
+});
+byId("saveCallbackButton").addEventListener("click", () => {
+  try {
+    const lead = state.pending_outcome;
+    const timeZone = timezoneFor(lead?.timezone);
+    submitOutcome("callback", localDateTimeToUtc(byId("callbackAt").value, timeZone));
+  } catch (error) {
+    showToast(error.message, true);
+  }
+});
 byId("outcomeBookedButton").addEventListener("click", () => submitOutcome("booked"));
-byId("outcomeDisqualifiedButton").addEventListener("click", () => submitOutcome("disqualified"));
+byId("outcomeDisqualifiedButton").addEventListener("click", () => submitOutcome("not_interested"));
+byId("outcomeNoAnswerButton").addEventListener("click", () => submitOutcome("no_answer"));
+byId("outcomeDncButton").addEventListener("click", () => submitOutcome("do_not_call"));
+byId("advanceNowButton").addEventListener("click", async () => {
+  try { Object.assign(state, await postJson("/api/advance")); render(); }
+  catch (error) { showToast(error.message, true); }
+});
 byId("refreshAudioDevices").addEventListener("click", async () => {
   try {
     await refreshAudioDevices(true);

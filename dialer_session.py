@@ -35,6 +35,13 @@ def dialer_stage(running, paused, active, pending_outcome, in_flight):
     return "dialing"
 
 
+def status_for_disposition(disposition):
+    try:
+        return DISPOSITION_TO_STATUS[disposition]
+    except KeyError as exc:
+        raise ValueError("Unknown call disposition.") from exc
+
+
 def new_session(goal=20, started_at=None):
     started = started_at or datetime.now(timezone.utc).isoformat()
     return {

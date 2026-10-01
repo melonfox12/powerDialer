@@ -36,7 +36,7 @@
 
         <div class="dashboard-stack">
           <div class="dashboard-top-row">
-            <section class="dialer-run-panel" aria-labelledby="liveTitle">
+            <section class="dialer-run-panel" aria-labelledby="liveTitle" tabindex="0">
               <div class="session-momentum" aria-label="Current session progress">
                 <div class="momentum-stats">
                   <div><span>Dials</span><strong id="sessionDials">0</strong></div>
@@ -66,16 +66,22 @@
                 <button id="pauseButton" class="button button-secondary" type="button" disabled>Pause</button>
                 <button id="hangupButton" class="button button-danger-quiet" type="button" disabled>Hang up</button>
                 <button id="stopButton" class="button button-quiet" type="button" disabled>Stop</button>
+                <details class="shortcut-help"><summary aria-label="Show keyboard shortcuts">?</summary><div>Space start / pause · H hang up · Esc pause · 1–5 choose disposition</div></details>
               </div>
               <label class="dialer-pool-filter"><span>Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
               <section id="callStage" class="call-stage" data-stage="idle" aria-live="polite" aria-atomic="true" tabindex="0" aria-label="Call stage"></section>
               <div id="outcomeRow" class="outcome-row" hidden>
-                <span class="outcome-row-label">Outcome</span>
+                <span class="outcome-row-label">Disposition</span>
                 <div class="outcome-buttons">
-                  <button id="outcomeCallButton" class="outcome-btn outcome-btn-call" type="button" disabled>Call tomorrow</button>
-                  <button id="outcomeBookedButton" class="outcome-btn outcome-btn-booked" type="button" disabled>Booked</button>
-                  <button id="outcomeDisqualifiedButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled>Disqualified</button>
+                  <button id="outcomeBookedButton" class="outcome-btn outcome-btn-booked" type="button" disabled><kbd>1</kbd>Booked</button>
+                  <button id="outcomeCallButton" class="outcome-btn outcome-btn-call" type="button" disabled><kbd>2</kbd>Callback</button>
+                  <button id="outcomeDisqualifiedButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled><kbd>3</kbd>Not interested</button>
+                  <button id="outcomeNoAnswerButton" class="outcome-btn outcome-btn-call" type="button" disabled><kbd>4</kbd>Voicemail / No answer</button>
+                  <button id="outcomeDncButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled><kbd>5</kbd>Wrong number / Do not call</button>
                 </div>
+                <label id="callbackPicker" class="callback-picker" hidden><span>Call again in prospect’s local time</span><input id="callbackAt" type="datetime-local" aria-label="Callback date and time"><button id="saveCallbackButton" class="button button-secondary" type="button">Save callback</button></label>
+                <p id="autoAdvance" class="auto-advance" hidden></p>
+                <button id="advanceNowButton" class="button button-quiet advance-now" type="button" hidden>Dial next now <kbd>Space</kbd></button>
               </div>
               <details id="callMonitorDisclosure" class="call-monitor-disclosure">
                 <summary class="call-monitor-summary">
@@ -175,9 +181,11 @@
                       <select id="statusFilter" class="filter-select" aria-label="Filter by status">
                         <option value="all">All statuses</option>
                         <option value="new">New</option>
-                        <option value="call">Call later</option>
-                        <option value="disqualified">Disqualified</option>
+                        <option value="call">Callback</option>
+                        <option value="disqualified">Not interested</option>
                         <option value="booked">Booked</option>
+                        <option value="interested">Interested</option>
+                        <option value="do_not_call">Do not call</option>
                       </select>
                     </div>
                     <div class="toolbar-actions">

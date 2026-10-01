@@ -7,7 +7,7 @@ create table if not exists public.dialer_metric_daily (
     day date not null,
     metric_key text not null check (
         metric_key in (
-            'booked', 'call_later', 'connected', 'disqualified',
+            'booked', 'call_later', 'connected', 'disqualified', 'interested',
             'dials', 'failed', 'talk_seconds', 'voicemail'
         )
     ),
@@ -18,7 +18,7 @@ create table if not exists public.dialer_metric_daily (
 create table if not exists public.dialer_metric_totals (
     metric_key text primary key check (
         metric_key in (
-            'booked', 'call_later', 'connected', 'disqualified',
+            'booked', 'call_later', 'connected', 'disqualified', 'interested',
             'dials', 'failed', 'talk_seconds', 'voicemail'
         )
     ),
@@ -54,7 +54,7 @@ set search_path = public
 as $$
 begin
     if metric_key not in (
-        'booked', 'call_later', 'connected', 'disqualified',
+        'booked', 'call_later', 'connected', 'disqualified', 'interested',
         'dials', 'failed', 'talk_seconds', 'voicemail'
     ) then
         raise exception 'Unknown dialer metric';

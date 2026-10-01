@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from crm_store import STATUSES, csv_bytes_for, parse_csv, utc_now
 
 METRIC_KEYS = {
-    "booked", "call_later", "connected", "disqualified", "dials",
+    "booked", "call_later", "connected", "disqualified", "interested", "dials",
     "failed", "talk_seconds", "voicemail",
 }
 
@@ -161,7 +161,7 @@ class SupabaseCRMStore:
             info["total"] = len(leads) + len(additions)
             return info
 
-    def set_status(self, lead_id, status):
+    def set_status(self, lead_id, status, scheduled_until=None):
         if status not in STATUSES:
             raise ValueError("Unknown prospect status")
         with self.lock:
@@ -171,9 +171,18 @@ class SupabaseCRMStore:
             if lead is None:
                 raise KeyError("Prospect not found")
             lead["status"] = status
-            lead["scheduled_until"] = (
-                (utc_now() + timedelta(hours=24)).isoformat() if status == "call" else None
-            )
+            if scheduled_until:
+                try:
+                    due = datetime.fromisoformat(str(scheduled_until))
+                except ValueError as exc:
+                    raise ValueError("Callback time must be a valid ISO datetime.") from exc
+                if due.tzinfo is None:
+                    raise ValueError("Callback time must include a timezone.")
+                lead["scheduled_until"] = due.isoformat()
+            else:
+                lead["scheduled_until"] = (
+                    (utc_now() + timedelta(hours=24)).isoformat() if status == "call" else None
+                )
             self._write(lead)
             return dict(lead)
 
