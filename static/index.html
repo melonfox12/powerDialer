@@ -37,6 +37,19 @@
         <div class="dashboard-stack">
           <div class="dashboard-top-row">
             <section class="dialer-run-panel" aria-labelledby="liveTitle">
+              <div class="session-momentum" aria-label="Current session progress">
+                <div class="momentum-stats">
+                  <div><span>Dials</span><strong id="sessionDials">0</strong></div>
+                  <div><span>Connects</span><strong id="sessionConnects">0</strong></div>
+                  <div><span>Conversations</span><strong id="sessionConversations">0</strong></div>
+                  <div><span>Meetings</span><strong id="sessionMeetings">0</strong></div>
+                </div>
+                <div class="session-goal">
+                  <div><span>Session goal</span><strong id="sessionGoalLabel">0 / 20 conversations</strong></div>
+                  <div id="sessionGoalTrack" class="goal-track" role="progressbar" aria-label="Session conversation goal" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><span id="sessionGoalProgress"></span></div>
+                </div>
+                <p id="sessionStreak" class="session-streak" hidden></p>
+              </div>
               <div class="live-panel-top">
                 <span class="live-indicator"><i></i><span id="liveLabel">DIALER STANDBY</span></span>
                 <span id="lineCount" class="line-count">0 / 2 lines</span>
@@ -55,6 +68,7 @@
                 <button id="stopButton" class="button button-quiet" type="button" disabled>Stop</button>
               </div>
               <label class="dialer-pool-filter"><span>Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
+              <section id="callStage" class="call-stage" data-stage="idle" aria-live="polite" aria-atomic="true" tabindex="0" aria-label="Call stage"></section>
               <div id="outcomeRow" class="outcome-row" hidden>
                 <span class="outcome-row-label">Outcome</span>
                 <div class="outcome-buttons">

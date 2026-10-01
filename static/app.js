@@ -47,6 +47,10 @@ const selectedLeadIds = new Set();
 let selectionAnchorId = null;
 const audioInputStorageKey = "prospect-desk-audio-input";
 const audioOutputStorageKey = "prospect-desk-audio-output";
+let previousStage = "";
+let previousSessionConversations = 0;
+let goalCelebrated = false;
+let connectedAt = null;
 
 const byId = (id) => document.getElementById(id);
 
@@ -485,6 +489,7 @@ byId("callMonitorDisclosure").addEventListener("toggle", () => {
 });
 
 function renderDialer() {
+  const stage = state.stage || "idle";
   const connected = state.running && state.agent_ready;
   const pending = state.pending_outcome;
   const active = state.active_lead;
@@ -513,7 +518,7 @@ function renderDialer() {
   setText("dialerMessage", dialerMessage);
   byId("dialerMessage").classList.toggle("error", Boolean(state.last_error));
 
-  const target = active || (state.in_flight?.find((call) => call.state === "connecting")?.lead);
+  const target = active || pending || (state.in_flight?.find((call) => call.state === "connecting")?.lead);
   const activeCall = byId("activeCall");
   activeCall.replaceChildren();
   const avatar = document.createElement("div");
@@ -553,6 +558,97 @@ function renderDialer() {
   byId("outcomeCallButton").disabled = outcomeDisabled;
   byId("outcomeBookedButton").disabled = outcomeDisabled;
   byId("outcomeDisqualifiedButton").disabled = outcomeDisabled;
+  renderSessionMomentum();
+  renderCallStage(stage, target);
+}
+
+function renderSessionMomentum() {
+  const stats = state.session_stats || {};
+  const goal = Number(stats.goal || state.settings?.session_goal || 20);
+  const conversations = Number(stats.conversations || 0);
+  setText("sessionDials", String(stats.dials || 0));
+  setText("sessionConnects", String(stats.connects || 0));
+  setText("sessionConversations", String(conversations));
+  setText("sessionMeetings", String(stats.meetings_booked || 0));
+  setText("sessionGoalLabel", `${conversations} / ${goal} conversations`);
+  const progress = byId("sessionGoalTrack");
+  progress.setAttribute("aria-valuemax", String(goal));
+  progress.setAttribute("aria-valuenow", String(Math.min(conversations, goal)));
+  byId("sessionGoalProgress").style.width = `${goal ? Math.min(100, conversations / goal * 100) : 0}%`;
+  const streak = Number(stats.current_streak || 0);
+  const streakElement = byId("sessionStreak");
+  streakElement.hidden = streak < 2;
+  streakElement.textContent = streak >= 2 ? `${streak} connects in the last 10 min` : "";
+  if (conversations >= goal && previousSessionConversations < goal && !goalCelebrated) {
+    goalCelebrated = true;
+    showToast("Session goal reached — great work!");
+  }
+  previousSessionConversations = conversations;
+}
+
+function renderCallStage(stage, target) {
+  const container = byId("callStage");
+  container.dataset.stage = stage;
+  const fragment = document.createDocumentFragment();
+  const heading = document.createElement("strong");
+  const detail = document.createElement("span");
+  const stats = state.session_stats || {};
+  if (stage === "connected" && target) {
+    heading.textContent = "LIVE";
+    detail.textContent = `${target.business || target.name || "Prospect"} · ${formatPhoneNumber(target.phone)}`;
+    container.classList.add("call-stage-live");
+  } else if (stage === "paused") {
+    heading.textContent = "Session paused";
+    detail.textContent = "Resume when you’re ready to continue the queue.";
+    container.classList.remove("call-stage-live");
+  } else if (stage === "wrapup" && target) {
+    heading.textContent = "Call complete";
+    detail.textContent = `Choose a disposition for ${target.business || target.name || formatPhoneNumber(target.phone)}.`;
+    container.classList.remove("call-stage-live");
+  } else if (stage === "dialing" || stage === "ringing") {
+    const calls = state.in_flight || [];
+    heading.textContent = stage === "ringing" ? "Ring in progress" : "Dialing next prospect";
+    detail.textContent = calls.map((call) => `${call.lead?.business || call.lead?.name || "Prospect"} · ${call.state === "ringing" ? "Ringing" : "Dialing"}`).join(" · ") || state.last_event || "Connecting to the next prospect…";
+    container.classList.remove("call-stage-live");
+  } else {
+    const goal = Number(stats.goal || state.settings?.session_goal || 20);
+    heading.textContent = stats.conversations ? `${stats.conversations} of ${goal} conversations toward your goal` : "Your next conversation starts here";
+    const next = state.pool?.[0];
+    const clock = next ? localTimeLabel(next.timezone) : "";
+    detail.textContent = next
+      ? `Next up: ${next.business || next.name || "Prospect"} · ${formatPhoneNumber(next.phone)} · ${clock || next.timezone || "Local time unavailable"}`
+      : "Import prospects or adjust the timezone filter to build your queue.";
+    container.classList.remove("call-stage-live");
+  }
+
+  function localTimeLabel(timezoneName) {
+    const zones = {
+      Eastern: "America/New_York",
+      Central: "America/Chicago",
+      Mountain: "America/Denver",
+      Pacific: "America/Los_Angeles",
+      Alaska: "America/Anchorage",
+      Hawaii: "Pacific/Honolulu",
+    };
+    const zone = zones[timezoneName] || timezoneName;
+    try {
+      const timeText = new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit", timeZone: zone }).format(new Date());
+      return `${timeText} ${timezoneName}`;
+    } catch (error) {
+      if (error instanceof RangeError) return "";
+      throw error;
+    }
+  }
+  fragment.append(heading, detail);
+  container.replaceChildren(fragment);
+  if (stage !== previousStage && stage !== "idle") {
+    container.classList.remove("stage-enter");
+    void container.offsetWidth;
+    container.classList.add("stage-enter");
+  }
+  if (stage === "connected" && previousStage !== "connected") connectedAt = Date.now();
+  if (stage !== "connected") connectedAt = null;
+  previousStage = stage;
 }
 
 function formatMinutes(totalSeconds) {

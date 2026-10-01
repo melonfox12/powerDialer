@@ -12,6 +12,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
+from dialer_session import add_connect, dialer_stage, new_session, recent_streak, session_summary
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 from twilio.twiml.voice_response import VoiceResponse
@@ -106,6 +107,11 @@ class TwilioDialer:
         self.selected_timezone = None
         self.activity_log = []
         self.activity_sequence = 0
+        self.session = None
+
+    def _save_session(self):
+        if self.metrics and self.session and hasattr(self.metrics, "save_session"):
+            self.metrics.save_session(self.session)
 
     def _pool_leads(self, leads=None):
         leads = self.crm.snapshot() if leads is None else leads
@@ -166,6 +172,7 @@ class TwilioDialer:
                     "partials": list(active_call.get("transcript_partials", {}).values()) if active_call else [],
                     "transcribing": bool(active_call and active_call.get("transcribing")),
                 },
+                "session": dict(self.session) if self.session else None,
             }
         by_id = {lead["id"]: lead for lead in leads}
         state["active_lead"] = by_id.get(active_id)
@@ -175,6 +182,18 @@ class TwilioDialer:
         state["timezone_groups"] = [{"name": name, "count": count} for name, count in groups]
         state["selected_timezone"] = self.selected_timezone
         state["pool"] = self._pool_leads(leads)
+        state["queue_count"] = len(state["pool"])
+        state["stage"] = dialer_stage(
+            state["running"], state["paused"], active_call,
+            bool(pending_id), state["in_flight"],
+        )
+        session = state.pop("session")
+        if session:
+            session["current_streak"] = recent_streak(session)
+        state["session_stats"] = {
+            key: value for key, value in (session or new_session()).items()
+            if key != "connect_times"
+        }
         state["in_flight"] = [
             {**item, "lead": by_id.get(item["lead_id"])} for item in state["in_flight"]
         ]
@@ -295,6 +314,8 @@ class TwilioDialer:
             self.callers = callers
             self.caller_index = 0
             self.conference = "crm-" + secrets.token_hex(8)
+            self.session = new_session()
+            self._save_session()
             self.last_error = ""
             self.last_event = "Connecting computer audio"
             agent_call = self._new_call("agent", None)
@@ -345,6 +366,9 @@ class TwilioDialer:
         if kind == "prospect":
             self.in_flight[token] = call
             self._bump("dials")
+            if self.session:
+                self.session["dials"] += 1
+                self._save_session()
         return call
 
     def _url(self, call, action):
@@ -434,6 +458,9 @@ class TwilioDialer:
             else:
                 return 200, "text/plain", "OK"
         if action == "ring":
+            with self.lock:
+                if call["kind"] == "prospect" and not call["handled"] and not call["cancelled"]:
+                    call["state"] = "ringing"
             if call.get("cancelled") and call_uuid:
                 self._hangup_call(call_uuid)
             return 200, "text/plain", "OK"
@@ -574,6 +601,9 @@ class TwilioDialer:
                 call["state"] = "connecting"
                 self.active = call
                 self.last_event = f"Connecting {call['lead'].get('name') or call['lead']['phone']}"
+                if self.session:
+                    add_connect(self.session)
+                    self._save_session()
                 call_uuid = call.get("call_uuid")
                 others = [item for item in self.in_flight.values() if item is not call]
         if not self.active or self.active is not call:
@@ -617,6 +647,11 @@ class TwilioDialer:
                 self._bump("connected")
                 if duration:
                     self._bump("talk_seconds", duration)
+                    # A conversation is a human-connected call lasting at least the configured threshold.
+                    threshold = int(self.settings.get("CONVERSATION_THRESHOLD_SECONDS", "30"))
+                    if duration >= threshold and self.session:
+                        self.session["conversations"] += 1
+                self._save_session()
             should_fill = False
             if self.running:
                 if outcome_already_chosen:
@@ -663,6 +698,9 @@ class TwilioDialer:
         metric_key = "call_later" if status == "call" else status
         self._bump(metric_key)
         with self.lock:
+            if status == "booked" and self.session:
+                self.session["meetings_booked"] += 1
+                self._save_session()
             if self.pending_outcome == lead_id:
                 self.pending_outcome = None
             self.last_event = f"{result['name'] or result['phone']} marked {status}"
@@ -749,11 +787,23 @@ class TwilioDialer:
             self.pending_outcome = None
             self.in_flight.clear()
             self.last_event = "Stopped"
+            summary = session_summary(self.session) if self.session else None
+            if summary:
+                self.session.update(summary)
+                self._save_session()
         self.record_activity("Dialer stopped", "call")
         for call in calls:
             if call.get("call_uuid"):
                 threading.Thread(target=self._hangup_call, args=(call["call_uuid"],), daemon=True).start()
-        return self.public_state()
+        result = self.public_state()
+        if summary:
+            result["session_summary"] = summary
+            if self.metrics:
+                result["previous_session"] = next(
+                    (item for item in self.metrics.recent_sessions(5) if item.get("id") != summary["id"]),
+                    None,
+                )
+        return result
 
     def _cancel_call(self, call):
         with self.lock:

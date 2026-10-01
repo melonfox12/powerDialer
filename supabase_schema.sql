@@ -25,16 +25,26 @@ create table if not exists public.dialer_metric_totals (
     value bigint not null default 0 check (value >= 0)
 );
 
+create table if not exists public.dialer_sessions (
+    id text primary key,
+    started_at timestamptz not null,
+    ended_at timestamptz,
+    data jsonb not null check (jsonb_typeof(data) = 'object')
+);
+
 alter table public.prospects enable row level security;
 alter table public.dialer_metric_daily enable row level security;
 alter table public.dialer_metric_totals enable row level security;
+alter table public.dialer_sessions enable row level security;
 
 revoke all on public.prospects from public, anon, authenticated;
 revoke all on public.dialer_metric_daily from public, anon, authenticated;
 revoke all on public.dialer_metric_totals from public, anon, authenticated;
+revoke all on public.dialer_sessions from public, anon, authenticated;
 grant all on public.prospects to service_role;
 grant all on public.dialer_metric_daily to service_role;
 grant all on public.dialer_metric_totals to service_role;
+grant all on public.dialer_sessions to service_role;
 
 create or replace function public.increment_dialer_metric(metric_key text, increment_by integer)
 returns void

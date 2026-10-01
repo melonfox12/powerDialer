@@ -244,6 +244,30 @@ class SupabaseMetricsStore:
             payload={"metric_key": key, "increment_by": amount},
         )
 
+    def save_session(self, session):
+        self.client.request(
+            "POST",
+            "dialer_sessions",
+            {"on_conflict": "id"},
+            {
+                "id": session["id"],
+                "started_at": session["started_at"],
+                "ended_at": session.get("ended_at"),
+                "data": session,
+            },
+            "resolution=merge-duplicates,return=minimal",
+        )
+
+    def recent_sessions(self, limit=5):
+        rows = self.client.request(
+            "GET",
+            "dialer_sessions",
+            {"select": "data", "order": "started_at.desc", "limit": str(limit)},
+        )
+        if not isinstance(rows, list) or any(not isinstance(row.get("data"), dict) for row in rows):
+            raise OSError("Supabase returned an invalid session history response.")
+        return [row["data"] for row in rows]
+
     def snapshot(self, days=7):
         today = utc_now().date()
         start = today - timedelta(days=days - 1)
@@ -320,6 +344,7 @@ def migrate_local_data(client, crm_path, metrics_path):
     existing_totals = client.select_all(
         "dialer_metric_totals", {"select": "metric_key,value"}
     )
+    existing_sessions = client.select_all("dialer_sessions", {"select": "id,data"})
     for row in existing_prospects:
         if not isinstance(row, dict):
             raise ValueError("Migration stopped: Supabase contains an invalid prospect record.")
@@ -335,6 +360,15 @@ def migrate_local_data(client, crm_path, metrics_path):
             raise ValueError("Migration stopped: Supabase contains an invalid all-time metric.")
         if local_totals.get(row.get("metric_key")) != row.get("value"):
             raise ValueError("Migration stopped: Supabase contains all-time metrics that differ from local data.")
+    local_sessions = {
+        session["id"]: session for session in metric_data.get("sessions", [])
+        if isinstance(session, dict) and session.get("id")
+    }
+    for row in existing_sessions:
+        if not isinstance(row, dict):
+            raise ValueError("Migration stopped: Supabase contains an invalid session.")
+        if local_sessions.get(row.get("id")) != row.get("data"):
+            raise ValueError("Migration stopped: Supabase contains session data that differs from local data.")
     for start in range(0, len(prospects), 500):
         batch = prospects[start:start + 500]
         client.request(
@@ -363,4 +397,17 @@ def migrate_local_data(client, crm_path, metrics_path):
                 "POST", table, payload=rows[start:start + 500],
                 prefer="resolution=merge-duplicates,return=minimal",
             )
+    sessions = list(local_sessions.values())
+    for start in range(0, len(sessions), 500):
+        client.request(
+            "POST",
+            "dialer_sessions",
+            payload=[{
+                "id": session["id"],
+                "started_at": session["started_at"],
+                "ended_at": session.get("ended_at"),
+                "data": session,
+            } for session in sessions[start:start + 500]],
+            prefer="resolution=merge-duplicates,return=minimal",
+        )
     return {"prospects": len(prospects), "daily_metrics": len(daily_rows), "totals": len(total_rows)}

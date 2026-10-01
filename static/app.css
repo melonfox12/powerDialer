@@ -706,10 +706,40 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
   text-align: center;
 }
 
+.session-momentum { display: grid; gap: 9px; margin-bottom: 14px; padding: 11px; border: 1px solid var(--line); border-radius: var(--radius-md); background: rgba(255, 255, 255, .02); }
+.momentum-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.momentum-stats > div { display: grid; gap: 3px; }
+.momentum-stats span, .session-goal > div:first-child span { color: var(--muted); font-size: 9px; }
+.momentum-stats strong { color: var(--ink); font-family: var(--mono); font-size: 17px; font-weight: 550; }
+.session-goal > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.session-goal strong { color: var(--ink-secondary); font-family: var(--mono); font-size: 10px; font-weight: 500; }
+.goal-track { height: 5px; overflow: hidden; border-radius: var(--radius-full); background: var(--line-strong); }
+.goal-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--success); transition: width .2s ease; }
+.session-streak { margin: 0; color: var(--success); font-size: 10px; }
+.session-streak[hidden] { display: none; }
+.call-stage { display: flex; min-height: 112px; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: 7px; margin-top: 11px; padding: 15px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); color: var(--muted); }
+.call-stage strong { color: var(--ink); font-size: 16px; font-weight: 590; }
+.call-stage span { font-size: 11px; line-height: 1.5; }
+.call-stage[data-stage="dialing"] strong, .call-stage[data-stage="ringing"] strong { color: var(--amber); }
+.call-stage[data-stage="paused"] strong { color: var(--ink-secondary); }
+.call-stage-live { border-color: rgba(235, 87, 87, .45); background: var(--red-soft); }
+.call-stage-live strong { color: var(--red); font-size: 20px; letter-spacing: .08em; }
+.stage-enter { animation: stage-enter .2s ease-out both; }
+@keyframes stage-enter { from { opacity: .55; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.dialer-run-panel { min-height: 0; }
+.dialer-controls { flex: none; }
+.dialer-pool-filter, .call-monitor-disclosure { flex: none; }
+
 @media (min-width: 821px) {
   .dialer-run-panel { padding: 14px; }
   .dialer-run-panel h2 { margin-top: 5px; font-size: 18px; }
   .dialer-controls { grid-template-columns: 1.3fr .75fr .85fr .65fr; gap: 6px; }
   .dialer-controls .button { min-height: 38px; padding: 0 6px; font-size: 11px; }
   .active-call { min-height: 60px; }
+}
+
+@media (max-width: 1280px) {
+  .momentum-stats strong { font-size: 14px; }
+  .session-momentum { padding: 8px; }
+  .call-stage { min-height: 82px; padding: 11px; }
 }

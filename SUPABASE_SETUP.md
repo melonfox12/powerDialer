@@ -5,7 +5,7 @@ The app can store prospects, transcripts, statuses, and call metrics in Supabase
 ## Configure
 
 1. Create a Supabase project.
-2. In the SQL editor, run [`supabase_schema.sql`](./supabase_schema.sql).
+2. In the SQL editor, run [`supabase_schema.sql`](./supabase_schema.sql). If you already installed an earlier version of this schema, run the updated script again to create the session history table.
 3. Add the settings shown in [`.env.example`](./.env.example) to the private `.env` file, then set:
    - `SUPABASE_URL`: the project URL, such as `https://your-project.supabase.co`
    - `SUPABASE_SECRET_KEY`: a server-only Supabase secret key (`sb_secret_...`), or for legacy projects, `SUPABASE_SERVICE_ROLE_KEY`

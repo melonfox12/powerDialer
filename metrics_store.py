@@ -26,6 +26,7 @@ class MetricsStore:
                     pass
             self.data.setdefault("daily", {})
             self.data.setdefault("all_time", {})
+            self.data.setdefault("sessions", [])
 
     def save(self):
         with self.lock:
@@ -44,6 +45,22 @@ class MetricsStore:
             bucket[key] = bucket.get(key, 0) + amount
             self.data["all_time"][key] = self.data["all_time"].get(key, 0) + amount
             self.save()
+
+    def save_session(self, session):
+        with self.lock:
+            sessions = self.data.setdefault("sessions", [])
+            for index, stored in enumerate(sessions):
+                if stored.get("id") == session.get("id"):
+                    sessions[index] = dict(session)
+                    break
+            else:
+                sessions.append(dict(session))
+            self.data["sessions"] = sessions[-100:]
+            self.save()
+
+    def recent_sessions(self, limit=5):
+        with self.lock:
+            return [dict(session) for session in reversed(self.data.get("sessions", [])[-limit:])]
 
     def snapshot(self, days=7):
         with self.lock:
