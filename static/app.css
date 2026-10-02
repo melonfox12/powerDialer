@@ -792,6 +792,48 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
 .call-stage strong { color: var(--ink); font-size: 16px; font-weight: 590; }
 .call-stage span { font-size: 11px; line-height: 1.5; }
 .call-stage[data-stage="dialing"] strong, .call-stage[data-stage="ringing"] strong { color: var(--amber); }
+.arcade-viewport { position: relative; display: flex; min-height: 112px; align-items: center; justify-content: center; gap: 18px; margin-top: 8px; padding: 14px; overflow: hidden; border: 1px solid rgba(225, 183, 109, .28); border-radius: var(--radius-md); background: radial-gradient(ellipse at center, rgba(225, 183, 109, .08), var(--canvas) 72%); transition: opacity .3s ease, border-color .15s ease; }
+.arcade-viewport[hidden] { display: none; }
+.arcade-viewport.is-resetting { opacity: .2; }
+.arcade-viewport.is-near-miss { border-color: rgba(235, 87, 87, .75); }
+.arcade-viewport.is-match { border-color: rgba(76, 195, 138, .72); box-shadow: 0 0 24px rgba(76, 195, 138, .12); }
+.arcade-reels { display: flex; gap: 5px; perspective: 520px; }
+.arcade-reel-window { position: relative; width: 54px; height: 58px; overflow: hidden; border: 1px solid rgba(225, 183, 109, .38); border-radius: 5px; background: linear-gradient(180deg, rgba(0,0,0,.58), rgba(225,183,109,.09) 48%, rgba(0,0,0,.58)); box-shadow: inset 0 0 10px rgba(0, 0, 0, .6); }
+.arcade-reel-window::after { position: absolute; inset: 0; content: ""; pointer-events: none; border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(255,255,255,.08); }
+.arcade-reel-rotor { position: absolute; inset: 0; transform-style: preserve-3d; }
+.arcade-reel-window.is-spinning .arcade-reel-rotor { animation: arcade-reel-spin .19s linear infinite; }
+.arcade-reel-window.is-locking .arcade-reel-rotor { transition: transform .48s cubic-bezier(.12,.78,.22,1); }
+.arcade-reel-symbol { position: absolute; inset: 0; display: grid; place-items: center; backface-visibility: hidden; color: var(--amber); font: 28px/1 "Segoe UI Symbol", "Apple Color Emoji", sans-serif; text-shadow: 0 0 12px rgba(225,183,109,.28); transform: rotateX(var(--symbol-angle)) translateZ(34px); }
+.arcade-feedback { min-width: 0; display: grid; gap: 5px; color: var(--muted); font-size: 10px; }
+.arcade-feedback strong { color: var(--success); font: 600 16px var(--mono); }
+.arcade-viewport.is-match .arcade-feedback strong { animation: arcade-value-pop .25s ease-out; }
+.arcade-viewport.is-near-miss .arcade-feedback > span { color: var(--red); }
+.arcade-reels-disabled .arcade-reels { display: none; }
+.arcade-particles { position: fixed; z-index: 1000; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.arcade-settings { margin-top: 17px; border-top: 1px solid var(--line); color: var(--ink-secondary); font-size: 11px; }
+.arcade-settings > summary { padding: 14px 0 3px; color: var(--ink); cursor: pointer; font-weight: 590; }
+.arcade-settings-content { padding: 3px 0 4px; }
+.arcade-settings-content .form-footnote { margin: 8px 0 12px; }
+.arcade-settings-content input[type="range"] { width: 100%; accent-color: var(--success); }
+@keyframes arcade-reel-spin { from { transform: rotateX(0deg); } to { transform: rotateX(360deg); } }
+@keyframes arcade-value-pop { 50% { transform: scale(1.12); } }
+.dialer-run-panel.arcade-shake { animation: arcade-shake .38s ease-in-out; }
+.dialer-run-panel { position: relative; }
+.dialer-run-panel.arcade-failure-flash { border-color: rgba(235, 87, 87, .9); }
+.dialer-run-panel.arcade-failure-flash::after { position: absolute; z-index: 5; inset: 0; content: ""; pointer-events: none; border-radius: inherit; background: radial-gradient(ellipse at center, transparent 32%, rgba(190, 35, 48, .22) 100%); animation: arcade-vignette .15s ease-out both; }
+@keyframes arcade-vignette { from { opacity: 1; } to { opacity: 0; } }
+@keyframes arcade-shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  20% { transform: translate3d(-4px, 1px, 0); }
+  40% { transform: translate3d(4px, -1px, 0); }
+  60% { transform: translate3d(-3px, 0, 0); }
+  80% { transform: translate3d(3px, 1px, 0); }
+}
+@media (max-width: 560px) {
+  .arcade-viewport { min-height: 100px; gap: 10px; padding: 10px; }
+  .arcade-reel-window { width: 46px; height: 52px; }
+  .arcade-reel-symbol { font-size: 24px; }
+}
 .call-stage[data-stage="paused"] strong { color: var(--ink-secondary); }
 .call-stage-live { border-color: rgba(235, 87, 87, .45); background: var(--red-soft); }
 .call-stage-live strong { color: var(--red); font-size: 20px; letter-spacing: .08em; }

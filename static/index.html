@@ -59,6 +59,17 @@
                 <details class="shortcut-help"><summary aria-label="Show keyboard shortcuts">?</summary><div>Space start / pause · H hang up · Esc pause · 1–5 choose disposition</div></details>
               </div>
               <section id="callStage" class="call-stage" data-stage="idle" aria-live="off" tabindex="0" aria-label="Call stage"></section>
+              <section id="arcadeViewport" class="arcade-viewport" aria-label="Call feedback" aria-live="off" hidden>
+                <div class="arcade-reels" aria-hidden="true">
+                  <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                  <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                  <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                </div>
+                <div class="arcade-feedback">
+                  <span id="arcadeStatus" role="status" aria-live="polite">Preparing next call</span>
+                  <strong id="arcadeValue" aria-live="off" hidden></strong>
+                </div>
+              </section>
               <span id="stageAnnouncer" class="visually-hidden" role="status" aria-live="polite"></span>
               <div id="outcomeRow" class="outcome-row" hidden>
                 <span class="outcome-row-label">Disposition</span>
@@ -269,6 +280,18 @@
           <label class="sound-setting"><input id="soundsEnabledInput" type="checkbox"> Connect and booked sounds</label>
           <label class="form-field"><span>Sound volume <output id="soundVolumeValue">35%</output></span><input id="soundVolumeInput" type="range" min="0" max="100"></label>
         </section>
+        <details class="arcade-settings">
+          <summary>UI Gamification Profiles</summary>
+          <div class="arcade-settings-content">
+            <p class="form-footnote">Sensory feedback runs only in this browser and never changes call timing.</p>
+            <label class="sound-setting"><input id="arcadeEnabledInput" type="checkbox"> Enable arcade feedback</label>
+            <label class="sound-setting"><input id="arcadeReelsInput" type="checkbox"> Reel animations</label>
+            <label class="sound-setting"><input id="arcadeSoundInput" type="checkbox"> Arcade sound effects</label>
+            <label class="form-field"><span>Arcade sound volume <output id="arcadeVolumeValue">35%</output></span><input id="arcadeVolumeInput" type="range" min="0" max="100" value="35"></label>
+            <label class="sound-setting"><input id="arcadeShakeInput" type="checkbox"> Screen shake</label>
+            <label class="sound-setting"><input id="arcadeHapticsInput" type="checkbox"> Haptic feedback (compatible devices)</label>
+          </div>
+        </details>
         <section class="audio-settings" aria-labelledby="audioSettingsTitle">
           <div class="audio-section-heading"><div class="eyebrow">COMPUTER AUDIO</div><h3 id="audioSettingsTitle">Devices &amp; test</h3></div>
           <div class="audio-device-grid">
@@ -291,6 +314,7 @@
         <div class="dialog-actions"><button id="cancelSettings" class="button button-quiet" type="button">Cancel</button><button class="button button-primary" type="submit">Save settings</button></div>
       </form>
     </dialog>
+    <canvas id="arcadeParticles" class="arcade-particles" aria-hidden="true"></canvas>
 
     <dialog id="sessionSummaryDialog" class="session-summary-dialog" aria-labelledby="sessionSummaryTitle">
       <section class="session-summary-content">

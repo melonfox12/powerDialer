@@ -59,6 +59,8 @@ let dismissedBreakForSession = null;
 let userInteracted = false;
 let audioContext = null;
 let celebratedSessionId = null;
+let sensoryActivityPrimed = false;
+const seenSensoryActivity = new Set();
 
 const byId = (id) => document.getElementById(id);
 
@@ -77,6 +79,27 @@ async function request(path, options = {}) {
   const result = type.includes("application/json") ? await response.json() : await response.text();
   if (!response.ok) throw new Error(result?.error || `Request failed (${response.status})`);
   return result;
+}
+
+function processSensoryActivity(activity) {
+  const keyFor = (entry) => `${entry.timestamp || ""}:${entry.source || ""}:${entry.message || ""}`;
+  if (!sensoryActivityPrimed) {
+    activity.forEach((entry) => seenSensoryActivity.add(keyFor(entry)));
+    sensoryActivityPrimed = true;
+    return;
+  }
+  for (const entry of activity) {
+    const key = keyFor(entry);
+    if (seenSensoryActivity.has(key)) continue;
+    seenSensoryActivity.add(key);
+    const failedCall = /no human answer|voicemail|answer detection timed out|call request failed|call failed|busy signal/i.test(entry.message || "");
+    if (failedCall && ["call", "error"].includes(entry.source)) arcadeSensory.reset();
+  }
+  if (seenSensoryActivity.size > 160) {
+    const recent = activity.map(keyFor);
+    seenSensoryActivity.clear();
+    recent.forEach((key) => seenSensoryActivity.add(key));
+  }
 }
 
 function localDateTimeParts(date, timezoneName) {
@@ -157,6 +180,389 @@ function playCue(kind) {
     oscillator.stop(start + 0.15);
   });
 }
+
+class ArcadeSensoryController {
+  constructor() {
+    this.preferencesKey = "prospect-desk-arcade-profile";
+    this.defaults = { enabled: true, reels: true, sound: true, volume: 35, shake: true, haptics: true };
+    this.preferences = this.loadPreferences();
+    this.viewport = byId("arcadeViewport");
+    this.reelWindows = [...this.viewport.querySelectorAll(".arcade-reel-window")];
+    this.reels = this.reelWindows.map((windowElement) => {
+      const rotor = windowElement.querySelector(".arcade-reel-rotor");
+      for (const [index, symbol] of ["＄", "◆", "☎", "🔇", "★"].entries()) {
+        const item = document.createElement("span");
+        item.className = "arcade-reel-symbol";
+        item.textContent = symbol;
+        item.style.setProperty("--symbol-angle", `${index * 72}deg`);
+        rotor.append(item);
+      }
+      return rotor;
+    });
+    this.canvas = byId("arcadeParticles");
+    this.context = this.canvas.getContext("2d");
+    this.particles = [];
+    this.particleFrame = 0;
+    this.tickTimer = 0;
+    this.tickCount = 0;
+    this.timeouts = new Set();
+    this.phase = "idle";
+    this.activeLeadKey = null;
+    this.lastMatchKey = null;
+    this.pendingSpinKey = null;
+    this.valueAnimation = 0;
+    this.viewport.hidden = true;
+    this.syncControls();
+    window.addEventListener("resize", () => this.resizeCanvas());
+    this.resizeCanvas();
+  }
+
+  loadPreferences() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(this.preferencesKey) || "{}");
+      const volume = Number(saved.volume ?? this.defaults.volume);
+      return {
+        ...this.defaults,
+        ...saved,
+        enabled: saved.enabled ?? this.defaults.enabled,
+        reels: saved.reels ?? this.defaults.reels,
+        sound: saved.sound ?? this.defaults.sound,
+        shake: saved.shake ?? this.defaults.shake,
+        haptics: saved.haptics ?? this.defaults.haptics,
+        volume: Number.isFinite(volume) ? Math.max(0, Math.min(100, volume)) : this.defaults.volume,
+      };
+    } catch (error) {
+      console.warn("Arcade profile could not be loaded:", error);
+      return { ...this.defaults };
+    }
+  }
+
+  syncControls() {
+    byId("arcadeEnabledInput").checked = this.preferences.enabled;
+    byId("arcadeReelsInput").checked = this.preferences.reels;
+    byId("arcadeSoundInput").checked = this.preferences.sound;
+    byId("arcadeVolumeInput").value = this.preferences.volume;
+    byId("arcadeShakeInput").checked = this.preferences.shake;
+    byId("arcadeHapticsInput").checked = this.preferences.haptics;
+    setText("arcadeVolumeValue", `${this.preferences.volume}%`);
+    this.viewport.classList.toggle("arcade-reels-disabled", !this.preferences.reels);
+  }
+
+  updatePreferences(changes) {
+    this.preferences = { ...this.preferences, ...changes };
+    if (!this.preferences.enabled) this.stop();
+    else if (!this.canPlaySound()) this.stopTicking();
+    else if (this.phase === "spinning") this.startTicking();
+    this.syncControls();
+    try {
+      localStorage.setItem(this.preferencesKey, JSON.stringify(this.preferences));
+    } catch (error) {
+      console.error("Arcade profile could not be saved:", error);
+      showToast("Arcade profile could not be saved in this browser.", true);
+    }
+  }
+
+  schedule(callback, delay) {
+    const timer = setTimeout(() => {
+      this.timeouts.delete(timer);
+      callback();
+    }, delay);
+    this.timeouts.add(timer);
+    return timer;
+  }
+
+  clearTimers() {
+    clearInterval(this.tickTimer);
+    this.tickTimer = 0;
+    for (const timer of this.timeouts) clearTimeout(timer);
+    this.timeouts.clear();
+    document.querySelector(".dialer-run-panel").classList.remove("arcade-failure-flash", "arcade-shake");
+  }
+
+  stopTicking() {
+    clearInterval(this.tickTimer);
+    this.tickTimer = 0;
+  }
+
+  stop() {
+    this.clearTimers();
+    this.stopParticles();
+    this.valueAnimation += 1;
+    this.phase = "idle";
+    this.viewport.hidden = true;
+    this.viewport.classList.remove("is-resetting", "is-near-miss", "is-match");
+    for (const windowElement of this.reelWindows) {
+      windowElement.classList.remove("is-spinning", "is-locking", "is-near-miss");
+    }
+  }
+
+  startSpin(leadKey) {
+    if (!this.preferences.enabled) return;
+    if (this.phase === "resetting") {
+      this.pendingSpinKey = leadKey;
+      return;
+    }
+    if (this.phase === "spinning" && this.activeLeadKey === leadKey) return;
+    this.clearTimers();
+    this.stopParticles();
+    this.activeLeadKey = leadKey;
+    this.phase = "spinning";
+    this.viewport.hidden = false;
+    this.viewport.classList.remove("is-resetting", "is-near-miss", "is-match");
+    this.viewport.querySelector("#arcadeValue").hidden = true;
+    this.viewport.querySelector("#arcadeValue").textContent = "";
+    setText("arcadeStatus", "Evaluating connection");
+    this.reelWindows.forEach((windowElement, index) => {
+      windowElement.classList.remove("is-locking", "is-near-miss");
+      windowElement.classList.toggle("is-spinning", this.preferences.reels);
+      this.reels[index].style.transition = "";
+      this.reels[index].style.transform = "";
+    });
+    this.startTicking();
+  }
+
+  startTicking() {
+    this.stopTicking();
+    if (!this.canPlaySound()) return;
+    this.tickCount = 0;
+    this.tickTimer = setInterval(() => {
+      this.tickCount += 1;
+      this.playTick(540 + Math.min(900, this.tickCount * 12));
+    }, 50);
+  }
+
+  canPlaySound() {
+    return userInteracted && this.preferences.enabled && this.preferences.sound &&
+      state.settings?.sounds_enabled !== false && this.preferences.volume > 0;
+  }
+
+  playTick(frequency) {
+    const AudioContextType = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextType || !this.canPlaySound()) return;
+    if (!audioContext) audioContext = new AudioContextType();
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch((error) => console.warn("Arcade audio could not resume:", error));
+    }
+    const now = audioContext.currentTime;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(this.preferences.volume / 100 * 0.035, now + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.025);
+  }
+
+  playRewardChime() {
+    if (!this.canPlaySound()) return;
+    const AudioContextType = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextType) return;
+    if (!audioContext) audioContext = new AudioContextType();
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch((error) => console.warn("Arcade audio could not resume:", error));
+    }
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    const volume = this.preferences.volume / 100 * 0.07;
+    notes.forEach((frequency, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      const start = audioContext.currentTime + index * 0.085;
+      oscillator.type = "triangle";
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(volume, start + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.16);
+      oscillator.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(start);
+      oscillator.stop(start + 0.17);
+    });
+  }
+
+  playResetTone() {
+    if (!this.canPlaySound()) return;
+    const AudioContextType = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextType) return;
+    if (!audioContext) audioContext = new AudioContextType();
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch((error) => console.warn("Arcade audio could not resume:", error));
+    }
+    const now = audioContext.currentTime;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(80, now);
+    oscillator.frequency.linearRampToValueAtTime(40, now + 0.3);
+    gain.gain.setValueAtTime(this.preferences.volume / 100 * 0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.33);
+  }
+
+  vibrate(pattern) {
+    if (!this.preferences.enabled || !this.preferences.haptics || typeof navigator.vibrate !== "function") return;
+    try {
+      navigator.vibrate(pattern);
+    } catch (error) {
+      console.warn("Haptic feedback could not run:", error);
+    }
+  }
+
+  match(lead) {
+    if (!this.preferences.enabled) return;
+    const key = lead?.id || this.activeLeadKey || "active-call";
+    if (this.lastMatchKey === key) return;
+    this.lastMatchKey = key;
+    this.activeLeadKey = key;
+    this.clearTimers();
+    this.stopTicking();
+    this.phase = "matched";
+    const animationId = ++this.valueAnimation;
+    this.viewport.hidden = false;
+    this.viewport.classList.remove("is-resetting", "is-near-miss");
+    this.viewport.classList.add("is-match");
+    setText("arcadeStatus", "Connection established");
+    for (const [index, windowElement] of this.reelWindows.entries()) {
+      windowElement.classList.remove("is-spinning", "is-near-miss");
+      windowElement.classList.add("is-locking");
+      this.schedule(() => {
+        this.reels[index].style.transform = "rotateX(-72deg)";
+      }, index * 150);
+    }
+    const value = Math.max(0, Math.round(Number(lead?.estimated_value ?? lead?.value ?? 15)) || 0);
+    const valueElement = this.viewport.querySelector("#arcadeValue");
+    valueElement.hidden = false;
+    this.animateValue(value, valueElement, animationId);
+    this.burstParticles();
+    if (this.preferences.shake && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const panel = document.querySelector(".dialer-run-panel");
+      panel.classList.remove("arcade-shake");
+      void panel.offsetWidth;
+      panel.classList.add("arcade-shake");
+      this.schedule(() => panel.classList.remove("arcade-shake"), 420);
+    }
+    this.playRewardChime();
+    this.vibrate([50, 20, 50, 20, 50]);
+  }
+
+  animateValue(target, element, animationId) {
+    const start = performance.now();
+    const duration = 650;
+    const draw = (now) => {
+      if (this.phase !== "matched" || animationId !== this.valueAnimation) return;
+      const progress = Math.max(0, Math.min(1, (now - start) / duration));
+      const eased = 1 - (1 - progress) ** 3;
+      element.textContent = `+$${(target * eased).toFixed(2)} Est. Value`;
+      if (progress < 1) requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+  }
+
+  reset() {
+    if (!this.preferences.enabled) return;
+    if (this.phase === "resetting") return;
+    this.valueAnimation += 1;
+    this.clearTimers();
+    this.stopParticles();
+    this.stopTicking();
+    this.phase = "resetting";
+    this.pendingSpinKey = null;
+    this.viewport.hidden = false;
+    this.viewport.classList.remove("is-match");
+    this.viewport.classList.add("is-near-miss");
+    this.viewport.classList.remove("is-resetting");
+    this.viewport.querySelector("#arcadeValue").hidden = true;
+    setText("arcadeStatus", "Cycle reset · next prospect");
+    this.reelWindows.forEach((windowElement, index) => {
+      windowElement.classList.remove("is-spinning", "is-locking", "is-near-miss");
+      if (index === 2) windowElement.classList.add("is-near-miss");
+      this.reels[index].style.transition = "transform 80ms linear";
+      this.reels[index].style.transform = index === 2
+        ? "translateY(50%) rotateX(-216deg)"
+        : "rotateX(-72deg)";
+    });
+    this.flashFailure();
+    this.playResetTone();
+    this.vibrate(250);
+    this.schedule(() => {
+      this.viewport.classList.add("is-resetting");
+      this.schedule(() => {
+        this.viewport.classList.remove("is-resetting", "is-near-miss");
+        this.phase = "idle";
+        if (this.pendingSpinKey) {
+          const nextKey = this.pendingSpinKey;
+          this.pendingSpinKey = null;
+          this.startSpin(nextKey);
+        } else {
+          this.viewport.hidden = true;
+        }
+      }, 270);
+    }, 150);
+  }
+
+  flashFailure() {
+    const panel = document.querySelector(".dialer-run-panel");
+    panel.classList.add("arcade-failure-flash");
+    this.schedule(() => panel.classList.remove("arcade-failure-flash"), 150);
+  }
+
+  resizeCanvas() {
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    this.canvas.width = Math.round(window.innerWidth * ratio);
+    this.canvas.height = Math.round(window.innerHeight * ratio);
+    this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  }
+
+  burstParticles() {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const colors = ["#e1b76d", "#4cc38a", "#dfff78", "#fff1bd"];
+    const originX = window.innerWidth / 2;
+    const originY = window.innerHeight / 2;
+    this.particles = Array.from({ length: 72 }, () => {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.5 + Math.random() * 5;
+      return {
+        x: originX, y: originY,
+        vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        life: 45 + Math.random() * 35, size: 2 + Math.random() * 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      };
+    });
+    if (!this.particleFrame) this.particleFrame = requestAnimationFrame(() => this.drawParticles());
+  }
+
+  drawParticles() {
+    this.particleFrame = 0;
+    this.context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    this.particles = this.particles.filter((particle) => particle.life > 0);
+    for (const particle of this.particles) {
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.vy += 0.035;
+      particle.life -= 1;
+      this.context.globalAlpha = Math.min(1, particle.life / 20);
+      this.context.fillStyle = particle.color;
+      this.context.fillRect(particle.x, particle.y, particle.size, particle.size);
+    }
+    this.context.globalAlpha = 1;
+    if (this.particles.length) this.particleFrame = requestAnimationFrame(() => this.drawParticles());
+  }
+
+  stopParticles() {
+    if (this.particleFrame) cancelAnimationFrame(this.particleFrame);
+    this.particleFrame = 0;
+    this.particles = [];
+    this.context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  }
+}
+
+const arcadeSensory = new ArcadeSensoryController();
 
 function showSessionSummary(summary, previous) {
   if (!summary) return;
@@ -841,6 +1247,15 @@ function renderCallStage(stage, target) {
   }
   if (stage === "idle" && previousStage !== "idle") setText("stageAnnouncer", "Dialing session stopped.");
   if (stage === "connected" && previousStage !== "connected") connectedAt = Date.now();
+  if (stage === "connected" && previousStage !== "connected") arcadeSensory.match(state.active_lead);
+  if (previousStage === "connected" && stage === "wrapup") arcadeSensory.reset();
+  if (previousStage === "ringing" && stage === "dialing") arcadeSensory.reset();
+  if ((stage === "idle" || stage === "paused") && stage !== previousStage) arcadeSensory.stop();
+  if (stage === "dialing" || stage === "ringing") {
+    const call = (state.in_flight || []).find((item) => ["creating", "ringing"].includes(item.state));
+    const lead = call?.lead || state.next_lead;
+    arcadeSensory.startSpin(lead?.id || call?.lead_id || "dialing");
+  }
   if (stage !== "connected") connectedAt = null;
   previousStage = stage;
 }
@@ -1068,6 +1483,7 @@ async function refreshState() {
     ]);
     Object.assign(state, stateResult);
     if (metricsResult) state.metrics = metricsResult;
+    processSensoryActivity(state.activity_log || []);
     render();
   } catch (error) {
     showToast(error.message, true);
@@ -1155,6 +1571,7 @@ async function openSettings() {
     byId("soundsEnabledInput").checked = settings.sounds_enabled;
     byId("soundVolumeInput").value = settings.sound_volume;
     setText("soundVolumeValue", `${settings.sound_volume}%`);
+    arcadeSensory.syncControls();
     await refreshAudioDevices();
     byId("settingsDialog").showModal();
   } catch (error) {
@@ -1574,6 +1991,15 @@ byId("breakDismissButton").addEventListener("click", () => {
 byId("soundVolumeInput").addEventListener("input", (event) => {
   setText("soundVolumeValue", `${event.target.value}%`);
 });
+byId("arcadeEnabledInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ enabled: event.target.checked }));
+byId("arcadeReelsInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ reels: event.target.checked }));
+byId("arcadeSoundInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ sound: event.target.checked }));
+byId("arcadeVolumeInput").addEventListener("input", (event) => {
+  setText("arcadeVolumeValue", `${event.target.value}%`);
+  arcadeSensory.updatePreferences({ volume: Number(event.target.value) });
+});
+byId("arcadeShakeInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ shake: event.target.checked }));
+byId("arcadeHapticsInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ haptics: event.target.checked }));
 document.addEventListener("pointerdown", () => {
   userInteracted = true;
   const AudioContextType = window.AudioContext || window.webkitAudioContext;
@@ -1654,7 +2080,10 @@ async function submitOutcome(disposition, scheduledUntil = null) {
     });
     Object.assign(state, result.state);
     byId("callbackPicker").dataset.open = "";
-    if (disposition === "booked") celebrateBooked();
+    if (disposition === "booked") {
+      celebrateBooked();
+      arcadeSensory.match(lead);
+    }
     showToast(`${lead.name || lead.phone}: ${disposition.replaceAll("_", " ")}`);
   } catch (error) {
     showToast(error.message, true);
