@@ -1,7 +1,5 @@
 import base64
-import io
 import unittest
-from unittest.mock import patch
 
 from supabase_store import SupabaseClient, load_app_settings, save_app_settings
 
@@ -43,15 +41,21 @@ class SupabaseClientTests(unittest.TestCase):
         self.assertEqual(client.service_key, "sb_secret_test")
 
     def test_rest_request_sends_server_key_headers(self):
-        response = io.BytesIO(b"[]")
-        response.__enter__ = lambda: response
-        response.__exit__ = lambda *args: None
-        with patch("supabase_store.urllib.request.urlopen", return_value=response) as urlopen:
-            client = SupabaseClient("https://project.supabase.co", "sb_secret_test")
-            self.assertEqual(client.request("GET", "prospects"), [])
+        client = SupabaseClient("https://project.supabase.co", "sb_secret_test")
+        seen = {}
 
-        request = urlopen.call_args.args[0]
-        self.assertEqual(request.get_header("Apikey"), "sb_secret_test")
+        def fake_send(method, path, body, headers):
+            seen["method"] = method
+            seen["path"] = path
+            seen["headers"] = headers
+            return 200, b"[]"
+
+        client._pool.send = fake_send
+        self.assertEqual(client.request("GET", "prospects"), [])
+        self.assertEqual(seen["method"], "GET")
+        self.assertTrue(seen["path"].startswith("/rest/v1/prospects"))
+        self.assertEqual(seen["headers"]["apikey"], "sb_secret_test")
+        self.assertEqual(seen["headers"]["Authorization"], "Bearer sb_secret_test")
         self.assertEqual(client.project_url, "https://project.supabase.co")
 
     def test_auth_user_requires_access_token(self):

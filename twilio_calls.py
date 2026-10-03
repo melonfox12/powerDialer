@@ -154,6 +154,26 @@ def write_env(path, updates):
 ANSWER_DETECTION_GRACE_SECONDS = 18
 
 
+class TokenIndex:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._tokens = {}
+
+    def register(self, token, dialer):
+        with self._lock:
+            self._tokens[token] = dialer
+
+    def forget(self, token):
+        with self._lock:
+            self._tokens.pop(token, None)
+
+    def lookup(self, token):
+        if not token:
+            return None
+        with self._lock:
+            return self._tokens.get(token)
+
+
 class TwilioDialer:
     def __init__(self, crm, env_path, metrics=None):
         self.crm = crm
@@ -163,6 +183,7 @@ class TwilioDialer:
         self.account_values = {}
         self.account_user_id = None
         self.account_email = ""
+        self.token_index = None
         self.lock = threading.RLock()
         self.running = False
         self.paused = False
@@ -203,10 +224,11 @@ class TwilioDialer:
 
     def set_timezone_filter(self, timezone):
         timezone = str(timezone or "").strip() or None
+        leads = self.crm.snapshot()
         with self.lock:
             self.selected_timezone = timezone
             if self.session:
-                self.queue_total = len(self._pool_leads())
+                self.queue_total = len(self._pool_leads(leads))
             self.last_event = f"Dialing pool set to {timezone}" if timezone else "Dialing pool set to all timezones"
             should_fill = self.running and self.agent_ready and not self.paused and not self.pending_outcome and not self.active
         if should_fill:
@@ -274,8 +296,9 @@ class TwilioDialer:
         state["active_lead"] = by_id.get(active_id)
         state["pending_outcome"] = by_id.get(pending_id)
         state["leads"] = leads
-        groups = self.crm.timezone_groups()
+        groups = self.crm.timezone_groups(leads)
         state["timezone_groups"] = [{"name": name, "count": count} for name, count in groups]
+        state["leads_version"] = getattr(self.crm, "revision", 0)
         state["selected_timezone"] = self.selected_timezone
         state["pool"] = self._pool_leads(leads)
         preferences = _preferences(self._values())
@@ -335,6 +358,24 @@ class TwilioDialer:
             "booked": sum(lead["status"] == "booked" for lead in leads),
         }
         return state
+
+    def live_state(self):
+        state = self.public_state()
+        state.pop("leads", None)
+        state.pop("pool", None)
+        return state
+
+    def _watch_token(self, token):
+        index = self.token_index
+        if index is not None:
+            index.register(token, self)
+
+    def _release_tokens(self):
+        index = self.token_index
+        if index is None:
+            return
+        for token in list(self.calls):
+            index.forget(token)
 
     def _values(self):
         return {**read_env(self.env_path), **self.account_values}
@@ -480,6 +521,7 @@ class TwilioDialer:
             self.pending_outcome = None
             self.active = None
             self.in_flight.clear()
+            self._release_tokens()
             self.calls.clear()
             self.callers = callers
             self.caller_index = 0
@@ -537,6 +579,7 @@ class TwilioDialer:
             "answer_detection_timer": None,
         }
         self.calls[token] = call
+        self._watch_token(token)
         if kind == "prospect":
             self.in_flight[token] = call
             self._bump("dials")
@@ -1010,6 +1053,7 @@ class TwilioDialer:
         return self.public_state()
 
     def fill_slots(self):
+        leads = self.crm.snapshot()
         launches = []
         with self.lock:
             if not self.running or self.paused or not self.agent_ready or self.active or self.pending_outcome:
@@ -1017,7 +1061,7 @@ class TwilioDialer:
             active_leads = {call["lead_id"] for call in self.in_flight.values()}
             slots = max(0, 1 - len(self.in_flight))
             pool = [
-                lead for lead in self._pool_leads()
+                lead for lead in self._pool_leads(leads)
                 if lead["id"] not in active_leads
                 and within_calling_window(
                     lead.get("timezone"),

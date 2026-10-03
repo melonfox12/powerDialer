@@ -149,6 +149,21 @@ class TranscriptStorageTests(unittest.TestCase):
         phones = [lead["phone"] for lead in mine.snapshot()]
         self.assertEqual(phones, ["+12025550102"])
 
+    def test_snapshot_uses_memory_after_the_first_load(self):
+        client = FakeSupabaseClient(prospect())
+        client.loads = 0
+        original = client.select_all
+
+        def counting(resource, params):
+            client.loads += 1
+            return original(resource, params)
+
+        client.select_all = counting
+        crm = SupabaseCRMStore(client, user_id="user-a")
+        crm.snapshot()
+        crm.snapshot()
+        self.assertEqual(client.loads, 1)
+
     def test_csv_transcript_field_escapes_multiline_utterances(self):
         lead = prospect()
         lead["transcript"] = [

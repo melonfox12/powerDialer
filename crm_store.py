@@ -246,6 +246,7 @@ class CRMStore:
         self.path = Path(path)
         self.lock = threading.RLock()
         self.leads = []
+        self.revision = 0
         self.load()
 
     def load(self):
@@ -264,6 +265,7 @@ class CRMStore:
             temp_path = self.path.with_suffix(self.path.suffix + ".tmp")
             temp_path.write_text(json.dumps(self.leads, ensure_ascii=False, indent=2), encoding="utf-8")
             temp_path.replace(self.path)
+            self.revision += 1
 
     def expire_due(self, save=True):
         now = utc_now()
@@ -352,9 +354,9 @@ class CRMStore:
         with self.lock:
             return [dict(lead) for lead in self.leads]
 
-    def timezone_groups(self):
+    def timezone_groups(self, leads=None):
         counts = {}
-        for lead in self.snapshot():
+        for lead in self.snapshot() if leads is None else leads:
             if lead["status"] != "new":
                 continue
             tz = lead.get("timezone") or "Unknown"

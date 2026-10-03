@@ -1,15 +1,53 @@
 """Supabase REST persistence for CRM records and dialer metrics."""
 
 import base64
+import http.client
 import json
 import threading
-import urllib.error
+import time
 import urllib.parse
-import urllib.request
 from datetime import datetime, timedelta
 
 from crm_store import STATUSES, csv_bytes_for, parse_csv, utc_now
 from twilio_calls import DIALER_DEFAULTS
+
+class _ConnectionPool:
+    """Reuse a few HTTPS connections to the Supabase host."""
+
+    def __init__(self, host, timeout, size=4):
+        self.host = host
+        self.timeout = timeout
+        self.size = size
+        self._lock = threading.Lock()
+        self._idle = []
+
+    def _new(self):
+        return http.client.HTTPSConnection(self.host, timeout=self.timeout)
+
+    def send(self, method, path, body, headers):
+        last_error = None
+        for _attempt in range(2):
+            with self._lock:
+                conn = self._idle.pop() if self._idle else None
+            if conn is None:
+                conn = self._new()
+            try:
+                conn.request(method, path, body=body, headers=headers)
+                response = conn.getresponse()
+                payload = response.read()
+                status = response.status
+            except (http.client.HTTPException, OSError, TimeoutError) as exc:
+                conn.close()
+                last_error = exc
+                continue
+            with self._lock:
+                if len(self._idle) < self.size:
+                    self._idle.append(conn)
+                else:
+                    conn.close()
+            return status, payload
+        raise OSError(f"Could not reach Supabase: {last_error}")
+
 
 METRIC_KEYS = {
     "booked", "call_later", "connected", "disqualified", "interested", "dials",
@@ -50,6 +88,9 @@ class SupabaseClient:
         self.service_key = service_key
         self.anon_key = (anon_key or "").strip()
         self.timeout = timeout
+        self._pool = _ConnectionPool(urllib.parse.urlsplit(self.project_url).netloc, timeout)
+        self._auth_cache = {}
+        self._auth_lock = threading.Lock()
 
     @classmethod
     def from_env(cls, values):
@@ -73,56 +114,64 @@ class SupabaseClient:
         token = (access_token or "").strip()
         if not token:
             return None
-        url = self.project_url + "/auth/v1/user"
-        request = urllib.request.Request(url, method="GET")
-        request.add_header("apikey", self.anon_key or self.service_key)
-        request.add_header("Authorization", f"Bearer {token}")
+        now = time.time()
+        with self._auth_lock:
+            cached = self._auth_cache.get(token)
+            if cached and cached[0] > now:
+                return cached[1]
+        user = self._fetch_auth_user(token)
+        if user:
+            with self._auth_lock:
+                self._auth_cache[token] = (now + 60, user)
+                if len(self._auth_cache) > 64:
+                    self._auth_cache = {
+                        key: value for key, value in self._auth_cache.items() if value[0] > now
+                    }
+        return user
+
+    def _fetch_auth_user(self, token):
+        status, result = self._pool.send("GET", "/auth/v1/user", None, {
+            "apikey": self.anon_key or self.service_key,
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+        })
+        if status in (401, 403):
+            return None
+        if status >= 400:
+            raise OSError(f"Supabase auth HTTP {status}")
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if exc.code in (401, 403):
-                return None
-            raise OSError(f"Supabase auth HTTP {exc.code}") from exc
-        except urllib.error.URLError as exc:
-            raise OSError(f"Could not reach Supabase auth: {exc.reason}") from exc
+            payload = json.loads(result.decode("utf-8")) if result else {}
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise OSError("Supabase auth returned an invalid JSON response.") from exc
         user_id = payload.get("id") if isinstance(payload, dict) else None
         if not user_id:
             return None
-        return {
-            "id": str(user_id),
-            "email": str(payload.get("email") or ""),
-        }
+        return {"id": str(user_id), "email": str(payload.get("email") or "")}
 
     def request(self, method, resource, params=None, payload=None, prefer=None):
-        url = self.base_url + resource
+        path = "/rest/v1/" + resource
         if params:
-            url += "?" + urllib.parse.urlencode(params)
+            path += "?" + urllib.parse.urlencode(params)
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
-        request = urllib.request.Request(url, data=body, method=method)
-        request.add_header("apikey", self.service_key)
-        request.add_header("Authorization", f"Bearer {self.service_key}")
-        request.add_header("Accept", "application/json")
+        headers = {
+            "apikey": self.service_key,
+            "Authorization": f"Bearer {self.service_key}",
+            "Accept": "application/json",
+        }
         if body is not None:
-            request.add_header("Content-Type", "application/json")
+            headers["Content-Type"] = "application/json"
         if prefer:
-            request.add_header("Prefer", prefer)
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                result = response.read()
-        except urllib.error.HTTPError as exc:
+            headers["Prefer"] = prefer
+        status, result = self._pool.send(method, path, body, headers)
+        if status >= 400:
             try:
-                error_body = json.loads(exc.read().decode("utf-8"))
+                error_body = json.loads(result.decode("utf-8"))
                 if not isinstance(error_body, dict):
                     raise ValueError("Unexpected error response")
                 message = error_body.get("message", "Supabase request failed")
-            except (ValueError, OSError):
+            except (ValueError, OSError, UnicodeDecodeError):
                 message = "Supabase request failed"
-            raise OSError(f"Supabase HTTP {exc.code}: {message}") from exc
-        except urllib.error.URLError as exc:
-            raise OSError(f"Could not reach Supabase: {exc.reason}") from exc
+            raise OSError(f"Supabase HTTP {status}: {message}")
         if not result:
             return None
         try:
@@ -150,6 +199,8 @@ class SupabaseCRMStore:
         self.client = client
         self.user_id = user_id
         self.lock = threading.RLock()
+        self._cache = None
+        self.revision = 0
 
     def _scope(self, params=None):
         scoped = dict(params or {})
@@ -157,7 +208,10 @@ class SupabaseCRMStore:
             scoped["user_id"] = f"eq.{self.user_id}"
         return scoped
 
-    def _all(self):
+    def _touch(self):
+        self.revision += 1
+
+    def _fetch(self):
         rows = self.client.select_all("prospects", self._scope({"select": "id,data", "order": "id"}))
         leads = []
         for row in rows:
@@ -167,6 +221,11 @@ class SupabaseCRMStore:
                 raise OSError("A Supabase prospect id does not match its stored record.")
             leads.append(row["data"])
         return leads
+
+    def _all(self):
+        if self._cache is None:
+            self._cache = self._fetch()
+        return self._cache
 
     def _write(self, lead):
         rows = self.client.request(
@@ -192,6 +251,7 @@ class SupabaseCRMStore:
                     lead["status"] = "new"
                     lead["scheduled_until"] = None
                     self._write(lead)
+                    self._touch()
 
     def add_csv(self, data):
         with self.lock:
@@ -211,8 +271,11 @@ class SupabaseCRMStore:
                         rows[start:start + 500],
                         "resolution=merge-duplicates,return=minimal",
                     )
+            leads.extend(additions)
             info["added"] = len(additions)
             info["total"] = len(leads) + len(additions)
+            if additions:
+                self._touch()
             return info
 
     def set_status(self, lead_id, status, scheduled_until=None):
@@ -240,6 +303,7 @@ class SupabaseCRMStore:
                     (utc_now() + timedelta(hours=24)).isoformat() if status == "call" else None
                 )
             self._write(lead)
+            self._touch()
             return dict(lead)
 
     def append_transcript(self, lead_id, segment):
@@ -274,6 +338,9 @@ class SupabaseCRMStore:
             )
             if not rows:
                 raise KeyError("Prospect not found")
+            if self._cache is not None:
+                self._cache = [lead for lead in self._cache if lead["id"] != lead_id]
+            self._touch()
 
     def snapshot(self):
         with self.lock:
@@ -281,9 +348,9 @@ class SupabaseCRMStore:
             self._expire(leads)
             return leads
 
-    def timezone_groups(self):
+    def timezone_groups(self, leads=None):
         counts = {}
-        for lead in self.snapshot():
+        for lead in self.snapshot() if leads is None else leads:
             if lead.get("status") != "new":
                 continue
             timezone = lead.get("timezone") or "Unknown"
@@ -298,6 +365,8 @@ class SupabaseMetricsStore:
     def __init__(self, client, user_id=None):
         self.client = client
         self.user_id = user_id
+        self._cached_snapshot = None
+        self._cached_at = 0
 
     def _scope(self, params=None):
         scoped = dict(params or {})
@@ -312,6 +381,7 @@ class SupabaseMetricsStore:
             raise ValueError("Metric increments must be positive integers.")
         if not self.user_id:
             raise ValueError("Sign in to record dialer metrics.")
+        self._cached_snapshot = None
         self.client.request(
             "POST",
             "rpc/increment_dialer_metric",
@@ -344,6 +414,14 @@ class SupabaseMetricsStore:
         return [row["data"] for row in rows]
 
     def snapshot(self, days=7):
+        if self._cached_snapshot is not None and time.time() - self._cached_at < 10:
+            return self._cached_snapshot
+        result = self._load_snapshot(days)
+        self._cached_snapshot = result
+        self._cached_at = time.time()
+        return result
+
+    def _load_snapshot(self, days=7):
         today = utc_now().date()
         start = today - timedelta(days=days - 1)
         daily_rows = self.client.request(

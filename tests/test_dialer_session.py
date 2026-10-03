@@ -17,10 +17,22 @@ from dialer_session import (
     within_calling_window,
 )
 from metrics_store import MetricsStore
-from twilio_calls import TwilioDialer, _preferences, DIALER_DEFAULTS
+from twilio_calls import TwilioDialer, _preferences, DIALER_DEFAULTS, TokenIndex
 
 
 class DialerSessionTests(unittest.TestCase):
+    def test_call_tokens_route_to_the_dialer_that_created_them(self):
+        index = TokenIndex()
+        with tempfile.TemporaryDirectory() as directory:
+            first = TwilioDialer(CRMStore(Path(directory) / "a.json"), str(Path(directory) / "a.env"))
+            second = TwilioDialer(CRMStore(Path(directory) / "b.json"), str(Path(directory) / "b.env"))
+            first.token_index = index
+            second.token_index = index
+            first_token = first._new_call("agent", None)["token"]
+            second_token = second._new_call("agent", None)["token"]
+            self.assertIs(index.lookup(first_token), first)
+            self.assertIs(index.lookup(second_token), second)
+
     def test_blank_preference_values_keep_defaults(self):
         preferences = _preferences({key: "" for key in DIALER_DEFAULTS})
         self.assertEqual(preferences["SESSION_GOAL"], "20")

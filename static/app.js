@@ -29,6 +29,7 @@ const state = {
 
 let toastTimer;
 let pollBusy = false;
+let metricsFetchedAt = 0;
 let outcomeSubmitting = false;
 let enteringLiveLine = false;
 let dashboardTab = "performance";
@@ -1487,12 +1488,30 @@ async function refreshState() {
   if (pollBusy) return;
   pollBusy = true;
   try {
-    const [stateResult, metricsResult] = await Promise.all([
-      request("/api/state"),
-      request("/api/metrics").catch(() => null),
-    ]);
-    Object.assign(state, stateResult);
-    if (metricsResult) state.metrics = metricsResult;
+    const live = await request("/api/live");
+    const needTable = live.leads_version !== state.leads_version || !Array.isArray(state.leads);
+    if (needTable) {
+      Object.assign(state, await request("/api/state"));
+    } else {
+      const leads = state.leads;
+      const pool = state.pool;
+      Object.assign(state, live);
+      state.leads = leads;
+      state.pool = pool;
+      if (live.active_lead) {
+        const index = leads.findIndex((lead) => lead.id === live.active_lead.id);
+        if (index >= 0) leads[index] = live.active_lead;
+      }
+      if (live.pending_outcome) {
+        const index = leads.findIndex((lead) => lead.id === live.pending_outcome.id);
+        if (index >= 0) leads[index] = live.pending_outcome;
+      }
+    }
+    if (Date.now() - metricsFetchedAt > 15000) {
+      metricsFetchedAt = Date.now();
+      const metricsResult = await request("/api/metrics").catch(() => null);
+      if (metricsResult) state.metrics = metricsResult;
+    }
     processSensoryActivity(state.activity_log || []);
     render();
   } catch (error) {
