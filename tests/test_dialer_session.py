@@ -128,6 +128,28 @@ class DialerSessionTests(unittest.TestCase):
                     "calling_end_hour": "20",
                 })
 
+    def test_signed_in_settings_are_saved_to_the_account(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_path = Path(directory) / ".env"
+            crm = CRMStore(Path(directory) / "crm.json")
+            dialer = TwilioDialer(crm, str(env_path))
+            dialer.account_user_id = "user-1"
+            saved = []
+            dialer.settings_saver = saved.append
+            dialer.save_settings({
+                "account_sid": "ACexample",
+                "auth_token": "token",
+                "api_key": "SKexample",
+                "api_secret": "secret",
+                "twiml_app_sid": "APexample",
+                "public_base_url": "https://example.ngrok.dev",
+                "session_goal": "12",
+            })
+            self.assertEqual(saved[0].account_values["TWILIO_ACCOUNT_SID"], "ACexample")
+            self.assertEqual(saved[0].account_values["PUBLIC_BASE_URL"], "https://example.ngrok.dev")
+            self.assertEqual(saved[0].account_values["SESSION_GOAL"], "12")
+            self.assertNotIn("ACexample", env_path.read_text(encoding="utf-8") if env_path.exists() else "")
+
     def test_callback_is_persisted_and_do_not_call_leaves_the_auto_dial_pool(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = CRMStore(Path(directory) / "crm.json")

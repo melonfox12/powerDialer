@@ -277,7 +277,7 @@
         <label class="form-field"><span>Twilio API Key Secret</span><input id="apiSecretInput" name="api_secret" type="password" autocomplete="new-password" placeholder="Saved secret, blank to keep it"></label>
         <label class="form-field"><span>Twilio TwiML App SID</span><input id="twimlAppSidInput" name="twiml_app_sid" required></label>
         <label class="form-field"><span>Public HTTPS callback URL</span><input id="publicUrlInput" name="public_base_url" type="url" placeholder="https://your-tunnel.example" required></label>
-        <p class="form-footnote">Forward your tunnel to port 8765. Set the TwiML App Voice URL to this HTTPS address followed by /hooks/voice using POST.</p>
+        <p class="form-footnote">These Twilio and session settings are saved to the Google account you are signed in with. Auth token and API secret stay blank after save; leave them blank to keep the saved values.</p>
         <section class="call-flow-settings" aria-labelledby="callFlowSettingsTitle">
           <div class="audio-section-heading"><div class="eyebrow">CALL FLOW</div><h3 id="callFlowSettingsTitle">Session preferences</h3></div>
           <label class="form-field"><span>Session conversation goal</span><input id="sessionGoalInput" type="number" min="1" max="1000"></label>

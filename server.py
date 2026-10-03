@@ -106,6 +106,7 @@ class AppRuntime:
         dialer.account_user_id = user_id
         dialer.account_email = user.get("email") or ""
         dialer.account_values = load_app_settings(self.client, user_id)
+        dialer.settings_saver = lambda active: self.persist_settings(active)
         account = Account(crm, metrics, dialer)
         with self.session_lock:
             current = self.sessions.get(user_id)
@@ -123,9 +124,23 @@ class AppRuntime:
         try:
             save_app_settings(self.client, dialer._values(), user_id)
         except OSError as exc:
-            if "HTTP 404" in str(exc) or "PGRST205" in str(exc) or "does not exist" in str(exc).lower():
-                return
+            message = str(exc)
+            if "HTTP 404" in message or "PGRST205" in message or "does not exist" in message.lower():
+                raise OSError(
+                    "Dialer settings could not be saved to your account. "
+                    "Run supabase_schema.sql in the Supabase SQL editor, then save again."
+                ) from exc
             raise
+
+    def reload_settings(self, dialer):
+        from supabase_store import load_app_settings
+
+        user_id = getattr(dialer, "account_user_id", None)
+        if not self.client or not user_id:
+            return
+        remote = load_app_settings(self.client, user_id)
+        if remote:
+            dialer.account_values.update(remote)
 
 
 PUBLIC_API_PATHS = {"/api/health", "/api/auth/config"}
@@ -199,6 +214,7 @@ def make_app_handler(runtime):
                 except OSError as exc:
                     self.report_storage_error(exc)
             elif path == "/api/settings":
+                runtime.reload_settings(dialer)
                 self.send_json(200, dialer.settings_state())
             elif path == "/api/voice-token":
                 try:

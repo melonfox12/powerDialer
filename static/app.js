@@ -1584,10 +1584,10 @@ async function openSettings() {
     const settings = await request("/api/settings");
     byId("accountSidInput").value = settings.account_sid || "";
     byId("authTokenInput").value = "";
-    byId("authTokenInput").placeholder = settings.has_auth_token ? "Saved token, blank to keep it" : "Twilio Auth Token";
+    byId("authTokenInput").placeholder = settings.has_auth_token ? "Saved on your Google account. Leave blank to keep it." : "Twilio Auth Token";
     byId("apiKeyInput").value = settings.api_key || "";
     byId("apiSecretInput").value = "";
-    byId("apiSecretInput").placeholder = settings.has_api_secret ? "Saved secret, blank to keep it" : "Twilio API Key Secret";
+    byId("apiSecretInput").placeholder = settings.has_api_secret ? "Saved on your Google account. Leave blank to keep it." : "Twilio API Key Secret";
     byId("twimlAppSidInput").value = settings.twiml_app_sid || "";
     byId("publicUrlInput").value = settings.public_base_url || "";
     byId("sessionGoalInput").value = settings.session_goal;
@@ -1979,7 +1979,7 @@ byId("settingsForm").addEventListener("submit", async (event) => {
     byId("apiSecretInput").value = "";
     byId("settingsDialog").close();
     render();
-    showToast("Dialer settings saved");
+    showToast(settings.account_email ? `Settings saved for ${settings.account_email}` : "Dialer settings saved");
   } catch (error) {
     showToast(error.message, true);
   } finally {

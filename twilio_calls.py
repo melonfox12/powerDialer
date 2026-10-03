@@ -468,6 +468,9 @@ class TwilioDialer:
             updates["TWILIO_API_SECRET"] = current.get("TWILIO_API_SECRET", "")
         if self.account_user_id:
             self.account_values.update(updates)
+            saver = getattr(self, "settings_saver", None)
+            if saver:
+                saver(self)
         else:
             write_env(self.env_path, updates)
         with self.lock:
