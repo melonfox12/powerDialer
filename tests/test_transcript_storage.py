@@ -6,7 +6,7 @@ from copy import deepcopy
 from pathlib import Path
 from io import StringIO
 
-from crm_store import CRMStore, csv_bytes_for
+from crm_store import CRMStore, csv_bytes_for, parse_csv
 from supabase_store import SupabaseCRMStore
 from twilio_calls import TwilioDialer
 
@@ -28,13 +28,25 @@ def prospect():
 class FakeSupabaseClient:
     def __init__(self, lead):
         self.leads = {lead["id"]: deepcopy(lead)}
+        self.users = {}
 
     def select_all(self, resource, params):
         if resource != "prospects":
             raise AssertionError(f"Unexpected resource: {resource}")
-        return [{"id": key, "data": deepcopy(value)} for key, value in self.leads.items()]
+        rows = [{"id": key, "data": deepcopy(value)} for key, value in self.leads.items()]
+        user_filter = (params or {}).get("user_id", "")
+        if user_filter.startswith("eq."):
+            wanted = user_filter.removeprefix("eq.")
+            rows = [row for row in rows if self.users.get(row["id"]) == wanted]
+        return rows
 
     def request(self, method, resource, params=None, payload=None, prefer=None):
+        if method == "POST" and resource == "prospects":
+            rows = payload if isinstance(payload, list) else [payload]
+            for row in rows:
+                self.leads[row["id"]] = deepcopy(row["data"])
+                self.users[row["id"]] = row.get("user_id")
+            return []
         if method != "PATCH" or resource != "prospects":
             raise AssertionError(f"Unexpected request: {method} {resource}")
         lead_id = params["id"].removeprefix("eq.")
@@ -99,6 +111,43 @@ class TranscriptStorageTests(unittest.TestCase):
             self.assertEqual(len(saved), 1)
             self.assertEqual(saved[0]["speaker"], "Prospect")
             self.assertEqual(saved[0]["text"], "Can you send the estimate?")
+
+    def test_example_leads_csv_imports_phone_name_and_timezone(self):
+        path = Path(__file__).resolve().parents[1] / "Claude outputs" / "example_leads.csv"
+        leads, info = parse_csv(path.read_bytes())
+        self.assertGreaterEqual(len(leads), 1)
+        self.assertEqual(info["skipped"], 0)
+        self.assertTrue(leads[0]["phone"].startswith("+"))
+        self.assertEqual(leads[0]["timezone"], "Eastern")
+        self.assertEqual(leads[0]["name"], "Daniel Edwards")
+
+    def test_local_csv_import_persists_prospects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = CRMStore(Path(directory) / "crm.json")
+            info = crm.add_csv(b"Name,Business Name,Phone Number,Timezone\nAda,Co,(202) 555-0100,Pacific\n")
+            self.assertEqual(info["added"], 1)
+            saved = CRMStore(Path(directory) / "crm.json").snapshot()[0]
+            self.assertEqual(saved["phone"], "+12025550100")
+            self.assertEqual(saved["timezone"], "Pacific")
+
+    def test_supabase_csv_import_posts_prospect_rows(self):
+        client = FakeSupabaseClient(prospect())
+        crm = SupabaseCRMStore(client)
+        info = crm.add_csv(b"Name,Phone\nSam,+1 202 555 0199\n")
+        self.assertEqual(info["added"], 1)
+        self.assertEqual(info["duplicates"], 0)
+        imported = next(lead for lead in client.leads.values() if lead["phone"] == "+12025550199")
+        self.assertEqual(imported["name"], "Sam")
+
+    def test_supabase_csv_import_is_scoped_to_the_signed_in_user(self):
+        client = FakeSupabaseClient(prospect())
+        other = SupabaseCRMStore(client, user_id="user-b")
+        other.add_csv(b"Name,Phone\nOther,+1 202 555 0101\n")
+        mine = SupabaseCRMStore(client, user_id="user-a")
+        info = mine.add_csv(b"Name,Phone\nMine,+1 202 555 0102\n")
+        self.assertEqual(info["added"], 1)
+        phones = [lead["phone"] for lead in mine.snapshot()]
+        self.assertEqual(phones, ["+12025550102"])
 
     def test_csv_transcript_field_escapes_multiline_utterances(self):
         lead = prospect()

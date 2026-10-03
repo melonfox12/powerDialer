@@ -862,7 +862,20 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
   .active-call { min-height: 60px; }
 }
 
-@media (max-width: 1280px) {
-  .session-momentum { padding: 8px; }
-  .call-stage { min-height: 82px; padding: 11px; }
+.login-gate {
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center;
+  background: var(--canvas);
 }
+.login-gate[hidden] { display: none; }
+.login-card {
+  width: min(420px, calc(100vw - 32px));
+  padding: 28px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+}
+.login-card h1 { margin: 8px 0 10px; font-size: 28px; }
+.login-card p { color: var(--muted); line-height: 1.45; }
+.login-card .button { width: 100%; margin-top: 18px; min-height: 44px; }
+.account-email { max-width: 180px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }

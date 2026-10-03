@@ -9,11 +9,21 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="app.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
-  <div class="app-shell">
+  <div id="loginGate" class="login-gate" hidden>
+    <div class="login-card">
+      <div class="eyebrow">PROSPECT DESK</div>
+      <h1>Sign in with Google</h1>
+      <p>Each Gmail account has its own prospects, settings, and call history. You do not enter Supabase keys in the app.</p>
+      <button id="googleSignInButton" class="button button-primary" type="button">Continue with Google</button>
+      <p id="loginError" class="form-footnote" hidden></p>
+    </div>
+  </div>
+  <div class="app-shell" hidden>
     <header class="topbar">
       <a class="brand" href="#crm" aria-label="Prospect Desk home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -21,6 +31,8 @@
       </a>
       <div class="top-actions">
         <span id="connectionState" class="connection-state"><span class="connection-dot"></span><span>Ready</span></span>
+        <span id="accountEmail" class="account-email" hidden></span>
+        <button id="signOutButton" class="icon-label-button" type="button" hidden>Sign out</button>
         <button id="settingsButton" class="icon-label-button" type="button" aria-haspopup="dialog">Settings</button>
       </div>
     </header>

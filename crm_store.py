@@ -106,20 +106,36 @@ def _review_count(value):
         return None
 
 
-def _read_csv(data):
-    text = None
-    for encoding in ("utf-8-sig", "utf-16", "cp1252"):
-        try:
-            text = data.decode(encoding)
-            break
-        except UnicodeDecodeError:
-            continue
-    if text is None:
-        text = data.decode("latin-1")
+def _choose_dialect(text):
+    sample = text[:8192]
     try:
-        dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t|")
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
     except csv.Error:
-        dialect = csv.excel
+        return csv.excel
+    first = next((line for line in sample.splitlines() if line.strip()), "")
+    if first.count(dialect.delimiter) == 0 and first.count(",") > 0:
+        return csv.excel
+    return dialect
+
+
+def _read_csv(data):
+    if isinstance(data, str):
+        text = data
+    else:
+        payload = bytes(data).replace(b"\x00", b"")
+        text = None
+        for encoding in ("utf-8-sig", "utf-16", "cp1252"):
+            try:
+                text = payload.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        if text is None:
+            text = payload.decode("latin-1")
+    text = text.replace("\x00", "").strip()
+    if not text:
+        return []
+    dialect = _choose_dialect(text)
     return [[cell.strip() for cell in row] for row in csv.reader(StringIO(text), dialect)
             if any(cell.strip() for cell in row)]
 

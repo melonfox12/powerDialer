@@ -9,15 +9,22 @@ import urllib.request
 from datetime import datetime, timedelta
 
 from crm_store import STATUSES, csv_bytes_for, parse_csv, utc_now
+from twilio_calls import DIALER_DEFAULTS
 
 METRIC_KEYS = {
     "booked", "call_later", "connected", "disqualified", "interested", "dials",
     "failed", "talk_seconds", "voicemail",
 }
+SETTINGS_ROW_ID = "app"
+REMOTE_SETTING_KEYS = (
+    "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_API_KEY",
+    "TWILIO_API_SECRET", "TWILIO_TWIML_APP_SID", "PUBLIC_BASE_URL",
+    *DIALER_DEFAULTS.keys(),
+)
 
 
 class SupabaseClient:
-    def __init__(self, url, service_key, timeout=20):
+    def __init__(self, url, service_key, timeout=20, anon_key=""):
         parsed = urllib.parse.urlsplit(url)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("SUPABASE_URL must be an HTTPS project URL.")
@@ -38,8 +45,10 @@ class SupabaseClient:
                 raise ValueError(
                     "The Supabase JWT must have the service_role role for server-side storage."
                 )
-        self.base_url = url.rstrip("/") + "/rest/v1/"
+        self.project_url = url.rstrip("/")
+        self.base_url = self.project_url + "/rest/v1/"
         self.service_key = service_key
+        self.anon_key = (anon_key or "").strip()
         self.timeout = timeout
 
     @classmethod
@@ -49,12 +58,43 @@ class SupabaseClient:
             values.get("SUPABASE_SECRET_KEY", "").strip()
             or values.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
         )
+        anon = (
+            values.get("SUPABASE_ANON_KEY", "").strip()
+            or values.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+        )
         if bool(url) != bool(key):
             raise ValueError(
                 "Configure both SUPABASE_URL and SUPABASE_SECRET_KEY "
                 "(or SUPABASE_SERVICE_ROLE_KEY), or remove both to use local JSON storage."
             )
-        return cls(url, key) if url else None
+        return cls(url, key, anon_key=anon) if url else None
+
+    def auth_user(self, access_token):
+        token = (access_token or "").strip()
+        if not token:
+            return None
+        url = self.project_url + "/auth/v1/user"
+        request = urllib.request.Request(url, method="GET")
+        request.add_header("apikey", self.anon_key or self.service_key)
+        request.add_header("Authorization", f"Bearer {token}")
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403):
+                return None
+            raise OSError(f"Supabase auth HTTP {exc.code}") from exc
+        except urllib.error.URLError as exc:
+            raise OSError(f"Could not reach Supabase auth: {exc.reason}") from exc
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise OSError("Supabase auth returned an invalid JSON response.") from exc
+        user_id = payload.get("id") if isinstance(payload, dict) else None
+        if not user_id:
+            return None
+        return {
+            "id": str(user_id),
+            "email": str(payload.get("email") or ""),
+        }
 
     def request(self, method, resource, params=None, payload=None, prefer=None):
         url = self.base_url + resource
@@ -106,12 +146,19 @@ class SupabaseClient:
 
 
 class SupabaseCRMStore:
-    def __init__(self, client):
+    def __init__(self, client, user_id=None):
         self.client = client
+        self.user_id = user_id
         self.lock = threading.RLock()
 
+    def _scope(self, params=None):
+        scoped = dict(params or {})
+        if self.user_id:
+            scoped["user_id"] = f"eq.{self.user_id}"
+        return scoped
+
     def _all(self):
-        rows = self.client.select_all("prospects", {"select": "id,data", "order": "id"})
+        rows = self.client.select_all("prospects", self._scope({"select": "id,data", "order": "id"}))
         leads = []
         for row in rows:
             if not isinstance(row, dict) or not isinstance(row.get("data"), dict):
@@ -125,8 +172,8 @@ class SupabaseCRMStore:
         rows = self.client.request(
             "PATCH",
             "prospects",
-            {"id": f"eq.{lead['id']}"},
-            {"data": lead},
+            self._scope({"id": f"eq.{lead['id']}"}),
+            {"data": lead, "user_id": self.user_id},
             "return=representation",
         )
         if not rows:
@@ -152,11 +199,18 @@ class SupabaseCRMStore:
             self._expire(leads)
             additions, info = parse_csv(data, (lead["phone"] for lead in leads))
             if additions:
-                rows = [{"id": lead["id"], "data": lead} for lead in additions]
-                self.client.request(
-                    "POST", "prospects", payload=rows,
-                    prefer="resolution=merge-duplicates,return=minimal",
-                )
+                rows = [
+                    {"id": lead["id"], "user_id": self.user_id, "data": lead}
+                    for lead in additions
+                ]
+                for start in range(0, len(rows), 500):
+                    self.client.request(
+                        "POST",
+                        "prospects",
+                        {"on_conflict": "id"},
+                        rows[start:start + 500],
+                        "resolution=merge-duplicates,return=minimal",
+                    )
             info["added"] = len(additions)
             info["total"] = len(leads) + len(additions)
             return info
@@ -215,7 +269,7 @@ class SupabaseCRMStore:
             rows = self.client.request(
                 "DELETE",
                 "prospects",
-                {"id": f"eq.{lead_id}", "select": "id"},
+                self._scope({"id": f"eq.{lead_id}", "select": "id"}),
                 prefer="return=representation",
             )
             if not rows:
@@ -241,18 +295,27 @@ class SupabaseCRMStore:
 
 
 class SupabaseMetricsStore:
-    def __init__(self, client):
+    def __init__(self, client, user_id=None):
         self.client = client
+        self.user_id = user_id
+
+    def _scope(self, params=None):
+        scoped = dict(params or {})
+        if self.user_id:
+            scoped["user_id"] = f"eq.{self.user_id}"
+        return scoped
 
     def bump(self, key, amount=1):
         if key not in METRIC_KEYS:
             raise ValueError(f"Unknown dialer metric: {key}")
         if not isinstance(amount, int) or amount <= 0:
             raise ValueError("Metric increments must be positive integers.")
+        if not self.user_id:
+            raise ValueError("Sign in to record dialer metrics.")
         self.client.request(
             "POST",
             "rpc/increment_dialer_metric",
-            payload={"metric_key": key, "increment_by": amount},
+            payload={"metric_key": key, "increment_by": amount, "for_user": self.user_id},
         )
 
     def save_session(self, session):
@@ -262,6 +325,7 @@ class SupabaseMetricsStore:
             {"on_conflict": "id"},
             {
                 "id": session["id"],
+                "user_id": self.user_id,
                 "started_at": session["started_at"],
                 "ended_at": session.get("ended_at"),
                 "data": session,
@@ -273,7 +337,7 @@ class SupabaseMetricsStore:
         rows = self.client.request(
             "GET",
             "dialer_sessions",
-            {"select": "data", "order": "started_at.desc", "limit": str(limit)},
+            self._scope({"select": "data", "order": "started_at.desc", "limit": str(limit)}),
         )
         if not isinstance(rows, list) or any(not isinstance(row.get("data"), dict) for row in rows):
             raise OSError("Supabase returned an invalid session history response.")
@@ -285,16 +349,16 @@ class SupabaseMetricsStore:
         daily_rows = self.client.request(
             "GET",
             "dialer_metric_daily",
-            {
+            self._scope({
                 "select": "day,metric_key,value",
                 "day": f"gte.{start.isoformat()}",
                 "order": "day",
-            },
+            }),
         )
         total_rows = self.client.request(
             "GET",
             "dialer_metric_totals",
-            {"select": "metric_key,value"},
+            self._scope({"select": "metric_key,value"}),
         )
         if not isinstance(daily_rows, list) or not isinstance(total_rows, list):
             raise OSError("Supabase returned an invalid metrics response.")
@@ -385,8 +449,9 @@ def migrate_local_data(client, crm_path, metrics_path):
         client.request(
             "POST",
             "prospects",
-            payload=[{"id": lead["id"], "data": lead} for lead in batch],
-            prefer="resolution=merge-duplicates,return=minimal",
+            {"on_conflict": "id"},
+            [{"id": lead["id"], "data": lead} for lead in batch],
+            "resolution=merge-duplicates,return=minimal",
         )
     daily_rows = [
         {"day": day, "metric_key": key, "value": value}
@@ -422,3 +487,58 @@ def migrate_local_data(client, crm_path, metrics_path):
             prefer="resolution=merge-duplicates,return=minimal",
         )
     return {"prospects": len(prospects), "daily_metrics": len(daily_rows), "totals": len(total_rows)}
+
+
+def load_app_settings(client, user_id=None):
+    row_id = str(user_id or SETTINGS_ROW_ID)
+    try:
+        rows = client.request(
+            "GET",
+            "dialer_settings",
+            {"id": f"eq.{row_id}", "select": "data"},
+        )
+    except OSError as exc:
+        if "HTTP 404" in str(exc) or "PGRST205" in str(exc) or "does not exist" in str(exc).lower():
+            return {}
+        raise
+    if not rows:
+        return {}
+    if not isinstance(rows, list) or not isinstance(rows[0], dict) or not isinstance(rows[0].get("data"), dict):
+        raise OSError("Supabase returned invalid dialer settings.")
+    stored = rows[0]["data"]
+    return {
+        key: str(stored[key])
+        for key in REMOTE_SETTING_KEYS
+        if stored.get(key) not in (None, "")
+    }
+
+
+def save_app_settings(client, values, user_id=None):
+    payload = {
+        "id": str(user_id or SETTINGS_ROW_ID),
+        "data": {key: str(values.get(key, "") or "") for key in REMOTE_SETTING_KEYS},
+    }
+    client.request(
+        "POST",
+        "dialer_settings",
+        {"on_conflict": "id"},
+        [payload],
+        "resolution=merge-duplicates,return=minimal",
+    )
+
+
+def hydrate_env_from_supabase(env_path, client):
+    from twilio_calls import read_env, write_env
+
+    remote = load_app_settings(client)
+    if not remote:
+        return False
+    local = read_env(env_path)
+    updates = {
+        key: value for key, value in remote.items()
+        if value and not str(local.get(key, "")).strip()
+    }
+    if updates:
+        write_env(env_path, updates)
+        return True
+    return False

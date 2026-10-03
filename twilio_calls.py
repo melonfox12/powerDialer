@@ -39,8 +39,11 @@ DIALER_DEFAULTS = {
 def _preferences(values):
     result = dict(DIALER_DEFAULTS)
     for key in result:
-        if key in values:
-            result[key] = str(values[key] or "")
+        provided = str(values[key] if values.get(key) is not None else "").strip()
+        if key == "OPENING_SCRIPT":
+            result[key] = str(values.get(key) or "")
+        elif provided:
+            result[key] = provided
     for key, minimum, maximum in (
         ("SESSION_GOAL", 1, 1000),
         ("CONVERSATION_THRESHOLD_SECONDS", 1, 3600),
@@ -117,6 +120,7 @@ def read_env(path):
         "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_API_KEY",
         "TWILIO_API_SECRET", "TWILIO_TWIML_APP_SID", "PUBLIC_BASE_URL",
         "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY",
+        "SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY",
         *DIALER_DEFAULTS.keys(),
     ):
         values.setdefault(key, os.environ.get(key, ""))
@@ -126,8 +130,15 @@ def read_env(path):
 def write_env(path, updates):
     values = read_env(path)
     for key, value in updates.items():
-        if value.strip() or key in DIALER_DEFAULTS:
-            values[key] = json.dumps(value.strip(), ensure_ascii=False) if key == "OPENING_SCRIPT" else value.strip()
+        stripped = str(value).strip()
+        if key == "OPENING_SCRIPT":
+            values[key] = json.dumps(stripped, ensure_ascii=False)
+        elif stripped:
+            values[key] = stripped
+        elif key in DIALER_DEFAULTS:
+            values[key] = DIALER_DEFAULTS[key]
+        else:
+            values[key] = ""
     lines = [f"{key}={value}" for key, value in values.items() if value]
     temp = path + ".tmp"
     with open(temp, "w", encoding="utf-8") as env_file:
@@ -148,6 +159,10 @@ class TwilioDialer:
         self.crm = crm
         self.env_path = env_path
         self.metrics = metrics
+        self.storage_name = "local JSON files"
+        self.account_values = {}
+        self.account_user_id = None
+        self.account_email = ""
         self.lock = threading.RLock()
         self.running = False
         self.paused = False
@@ -263,7 +278,7 @@ class TwilioDialer:
         state["timezone_groups"] = [{"name": name, "count": count} for name, count in groups]
         state["selected_timezone"] = self.selected_timezone
         state["pool"] = self._pool_leads(leads)
-        preferences = _preferences(read_env(self.env_path))
+        preferences = _preferences(self._values())
         state["settings"] = {
             "session_goal": int(preferences["SESSION_GOAL"]),
             "conversation_threshold": int(preferences["CONVERSATION_THRESHOLD_SECONDS"]),
@@ -321,8 +336,11 @@ class TwilioDialer:
         }
         return state
 
+    def _values(self):
+        return {**read_env(self.env_path), **self.account_values}
+
     def settings_state(self):
-        values = read_env(self.env_path)
+        values = self._values()
         preferences = _preferences(values)
         return {
             "account_sid": values.get("TWILIO_ACCOUNT_SID", ""),
@@ -331,6 +349,8 @@ class TwilioDialer:
             "public_base_url": values.get("PUBLIC_BASE_URL", ""),
             "has_auth_token": bool(values.get("TWILIO_AUTH_TOKEN")),
             "has_api_secret": bool(values.get("TWILIO_API_SECRET")),
+            "storage": getattr(self, "storage_name", "local JSON files"),
+            "account_email": getattr(self, "account_email", ""),
             "session_goal": int(preferences["SESSION_GOAL"]),
             "conversation_threshold": int(preferences["CONVERSATION_THRESHOLD_SECONDS"]),
             "auto_advance_delay": int(preferences["AUTO_ADVANCE_DELAY_SECONDS"]),
@@ -343,7 +363,7 @@ class TwilioDialer:
         }
 
     def validate_webhook(self, url, signature, params):
-        values = self.settings or read_env(self.env_path)
+        values = self.settings or self._values()
         auth_token = values.get("TWILIO_AUTH_TOKEN", "")
         if not auth_token or not signature:
             return False
@@ -360,7 +380,7 @@ class TwilioDialer:
 
     def voice_access_token(self):
         self.record_activity("Requesting browser Voice access token", "api")
-        values = read_env(self.env_path)
+        values = self._values()
         required = (
             "TWILIO_ACCOUNT_SID", "TWILIO_API_KEY", "TWILIO_API_SECRET",
             "TWILIO_TWIML_APP_SID",
@@ -380,7 +400,7 @@ class TwilioDialer:
 
     def save_settings(self, data):
         preferences = _preferences({
-            **read_env(self.env_path),
+            **self._values(),
             "SESSION_GOAL": data.get("session_goal", DIALER_DEFAULTS["SESSION_GOAL"]),
             "CONVERSATION_THRESHOLD_SECONDS": data.get("conversation_threshold", DIALER_DEFAULTS["CONVERSATION_THRESHOLD_SECONDS"]),
             "AUTO_ADVANCE_DELAY_SECONDS": data.get("auto_advance_delay", DIALER_DEFAULTS["AUTO_ADVANCE_DELAY_SECONDS"]),
@@ -391,6 +411,7 @@ class TwilioDialer:
             "CALLING_END_HOUR": data.get("calling_end_hour", DIALER_DEFAULTS["CALLING_END_HOUR"]),
             "OPENING_SCRIPT": data.get("opening_script", ""),
         })
+        current = self._values()
         updates = {
             "TWILIO_ACCOUNT_SID": str(data.get("account_sid", "")),
             "TWILIO_AUTH_TOKEN": str(data.get("auth_token", "")),
@@ -400,7 +421,14 @@ class TwilioDialer:
             "PUBLIC_BASE_URL": str(data.get("public_base_url", "")).rstrip("/"),
             **preferences,
         }
-        write_env(self.env_path, updates)
+        if not updates["TWILIO_AUTH_TOKEN"]:
+            updates["TWILIO_AUTH_TOKEN"] = current.get("TWILIO_AUTH_TOKEN", "")
+        if not updates["TWILIO_API_SECRET"]:
+            updates["TWILIO_API_SECRET"] = current.get("TWILIO_API_SECRET", "")
+        if self.account_user_id:
+            self.account_values.update(updates)
+        else:
+            write_env(self.env_path, updates)
         with self.lock:
             self.settings.update(preferences)
         return self.settings_state()
@@ -412,7 +440,7 @@ class TwilioDialer:
             self.activity_log.clear()
             self.activity_sequence = 0
         self.record_activity("Start dialing request received", "web")
-        values = read_env(self.env_path)
+        values = self._values()
         required = (
             "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_API_KEY",
             "TWILIO_API_SECRET", "TWILIO_TWIML_APP_SID", "PUBLIC_BASE_URL",

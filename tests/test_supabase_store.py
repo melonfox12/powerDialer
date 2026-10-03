@@ -3,7 +3,7 @@ import io
 import unittest
 from unittest.mock import patch
 
-from supabase_store import SupabaseClient
+from supabase_store import SupabaseClient, load_app_settings, save_app_settings
 
 
 def jwt_with_role(role):
@@ -52,7 +52,31 @@ class SupabaseClientTests(unittest.TestCase):
 
         request = urlopen.call_args.args[0]
         self.assertEqual(request.get_header("Apikey"), "sb_secret_test")
-        self.assertEqual(request.get_header("Authorization"), "Bearer sb_secret_test")
+        self.assertEqual(client.project_url, "https://project.supabase.co")
+
+    def test_auth_user_requires_access_token(self):
+        client = SupabaseClient("https://project.supabase.co", "sb_secret_test", anon_key="anon")
+        self.assertIsNone(client.auth_user(""))
+        self.assertIsNone(client.auth_user(None))
+
+    def test_settings_round_trip_uses_dialer_settings_table(self):
+        stored = {}
+
+        class SettingsClient:
+            def request(self, method, resource, params=None, payload=None, prefer=None):
+                if resource != "dialer_settings":
+                    raise AssertionError(resource)
+                if method == "POST":
+                    stored["row"] = payload[0] if isinstance(payload, list) else payload
+                    return []
+                return [stored["row"]] if stored else []
+
+        client = SettingsClient()
+        save_app_settings(client, {"SESSION_GOAL": "40", "TWILIO_ACCOUNT_SID": "ACtest"})
+        loaded = load_app_settings(client)
+        self.assertEqual(loaded["SESSION_GOAL"], "40")
+        self.assertEqual(loaded["TWILIO_ACCOUNT_SID"], "ACtest")
+        self.assertEqual(stored["row"]["id"], "app")
 
 
 if __name__ == "__main__":

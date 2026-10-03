@@ -17,10 +17,17 @@ from dialer_session import (
     within_calling_window,
 )
 from metrics_store import MetricsStore
-from twilio_calls import TwilioDialer
+from twilio_calls import TwilioDialer, _preferences, DIALER_DEFAULTS
 
 
 class DialerSessionTests(unittest.TestCase):
+    def test_blank_preference_values_keep_defaults(self):
+        preferences = _preferences({key: "" for key in DIALER_DEFAULTS})
+        self.assertEqual(preferences["SESSION_GOAL"], "20")
+        self.assertEqual(preferences["CONVERSATION_THRESHOLD_SECONDS"], "30")
+        self.assertEqual(preferences["SOUNDS_ENABLED"], "true")
+        self.assertEqual(preferences["OPENING_SCRIPT"], "")
+
     def test_stage_transitions_use_explicit_state_priority(self):
         self.assertEqual(dialer_stage(False, False, None, False, []), "idle")
         self.assertEqual(dialer_stage(True, False, None, False, [{"state": "creating"}]), "dialing")

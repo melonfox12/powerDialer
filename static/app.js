@@ -73,10 +73,20 @@ window.addEventListener("unhandledrejection", (event) => {
   showToast(`Unexpected error: ${event.reason?.message || event.reason}`, true);
 });
 
+let supabaseClient = null;
+let accessToken = null;
+let googleAuthEnabled = false;
+
 async function request(path, options = {}) {
-  const response = await fetch(path, options);
+  const headers = { ...(options.headers || {}) };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  const response = await fetch(path, { ...options, headers });
   const type = response.headers.get("content-type") || "";
   const result = type.includes("application/json") ? await response.json() : await response.text();
+  if (response.status === 401 && googleAuthEnabled) {
+    showLoginGate(result?.error || "Sign in with Google to continue.");
+    throw new Error(result?.error || "Sign in with Google to continue.");
+  }
   if (!response.ok) throw new Error(result?.error || `Request failed (${response.status})`);
   return result;
 }
@@ -1808,16 +1818,30 @@ async function importCsv(file) {
   byId("headingImportButton").disabled = true;
   button.textContent = "Importing…";
   try {
-    const buffer = await file.arrayBuffer();
     const result = await request("/api/import", {
       method: "POST",
-      headers: { "Content-Type": "text/csv" },
-      body: buffer,
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file,
     });
-    Object.assign(state, result.state);
+    Object.assign(state, result.state || {});
+    setDashboardTab("prospects");
     render();
-    const imported = result.import;
-    showToast(`${imported.added} prospect${imported.added === 1 ? "" : "s"} added${imported.duplicates ? ` · ${imported.duplicates} duplicate${imported.duplicates === 1 ? "" : "s"} skipped` : ""}`);
+    const imported = result.import || {};
+    const added = imported.added || 0;
+    const duplicates = imported.duplicates || 0;
+    const skipped = imported.skipped || 0;
+    if (!added) {
+      const reason = skipped
+        ? `${skipped} row${skipped === 1 ? "" : "s"} skipped because no usable phone number was found.`
+        : "No prospect rows were found in that file.";
+      showToast(`Import did not add anyone. ${reason}`, true);
+      return;
+    }
+    const extra = [
+      duplicates ? `${duplicates} duplicate${duplicates === 1 ? "" : "s"} skipped` : "",
+      skipped ? `${skipped} row${skipped === 1 ? "" : "s"} without a phone skipped` : "",
+    ].filter(Boolean).join(" · ");
+    showToast(`${added} prospect${added === 1 ? "" : "s"} added${extra ? ` · ${extra}` : ""}`);
   } catch (error) {
     console.error("CSV import failed:", error);
     showToast(error?.message || "Import failed. Check the console for details.", true);
@@ -2162,11 +2186,79 @@ byId("testVolumeInput").addEventListener("input", (event) => {
 if (navigator.mediaDevices?.addEventListener) {
   navigator.mediaDevices.addEventListener("devicechange", () => refreshAudioDevices().catch(() => {}));
 }
-drawProspectWaveform(0);
-refreshState();
-request("/api/settings").then((settings) => {
-  if (!settings.account_sid || !settings.has_auth_token || !settings.api_key || !settings.has_api_secret || !settings.twiml_app_sid || !settings.public_base_url) {
-    showToast("Complete your Twilio Voice credentials and callback URL in Settings to start dialing.");
+function showLoginGate(message) {
+  const gate = byId("loginGate");
+  const error = byId("loginError");
+  gate.hidden = false;
+  document.querySelector(".app-shell")?.setAttribute("hidden", "hidden");
+  if (message) {
+    error.hidden = false;
+    error.textContent = message;
+  } else {
+    error.hidden = true;
   }
-}).catch(() => {});
-setInterval(refreshState, 1500);
+}
+
+function hideLoginGate() {
+  byId("loginGate").hidden = true;
+  document.querySelector(".app-shell")?.removeAttribute("hidden");
+}
+
+function syncAccountChrome(session) {
+  const email = session?.user?.email || "";
+  const emailEl = byId("accountEmail");
+  const signOut = byId("signOutButton");
+  emailEl.hidden = !email;
+  signOut.hidden = !googleAuthEnabled;
+  emailEl.textContent = email;
+}
+
+async function bootApp() {
+  hideLoginGate();
+  drawProspectWaveform(0);
+  refreshState();
+  request("/api/settings").then((settings) => {
+    if (!settings.account_sid || !settings.has_auth_token || !settings.api_key || !settings.has_api_secret || !settings.twiml_app_sid || !settings.public_base_url) {
+      showToast("Complete your Twilio Voice credentials and callback URL in Settings to start dialing.");
+    }
+  }).catch(() => {});
+}
+
+async function initAuth() {
+  const config = await fetch("/api/auth/config").then((response) => response.json());
+  googleAuthEnabled = Boolean(config.google && window.supabase?.createClient);
+  if (!googleAuthEnabled) {
+    await bootApp();
+    return;
+  }
+  supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    accessToken = session?.access_token || null;
+    syncAccountChrome(session);
+  });
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  accessToken = session?.access_token || null;
+  syncAccountChrome(session);
+  if (session) {
+    await bootApp();
+    return;
+  }
+  showLoginGate();
+}
+
+byId("googleSignInButton").addEventListener("click", async () => {
+  if (!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.origin + "/" },
+  });
+  if (error) showLoginGate(error.message);
+});
+byId("signOutButton").addEventListener("click", async () => {
+  accessToken = null;
+  await supabaseClient?.auth.signOut();
+  showLoginGate();
+});
+
+initAuth().catch((error) => showLoginGate(error.message || "Could not start sign-in."));
+setInterval(() => { if (!byId("loginGate").hidden) return; refreshState(); }, 1500);

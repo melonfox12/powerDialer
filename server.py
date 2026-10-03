@@ -28,10 +28,111 @@ class QuietThreadingHTTPServer(ThreadingHTTPServer):
     allow_reuse_address = True
 
 
-def make_app_handler(crm, dialer, metrics, storage_name="local JSON files"):
+class AppRuntime:
+    def __init__(self):
+        self.crm = None
+        self.metrics = None
+        self.dialer = None
+        self.storage_name = "local JSON files"
+        self.client = None
+
+    def configure(self, migrate=False):
+        from supabase_store import SupabaseCRMStore, SupabaseMetricsStore, SupabaseClient
+        from twilio_calls import read_env
+
+        values = read_env(ENV_PATH)
+        client = SupabaseClient.from_env(values)
+        if client:
+            crm = SupabaseCRMStore(client)
+            metrics = SupabaseMetricsStore(client)
+            crm.snapshot()
+            metrics.snapshot()
+            storage_name = "Supabase"
+            self.client = client
+        else:
+            crm = CRMStore(CRM_PATH)
+            metrics = MetricsStore(METRICS_PATH)
+            storage_name = "local JSON files"
+            self.client = None
+        self.crm = crm
+        self.metrics = metrics
+        self.storage_name = storage_name
+        if self.dialer is None:
+            self.dialer = TwilioDialer(crm, ENV_PATH, metrics=metrics)
+        else:
+            self.dialer.crm = crm
+            self.dialer.metrics = metrics
+        self.dialer.storage_name = storage_name
+        return self
+
+    def bind_account(self, user):
+        from supabase_store import load_app_settings
+
+        user_id = user["id"]
+        if self.client:
+            self.crm.user_id = user_id
+            self.metrics.user_id = user_id
+        self.dialer.account_user_id = user_id
+        self.dialer.account_email = user.get("email") or ""
+        self.dialer.account_values = load_app_settings(self.client, user_id) if self.client else {}
+
+    def persist_settings(self):
+        from supabase_store import save_app_settings
+
+        user_id = getattr(self.dialer, "account_user_id", None)
+        if not self.client or not user_id:
+            return
+        try:
+            save_app_settings(self.client, self.dialer._values(), user_id)
+        except OSError as exc:
+            if "HTTP 404" in str(exc) or "PGRST205" in str(exc) or "does not exist" in str(exc).lower():
+                return
+            raise
+
+
+PUBLIC_API_PATHS = {"/api/health", "/api/auth/config"}
+
+
+def make_app_handler(runtime):
     class AppHandler(BaseHTTPRequestHandler):
+        def current_user(self):
+            if not runtime.client:
+                return None
+            header = self.headers.get("Authorization", "")
+            token = header[7:].strip() if header.lower().startswith("bearer ") else ""
+            user = runtime.client.auth_user(token)
+            if user:
+                runtime.bind_account(user)
+            return user
+
+        def require_account(self, path):
+            google = bool(runtime.client and runtime.client.anon_key)
+            if not google or path in PUBLIC_API_PATHS or not path.startswith("/api/"):
+                return True
+            if self.current_user():
+                return True
+            self.send_json(401, {"error": "Sign in with Google to continue."})
+            return False
+
         def do_GET(self):
             path = urllib.parse.urlsplit(self.path).path
+            if path == "/api/auth/config":
+                client = runtime.client
+                google = bool(client and client.anon_key)
+                self.send_json(200, {
+                    "google": google,
+                    "url": client.project_url if google else "",
+                    "anonKey": client.anon_key if google else "",
+                })
+                return
+            if not self.require_account(path):
+                return
+            if path == "/api/auth/me":
+                user = self.current_user()
+                self.send_json(200, user or {"id": "", "email": ""})
+                return
+            crm, dialer, metrics = runtime.crm, runtime.dialer, runtime.metrics
+            storage_name = runtime.storage_name
             if path.startswith("/api/") and path not in ("/api/state", "/api/metrics", "/api/health"):
                 dialer.record_activity(f"GET {path}", "web")
             if path == "/api/state":
@@ -78,21 +179,30 @@ def make_app_handler(crm, dialer, metrics, storage_name="local JSON files"):
                 self.send_json(404, {"error": "Not found"})
 
         def report_storage_error(self, exc):
-            dialer.record_activity(f"Storage request failed: {exc}", "error")
+            runtime.dialer.record_activity(f"Storage request failed: {exc}", "error")
             self.send_json(502, {"error": f"Could not read persistent data: {exc}"})
 
         def do_POST(self):
             path = urllib.parse.urlsplit(self.path).path
+            if not self.require_account(path):
+                return
+            crm, dialer = runtime.crm, runtime.dialer
             if path.startswith("/api/"):
                 dialer.record_activity(f"POST {path}", "web")
             try:
                 body = self.read_body()
                 if path == "/api/import":
                     result = crm.add_csv(body)
-                    self.send_json(200, {"import": result, "state": dialer.public_state()})
+                    try:
+                        state = dialer.public_state()
+                    except Exception as exc:
+                        dialer.record_activity(f"Imported CSV but could not refresh state: {exc}", "error")
+                        state = {"leads": crm.snapshot()}
+                    self.send_json(200, {"import": result, "state": state})
                 elif path == "/api/settings":
-                    result = dialer.save_settings(self.read_json(body))
-                    self.send_json(200, result)
+                    dialer.save_settings(self.read_json(body))
+                    runtime.persist_settings()
+                    self.send_json(200, runtime.dialer.settings_state())
                 elif path == "/api/timezone":
                     result = dialer.set_timezone_filter(self.read_json(body).get("timezone"))
                     self.send_json(200, result)
@@ -135,6 +245,9 @@ def make_app_handler(crm, dialer, metrics, storage_name="local JSON files"):
 
         def do_DELETE(self):
             path = urllib.parse.urlsplit(self.path).path
+            if not self.require_account(path):
+                return
+            crm, dialer = runtime.crm, runtime.dialer
             if path.startswith("/api/leads/"):
                 lead_id = urllib.parse.unquote(path.removeprefix("/api/leads/"))
                 try:
@@ -247,37 +360,22 @@ def make_hook_handler(dialer):
 
 
 def serve():
-    from supabase_store import SupabaseCRMStore, SupabaseMetricsStore, SupabaseClient
-    from twilio_calls import read_env
-
-    values = read_env(ENV_PATH)
-    client = SupabaseClient.from_env(values)
-    if client:
-        crm = SupabaseCRMStore(client)
-        metrics = SupabaseMetricsStore(client)
-        crm.snapshot()
-        metrics.snapshot()
-        storage_name = "Supabase"
-    else:
-        crm = CRMStore(CRM_PATH)
-        metrics = MetricsStore(METRICS_PATH)
-        storage_name = "local JSON files"
-    dialer = TwilioDialer(crm, ENV_PATH, metrics=metrics)
+    runtime = AppRuntime().configure(migrate=True)
     app_server = QuietThreadingHTTPServer(
         (APP_HOST, APP_PORT),
-        make_app_handler(crm, dialer, metrics, storage_name),
+        make_app_handler(runtime),
     )
-    hook_server = QuietThreadingHTTPServer((HOOK_HOST, HOOK_PORT), make_hook_handler(dialer))
+    hook_server = QuietThreadingHTTPServer((HOOK_HOST, HOOK_PORT), make_hook_handler(runtime.dialer))
     threading.Thread(target=hook_server.serve_forever, name="twilio-callback-server", daemon=True).start()
     print(f"CRM web app: http://{APP_HOST}:{APP_PORT}")
-    print(f"Persistent storage: {storage_name}")
+    print(f"Persistent storage: {runtime.storage_name}")
     print(f"Twilio callback server: http://{HOOK_HOST}:{HOOK_PORT} (expose this port with HTTPS)")
     try:
         app_server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
-        dialer.stop()
+        runtime.dialer.stop()
         app_server.shutdown()
         hook_server.shutdown()
         app_server.server_close()

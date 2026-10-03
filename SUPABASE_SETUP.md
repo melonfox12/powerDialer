@@ -1,31 +1,33 @@
-# Supabase storage setup
+# Supabase storage and Google accounts
 
-The app can store prospects, transcripts, statuses, and call metrics in Supabase. Supabase credentials are only read by the Python server; they are never sent to the browser. If neither Supabase setting is present, the app continues to use local `crm_data.json` and `metrics.json`. If only one setting is configured or the remote database is unavailable, startup fails rather than silently switching storage.
+The app stores prospects, transcripts, settings, and call metrics in Supabase. You sign in with Google in the browser. Each Gmail account only sees its own data. Supabase URL and keys stay in the private `.env` file on the machine that runs `server.py` — they are not entered in Settings.
+
+If Supabase is not configured, the app uses local `crm_data.json` and `metrics.json` and does not show Google sign-in.
 
 ## Configure
 
 1. Create a Supabase project.
-2. In the SQL editor, run [`supabase_schema.sql`](./supabase_schema.sql). If you already installed an earlier version of this schema, run the updated script again to create session history and update supported metrics.
-3. Add the settings shown in [`.env.example`](./.env.example) to the private `.env` file, then set:
-   - `SUPABASE_URL`: the project URL, such as `https://your-project.supabase.co`
-   - `SUPABASE_SECRET_KEY`: a server-only Supabase secret key (`sb_secret_...`), or for legacy projects, `SUPABASE_SERVICE_ROLE_KEY`
-4. Keep `.env` private. Never put the service role key in JavaScript, HTML, a committed file, or a public client setting.
-5. Start the app. Startup performs read-only checks against the prospects and metrics tables. `/api/health` reports the selected storage backend and its current read availability.
+2. In the SQL editor, run [`supabase_schema.sql`](./supabase_schema.sql). Re-run it on existing projects to add `user_id` columns and Google-account policies.
+3. Add these to the private `.env` file (see [`.env.example`](./.env.example)):
+   - `SUPABASE_URL`: `https://your-project.supabase.co`
+   - `SUPABASE_SECRET_KEY`: server secret (`sb_secret_...`) or legacy `service_role` JWT
+   - `SUPABASE_ANON_KEY`: the project's anon/publishable key (safe to send to the browser for Auth only)
+4. In Supabase: **Authentication → Providers → Google**. Turn it on and paste a Google Cloud OAuth Client ID and secret.
+5. In Google Cloud: create an OAuth client (Web application). Authorized JavaScript origin: `http://127.0.0.1:8000`. Authorized redirect URI: `https://YOUR-PROJECT.supabase.co/auth/v1/callback`.
+6. In Supabase: **Authentication → URL configuration**. Add `http://127.0.0.1:8000` (and `http://127.0.0.1:8000/`) to redirect URLs.
+7. Keep `.env` private. Never put the service role / secret key in JavaScript or Settings.
+8. Restart `python server.py`. Open the app and choose **Continue with Google**.
 
-Do not use a Supabase publishable/anon key for server storage. It is intended for clients and does not have the service privileges required by this app's row-level-security-protected tables. The app rejects publishable/anon keys during startup.
+The anon key is only used for Google sign-in. The Python server still uses the secret key for Twilio webhooks and storage.
 
-The schema enables row-level security and grants the app's service role access. Do not use an anon/public key as the server key.
-
-Dialer preferences (session goal, conversation threshold, advance delay, sound, break reminder, calling window, and opener) are saved in the private `.env` file. Session summaries are saved with the selected metrics backend. Calling hours use each prospect's timezone; prospects with missing or unrecognized timezones are not auto-dialed.
+Dialer Twilio credentials and session preferences are saved per Google account in `dialer_settings`. Calling hours use each prospect's timezone; prospects with missing or unrecognized timezones are not auto-dialed.
 
 ## Move existing local data
 
-After running the SQL and configuring `.env`, run:
+After running the SQL and configuring `.env`, you can run:
 
 ```powershell
-.\.venv\Scripts\python.exe .\migrate_to_supabase.py
+python .\migrate_to_supabase.py
 ```
 
-The migration imports `crm_data.json` and `metrics.json`. It can safely resume a partial migration when the existing remote rows still match the local data; it stops if it finds differing or unrelated rows rather than overwriting them. The migration does not delete or modify the local files. Run it before switching the app to Supabase.
-
-Once the app starts with both Supabase settings configured, Supabase is authoritative; the app does not mirror writes into the local JSON files. If the schema does not exist yet, startup reports the database error instead of falling back to local files.
+Imported rows are not attached to a Gmail user until you sign in and import CSV (or update `user_id` in the database). Prefer importing CSV after you sign in so the rows belong to that Google account.
