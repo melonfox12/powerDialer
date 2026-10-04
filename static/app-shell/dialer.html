@@ -1,0 +1,102 @@
+    <main>
+      <section id="crmView" class="view active-view" aria-labelledby="pageTitle">
+        <div class="page-heading">
+          <div>
+            <h1 id="pageTitle">Dialer</h1>
+          </div>
+          <button id="headingImportButton" class="button button-secondary heading-import-button" type="button" hidden>Import CSV</button>
+        </div>
+
+        <div class="dashboard-stack">
+          <div class="dashboard-top-row">
+            <section id="dialerTabPanel" class="dialer-run-panel" aria-labelledby="liveTitle" tabindex="0">
+              <div class="session-momentum" aria-label="Current session progress">
+                <div class="session-goal">
+                  <div><span>Session goal</span><strong id="sessionGoalLabel">0 / 20 conversations</strong><span id="sessionHalfway" class="session-halfway" hidden>Halfway</span><p id="sessionStreak" class="session-streak" hidden></p></div>
+                  <div id="sessionGoalTrack" class="goal-track" role="progressbar" aria-label="Session conversation goal" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><span id="sessionGoalProgress"></span></div>
+                </div>
+                <div id="breakNudge" class="break-nudge" hidden><span>Good work. Consider a 5-minute break.</span><button id="breakPauseButton" class="button button-quiet" type="button">Pause</button><button id="breakDismissButton" class="button button-quiet" type="button">Dismiss</button></div>
+              </div>
+              <section class="queue-strip" aria-label="Call queue">
+                <span class="queue-label">Queue</span>
+                <div id="activeCall" class="active-call">
+                  <div class="active-avatar">PD</div>
+                  <div class="active-copy"><strong>Ready when you are</strong><span></span></div>
+                </div>
+                <span id="lineCount" class="line-count">0 of 0 dialed</span>
+                <label class="dialer-pool-filter"><span class="visually-hidden">Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
+              </section>
+              <div class="live-panel-top">
+                <span class="live-indicator"><i></i><span id="liveLabel">DIALER STANDBY</span></span>
+                <div id="callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
+              </div>
+              <h2 id="liveTitle">Call desk</h2>
+              <div id="dialerMessage" class="dialer-message" role="status" hidden></div>
+              <div class="dialer-controls" data-controls="idle">
+                <button id="startButton" class="button button-primary" type="button"><span class="button-symbol" aria-hidden="true">▶</span>Start dialing<kbd>Space</kbd></button>
+                <button id="pauseButton" class="button button-secondary" type="button" disabled hidden>Pause</button>
+                <button id="hangupButton" class="button button-danger-quiet" type="button" disabled hidden>Hang up<kbd>H</kbd></button>
+                <button id="stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
+                <details class="shortcut-help"><summary aria-label="Show keyboard shortcuts">?</summary><div>Space start / resume / skip wait · 1-5 outcome · H hang up · Esc pause</div></details>
+              </div>
+              <div id="outcomeRow" class="outcome-row" hidden>
+                <div class="outcome-buttons">
+                  <button id="outcomeBookedButton" class="outcome-btn outcome-btn-booked" type="button" disabled><kbd>1</kbd>Booked</button>
+                  <button id="outcomeCallButton" class="outcome-btn outcome-btn-call" type="button" disabled><kbd>2</kbd>Callback</button>
+                  <button id="outcomeDisqualifiedButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled><kbd>3</kbd>Not interested</button>
+                  <button id="outcomeNoAnswerButton" class="outcome-btn outcome-btn-call" type="button" disabled><kbd>4</kbd>Voicemail / No answer</button>
+                  <button id="outcomeDncButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled><kbd>5</kbd>Wrong number / Do not call</button>
+                </div>
+                <div id="callbackPicker" class="callback-picker" hidden><label for="callbackAt">Call again in prospect’s local time</label><input id="callbackAt" type="datetime-local" aria-label="Callback date and time"><button id="saveCallbackButton" class="button button-secondary" type="button">Save callback</button></div>
+              </div>
+              <section id="callStage" class="call-stage" data-stage="idle" aria-live="off" tabindex="0" aria-label="Call stage"></section>
+              <section id="arcadeViewport" class="arcade-viewport" aria-label="Call feedback" aria-live="off" hidden>
+                <div class="arcade-reels" aria-hidden="true">
+                  <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                  <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                  <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                </div>
+                <div class="arcade-feedback">
+                  <span id="arcadeStatus" role="status" aria-live="polite">Preparing next call</span>
+                  <strong id="arcadeValue" aria-live="off" hidden></strong>
+                </div>
+              </section>
+              <span id="stageAnnouncer" class="visually-hidden" role="status" aria-live="polite"></span>
+              <div id="advanceControls" class="advance-controls" hidden>
+                <p id="autoAdvance" class="auto-advance" hidden></p>
+                <button id="advanceNowButton" class="button button-quiet advance-now" type="button" hidden>Dial next now <kbd>Space</kbd></button>
+              </div>
+              <details id="callMonitorDisclosure" class="call-monitor-disclosure" open>
+                <summary class="call-monitor-summary">
+                  <span id="callMonitorTitle" class="call-monitor-title">Call monitor</span>
+                  <span id="monitorActivity" class="monitor-activity" data-state="idle" aria-hidden="true">
+                    <svg class="monitor-spinner" viewBox="0 0 24 24" focusable="false">
+                      <circle cx="12" cy="3" r="1.8"/><circle cx="18.4" cy="5.6" r="1.8"/>
+                      <circle cx="21" cy="12" r="1.8"/><circle cx="18.4" cy="18.4" r="1.8"/>
+                      <circle cx="12" cy="21" r="1.8"/><circle cx="5.6" cy="18.4" r="1.8"/>
+                      <circle cx="3" cy="12" r="1.8"/><circle cx="5.6" cy="5.6" r="1.8"/>
+                    </svg>
+                    <span id="monitorStatus" class="monitor-status">Waiting</span>
+                  </span>
+                </summary>
+                <section class="call-monitor" aria-labelledby="callMonitorTitle">
+                  <div class="monitor-header-actions"><button id="enterLiveButton" class="button button-secondary monitor-enter-live" type="button" hidden>Enter live line</button><button id="keepLineButton" class="button button-secondary monitor-keep" type="button" hidden>Keep</button><button id="skipVoicemailButton" class="button button-danger-quiet monitor-skip" type="button" disabled>Skip</button></div>
+                  <div class="monitor-waveform-block">
+                    <div class="monitor-subheading"><span>Prospect audio</span><output id="prospectAudioLevel">0%</output></div>
+                    <canvas id="prospectWaveform" height="42" role="img" aria-label="Live waveform for prospect audio"></canvas>
+                  </div>
+                  <div class="monitor-transcript-block">
+                    <div class="monitor-subheading"><span>Live transcript</span><span id="transcriptLiveStatus">Waiting for a pickup</span></div>
+                    <div id="liveTranscript" class="live-transcript" role="log" aria-live="polite" aria-relevant="additions text"><p class="transcript-empty">Transcript appears here as the prospect and agent speak.</p></div>
+                  </div>
+                  <div id="dialedProspect" class="dialed-prospect is-empty" aria-live="polite">
+                    <strong id="dialedProspectName">No one is being dialed</strong>
+                    <span id="dialedProspectBusiness" hidden></span>
+                  </div>
+                  <details class="activity-log-disclosure">
+                    <summary class="monitor-subheading"><span>Recent activity</span><span id="activityCount">0 events</span></summary>
+                    <ol id="activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
+                  </details>
+                </section>
+              </details>
+            </section>

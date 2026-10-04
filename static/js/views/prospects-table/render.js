@@ -43,7 +43,7 @@ export function renderTable() {
     cell.textContent = label;
     head.append(cell);
   }
-  appendLeadRows(body, leads, extras);
+  appendLeadRows(body, leads, extras, renderTable);
   const empty = byId("emptyState");
   empty.classList.toggle("visible", leads.length === 0);
   empty.querySelector("h2").textContent = state.leads.length === 0 ? "Your CRM starts here" : "No matching prospects";

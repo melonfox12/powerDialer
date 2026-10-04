@@ -1,7 +1,7 @@
 import { request } from "../api/client.js";
 import { state } from "../store/state.js";
 import { byId } from "../utils/format.js";
-import { showToast } from "../views/dialogs.js";
+import { showToast } from "../utils/notify.js";
 import { render } from "../views/render.js";
 import { setDashboardTab } from "./navigation.js";
 import { deleteSelectedProspects } from "./prospects.js";

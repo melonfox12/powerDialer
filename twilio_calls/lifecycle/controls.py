@@ -1,6 +1,6 @@
 import threading
 import time
-from dialer_session import session_summary
+from core.dialer_session import session_summary
 
 class ControlsMixin:
     def pause(self):

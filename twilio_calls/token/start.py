@@ -2,7 +2,7 @@ import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
-from dialer_session import new_session
+from core.dialer_session import new_session
 from twilio_calls.client import normalize_phone, twilio_request
 from twilio_calls.settings import _preferences
 

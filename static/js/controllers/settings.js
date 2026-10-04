@@ -1,33 +1,54 @@
 import { postJson, request } from "../api/client.js";
 import { arcadeSensory } from "../features/arcade/controller/index.js";
 import { refreshAudioDevices } from "../features/voice/device/index.js";
-import { stopMicrophoneTest } from "../features/voice/testing.js";
+import { stopMicrophoneTest } from "../features/voice/testing/index.js";
 import { S, state } from "../store/state.js";
 import { byId, setText } from "../utils/format.js";
-import { showToast } from "../views/dialogs.js";
+import { showToast } from "../utils/notify.js";
 import { render } from "../views/render.js";
+
+const SECRET_FIELDS = [
+  ["authTokenInput", "auth token"],
+  ["apiSecretInput", "API key secret"],
+];
+
+export function applySavedSettings(settings) {
+  state.settings = settings;
+  byId("accountSidInput").value = settings.account_sid || "";
+  byId("authTokenInput").value = settings.auth_token || "";
+  byId("apiKeyInput").value = settings.api_key || "";
+  byId("apiSecretInput").value = settings.api_secret || "";
+  byId("twimlAppSidInput").value = settings.twiml_app_sid || "";
+  byId("publicUrlInput").value = settings.public_base_url || "";
+  byId("sessionGoalInput").value = settings.session_goal;
+  byId("conversationThresholdInput").value = settings.conversation_threshold;
+  byId("autoAdvanceDelayInput").value = settings.auto_advance_delay;
+  byId("callingStartHourInput").value = settings.calling_start_hour;
+  byId("callingEndHourInput").value = settings.calling_end_hour;
+  byId("breakNudgeInput").value = settings.break_nudge_minutes;
+  byId("openingScriptInput").value = settings.opening_script || "";
+  byId("soundsEnabledInput").checked = settings.sounds_enabled;
+  byId("soundVolumeInput").value = settings.sound_volume;
+  setText("soundVolumeValue", `${settings.sound_volume}%`);
+}
+
+function maskSecrets() {
+  for (const [id, noun] of SECRET_FIELDS) {
+    const input = byId(id);
+    const button = document.querySelector(`[data-reveal="${id}"]`);
+    input.type = "password";
+    if (!button) continue;
+    button.textContent = "Show";
+    button.setAttribute("aria-pressed", "false");
+    button.setAttribute("aria-label", `Show ${noun}`);
+  }
+}
 
 export async function openSettings() {
   try {
     const settings = await request("/api/settings");
-    byId("accountSidInput").value = settings.account_sid || "";
-    byId("authTokenInput").value = "";
-    byId("authTokenInput").placeholder = settings.has_auth_token ? "Saved on your Google account. Leave blank to keep it." : "Twilio Auth Token";
-    byId("apiKeyInput").value = settings.api_key || "";
-    byId("apiSecretInput").value = "";
-    byId("apiSecretInput").placeholder = settings.has_api_secret ? "Saved on your Google account. Leave blank to keep it." : "Twilio API Key Secret";
-    byId("twimlAppSidInput").value = settings.twiml_app_sid || "";
-    byId("publicUrlInput").value = settings.public_base_url || "";
-    byId("sessionGoalInput").value = settings.session_goal;
-    byId("conversationThresholdInput").value = settings.conversation_threshold;
-    byId("autoAdvanceDelayInput").value = settings.auto_advance_delay;
-    byId("callingStartHourInput").value = settings.calling_start_hour;
-    byId("callingEndHourInput").value = settings.calling_end_hour;
-    byId("breakNudgeInput").value = settings.break_nudge_minutes;
-    byId("openingScriptInput").value = settings.opening_script || "";
-    byId("soundsEnabledInput").checked = settings.sounds_enabled;
-    byId("soundVolumeInput").value = settings.sound_volume;
-    setText("soundVolumeValue", `${settings.sound_volume}%`);
+    applySavedSettings(settings);
+    maskSecrets();
     arcadeSensory.syncControls();
     await refreshAudioDevices();
     byId("settingsDialog").showModal();
@@ -38,6 +59,17 @@ export async function openSettings() {
 
 export function bindSettings() {
   byId("settingsButton").addEventListener("click", openSettings);
+  for (const [id, noun] of SECRET_FIELDS) {
+    const button = document.querySelector(`[data-reveal="${id}"]`);
+    button?.addEventListener("click", () => {
+      const input = byId(id);
+      const reveal = input.type === "password";
+      input.type = reveal ? "text" : "password";
+      button.textContent = reveal ? "Hide" : "Show";
+      button.setAttribute("aria-pressed", reveal ? "true" : "false");
+      button.setAttribute("aria-label", `${reveal ? "Hide" : "Show"} ${noun}`);
+    });
+  }
   byId("settingsDialog").addEventListener("close", () => {
     if (S.micTestRecorder?.state === "recording") {
       stopMicrophoneTest().catch((error) => showToast(error.message, true));
@@ -67,9 +99,8 @@ export function bindSettings() {
         sounds_enabled: byId("soundsEnabledInput").checked,
         sound_volume: byId("soundVolumeInput").value,
       });
-      state.settings = settings;
-      byId("authTokenInput").value = "";
-      byId("apiSecretInput").value = "";
+      applySavedSettings(settings);
+      maskSecrets();
       byId("settingsDialog").close();
       render();
       showToast(settings.account_email ? `Settings saved for ${settings.account_email}` : "Dialer settings saved");

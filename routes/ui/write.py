@@ -1,6 +1,6 @@
 import traceback
 import urllib.parse
-from debug_log import debug_event
+from core.debug_log import debug_event
 
 class WriteMixin:
     def do_POST(self):

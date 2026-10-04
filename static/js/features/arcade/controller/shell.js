@@ -1,5 +1,5 @@
 import { byId, setText } from "../../../utils/format.js";
-import { showToast } from "../../../views/dialogs.js";
+import { showToast } from "../../../utils/notify.js";
 
 export class ArcadeCore {
   constructor() {

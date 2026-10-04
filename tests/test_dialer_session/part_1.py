@@ -2,8 +2,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from crm_store import CRMStore
-from dialer_session import add_connect, dialer_stage, local_time, new_session, record_conversation, record_disposition, recent_streak, session_summary, status_for_disposition, within_calling_window
-from metrics_store import MetricsStore
+from core.dialer_session import add_connect, dialer_stage, local_time, new_session, record_conversation, record_disposition, recent_streak, session_summary, status_for_disposition, within_calling_window
+from core.metrics_store import MetricsStore
 from twilio_calls import TwilioDialer, _preferences, DIALER_DEFAULTS, TokenIndex
 
 class Part1:

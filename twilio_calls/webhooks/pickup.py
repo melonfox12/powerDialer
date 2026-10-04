@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from dialer_session import add_connect
+from core.dialer_session import add_connect
 
 class PickupMixin:
     def _pickup(self, call):

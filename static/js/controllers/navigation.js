@@ -1,6 +1,6 @@
 import { S } from "../store/state.js";
 import { byId, setText } from "../utils/format.js";
-import { renderCallerPool } from "../views/caller-pool.js";
+import { renderCallerPool } from "../views/pool/index.js";
 import { renderTable } from "../views/prospects-table/index.js";
 
 export function setDashboardTab(name, moveFocus = false) {

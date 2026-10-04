@@ -1,8 +1,15 @@
 import { postJson, request } from "../api/client.js";
 import { S, selectedLeadIds, state } from "../store/state.js";
 import { STATUS_LABELS, byId } from "../utils/format.js";
-import { showToast } from "../views/dialogs.js";
+import { showToast } from "../utils/notify.js";
 import { render } from "../views/render.js";
+
+export function bindProspects() {
+  document.addEventListener("prospect-status", (event) => {
+    const { lead, status, select } = event.detail;
+    changeLeadStatus(lead, status, select);
+  });
+}
 
 export async function changeLeadStatus(lead, status, select) {
   select.disabled = true;

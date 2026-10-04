@@ -1,5 +1,5 @@
 import json
-from debug_log import debug_event
+from core.debug_log import debug_event
 from routes.runtime import PUBLIC_API_PATHS
 
 class AccountMixin:

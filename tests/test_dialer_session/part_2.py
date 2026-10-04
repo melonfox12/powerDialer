@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 from crm_store import CRMStore
-from dialer_session import new_session
+from core.dialer_session import new_session
 from twilio_calls import TwilioDialer
 
 class Part2:
@@ -25,6 +25,24 @@ class Part2:
             self.assertEqual(saved[0].account_values["TWILIO_ACCOUNT_SID"], "ACexample")
             self.assertEqual(saved[0].account_values["PUBLIC_BASE_URL"], "https://example.ngrok.dev")
             self.assertEqual(saved[0].account_values["SESSION_GOAL"], "12")
+            shown = dialer.settings_state()
+            self.assertEqual(shown["auth_token"], "token")
+            self.assertEqual(shown["api_secret"], "secret")
+            dialer.save_settings({
+                "account_sid": "ACexample",
+                "auth_token": "",
+                "api_key": "SKexample",
+                "api_secret": "",
+                "twiml_app_sid": "APexample",
+                "public_base_url": "https://example.ngrok.dev",
+            })
+            kept = dialer.settings_state()
+            self.assertEqual(kept["auth_token"], "token")
+            self.assertEqual(kept["api_secret"], "secret")
+            dialer.save_settings({"auth_token": "replaced-token", "api_secret": "replaced-secret", "account_sid": "ACexample", "api_key": "SKexample", "twiml_app_sid": "APexample", "public_base_url": "https://example.ngrok.dev"})
+            replaced = dialer.settings_state()
+            self.assertEqual(replaced["auth_token"], "replaced-token")
+            self.assertEqual(replaced["api_secret"], "replaced-secret")
             self.assertNotIn("ACexample", env_path.read_text(encoding="utf-8") if env_path.exists() else "")
 
     def test_callback_is_persisted_and_do_not_call_leaves_the_auto_dial_pool(self):

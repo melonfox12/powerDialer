@@ -14,7 +14,7 @@ class QuietThreadingHTTPServer(ThreadingHTTPServer):
 
 
 def serve():
-    from debug_log import enable
+    from core.debug_log import enable
 
     enable()
     runtime = AppRuntime().configure(migrate=True)

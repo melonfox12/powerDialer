@@ -7,7 +7,7 @@ import time
 import traceback
 import urllib.parse
 
-from debug_log import debug_event
+from core.debug_log import debug_event
 from routes.runtime import MAX_BODY, QUIET_HTTP, STATIC_DIR
 
 
@@ -58,7 +58,9 @@ class HandlerMixin:
         def send_app_page(self):
             parts = (
                 os.path.join(STATIC_DIR, "app-shell", "chrome.html"),
-                os.path.join(STATIC_DIR, "app-shell", "workspace.html"),
+                os.path.join(STATIC_DIR, "app-shell", "dialer.html"),
+                os.path.join(STATIC_DIR, "app-shell", "metrics.html"),
+                os.path.join(STATIC_DIR, "app-shell", "dialogs.html"),
             )
             try:
                 chunks = []

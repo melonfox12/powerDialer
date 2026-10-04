@@ -2,12 +2,15 @@ import { debugEvent, postJson, request } from "../api/client.js";
 import { applyVoiceAudioDevices, createVoiceDevice, refreshAudioDevices } from "../features/voice/device/index.js";
 import { S, state } from "../store/state.js";
 import { byId } from "../utils/format.js";
-import { renderCallMonitor } from "../views/call-monitor.js";
-import { selectTimezone } from "../views/caller-pool.js";
-import { showSessionSummary, showToast } from "../views/dialogs.js";
-import { drawProspectWaveform, startProspectWaveform, stopProspectWaveform } from "../views/prospect-card.js";
+import { showToast } from "../utils/notify.js";
+import { renderCallMonitor } from "../views/monitor/index.js";
+import { setStartNewSession, showSessionSummary } from "../views/dialogs/index.js";
+import { drawProspectWaveform, startProspectWaveform, stopProspectWaveform } from "../views/dialer/card.js";
 import { render } from "../views/render.js";
+import { selectTimezone } from "./pool.js";
 import { openSettings } from "./settings.js";
+
+setStartNewSession(startDialing);
 
 export async function startDialing() {
   byId("startButton").disabled = true;

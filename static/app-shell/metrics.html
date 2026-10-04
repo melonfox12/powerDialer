@@ -1,0 +1,120 @@
+            <section id="metricsPanel" class="metrics-panel" aria-labelledby="metricsTitle" hidden>
+              <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton" data-mode="summary">
+                <div class="section-heading">
+                  <div>
+                    <div class="eyebrow">PERFORMANCE</div>
+                    <h2 id="metricsTitle">Live metrics</h2>
+                  </div>
+                  <div class="performance-mode-control" role="group" aria-label="Performance display mode">
+                    <button id="summaryModeButton" class="performance-mode-button active" type="button" aria-pressed="true" data-performance-mode="summary">Summary</button>
+                    <button id="allVisualsModeButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-mode="all">All visuals</button>
+                  </div>
+                </div>
+                <div class="metrics-stats">
+                  <div class="stat-tile">
+                    <span class="stat-label">Dials</span>
+                    <strong id="statDialsToday">0</strong>
+                    <span class="stat-sub"><span id="statDialsAll">0</span> all time</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-label">Connected</span>
+                    <strong id="statConnectedToday">0</strong>
+                    <span class="stat-sub"><span id="statConnectedAll">0</span> all time</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-label">Booked</span>
+                    <strong id="statBookedToday">0</strong>
+                    <span class="stat-sub"><span id="statBookedAll">0</span> all time</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-label">Talk time</span>
+                    <strong id="statTalkToday">0m</strong>
+                    <span class="stat-sub"><span id="statTalkAll">0m</span> all time</span>
+                  </div>
+                  <div class="stat-tile session-conversations-tile" hidden>
+                    <span class="stat-label">Conversations</span>
+                    <strong id="statSessionConversations">0</strong>
+                    <span class="stat-sub">this session</span>
+                  </div>
+                </div>
+                <div class="performance-chart-grid">
+                  <section class="performance-chart-panel chart-wide" aria-labelledby="trendTitle">
+                    <div class="chart-panel-heading"><span class="eyebrow">LAST 7 DAYS</span><h3 id="trendTitle">Call trends</h3></div>
+                    <div class="chart-legend line-chart-legend">
+                      <span class="legend-item"><i class="legend-line legend-line-dials" aria-hidden="true"></i>Dials</span>
+                      <span class="legend-item"><i class="legend-line legend-line-connected" aria-hidden="true"></i>Connected</span>
+                    </div>
+                    <div id="metricsLineChart" class="line-chart" role="img" aria-label="Dials and connected calls trend over the last 7 days"></div>
+                  </section>
+                  <section class="performance-chart-panel status-chart-panel" aria-labelledby="statusMixTitle" data-performance-detail="all">
+                    <div class="chart-panel-heading"><span class="eyebrow">CRM MIX</span><h3 id="statusMixTitle">Prospect status</h3></div>
+                    <div class="status-chart-layout">
+                      <div id="statusPieChart" class="status-pie-chart" role="img" aria-label="Prospects by call status"></div>
+                      <ul id="statusPieLegend" class="status-pie-legend"></ul>
+                    </div>
+                  </section>
+                  <section class="performance-chart-panel" aria-labelledby="connectionMixTitle" data-performance-detail="all">
+                    <div class="chart-panel-heading"><span class="eyebrow">ALL TIME</span><h3 id="connectionMixTitle">Dial outcomes</h3></div>
+                    <div class="status-chart-layout">
+                      <div id="connectionPieChart" class="status-pie-chart" role="img" aria-label="Connected versus unconnected dials"></div>
+                      <ul id="connectionPieLegend" class="status-pie-legend"></ul>
+                    </div>
+                  </section>
+                </div>
+              </div>
+              <div id="prospectsTabPanel" class="dashboard-tab-panel prospects-tab-panel" role="tabpanel" aria-labelledby="prospectsTabButton" hidden>
+                <section class="crm-table-panel" aria-label="Prospect table">
+                  <div class="table-toolbar">
+                    <div class="toolbar-leading">
+                      <label class="search-box">
+                        <span class="search-icon" aria-hidden="true"></span>
+                        <input id="searchInput" type="search" placeholder="Search prospects" autocomplete="off">
+                      </label>
+                      <select id="statusFilter" class="filter-select" aria-label="Filter by status">
+                        <option value="all">All statuses</option>
+                        <option value="new">New</option>
+                        <option value="call">Callback</option>
+                        <option value="disqualified">Not interested</option>
+                        <option value="booked">Booked</option>
+                        <option value="interested">Interested</option>
+                        <option value="do_not_call">Do not call</option>
+                      </select>
+                    </div>
+                    <div class="toolbar-actions">
+                      <input id="csvInput" type="file" accept=".csv,.tsv,.txt,text/csv" hidden>
+                      <button id="importButton" class="button button-secondary" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
+                      <a id="exportButton" class="button button-quiet" href="/api/export.csv"><span class="button-symbol" aria-hidden="true">↓</span>Export</a>
+                    </div>
+                  </div>
+                  <div class="table-scroll" role="region" aria-label="Prospects table" tabindex="0">
+                    <table id="crmTable">
+                      <thead><tr id="tableHead"></tr></thead>
+                      <tbody id="tableBody"></tbody>
+                    </table>
+                    <div id="emptyState" class="empty-state">
+                      <span class="empty-glyph" aria-hidden="true">＋</span>
+                      <h2>Your CRM starts here</h2>
+                      <p>Import a CSV to add prospects to your workspace.</p>
+                    </div>
+                  </div>
+                  <div class="table-footer"><span id="tableSummary">0 prospects</span><button id="deleteSelectedButton" class="button button-danger-quiet table-delete-button" type="button" hidden>Delete selected</button><span id="saveState">All changes saved</span></div>
+                </section>
+              </div>
+              <div id="poolTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="poolTabButton" hidden>
+                <section class="pool-table-panel" aria-label="Eligible new prospects">
+                  <div class="pool-table-toolbar">
+                    <div><div class="eyebrow">ELIGIBLE PROSPECTS</div><h2>Caller pool</h2><span id="poolTableSummary" class="pool-table-summary">0 new prospects</span></div>
+                    <label class="pool-timezone-filter"><span>Timezone</span><select id="poolTimezoneFilter" aria-label="Filter caller pool by timezone"><option value="">All time zones</option></select></label>
+                  </div>
+                  <div class="table-scroll pool-table-scroll" role="region" aria-label="New prospect pool table" tabindex="0">
+                    <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
+                    <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p>Only prospects marked New appear in this pool.</p></div>
+                  </div>
+                </section>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+    </main>

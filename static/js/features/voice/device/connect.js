@@ -1,8 +1,8 @@
 import { request } from "../../../api/client.js";
 import { S, audioInputStorageKey, audioOutputStorageKey } from "../../../store/state.js";
 import { byId } from "../../../utils/format.js";
-import { showToast } from "../../../views/dialogs.js";
-import { startMicrophoneTest, stopMicrophoneTest, testAudioOutput } from "../testing.js";
+import { showToast } from "../../../utils/notify.js";
+import { startMicrophoneTest, stopMicrophoneTest, testAudioOutput } from "../testing/index.js";
 import { applyVoiceAudioDevices, refreshAudioDevices, routeTestAudio, setMicLevel } from "./devices.js";
 
 export async function createVoiceDevice() {

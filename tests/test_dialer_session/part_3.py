@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 from crm_store import CRMStore
-from dialer_session import new_session
+from core.dialer_session import new_session
 from twilio_calls import TwilioDialer
 
 class Part3:

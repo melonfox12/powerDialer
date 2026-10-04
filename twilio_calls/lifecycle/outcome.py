@@ -1,4 +1,4 @@
-from dialer_session import record_disposition, status_for_disposition
+from core.dialer_session import record_disposition, status_for_disposition
 
 class OutcomeMixin:
     def live_outcome_lead_id(self):

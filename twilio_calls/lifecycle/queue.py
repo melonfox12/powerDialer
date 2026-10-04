@@ -1,7 +1,7 @@
 import random
 import threading
 import time
-from dialer_session import within_calling_window
+from core.dialer_session import within_calling_window
 
 class QueueMixin:
     def _schedule_advance(self, delay=None):

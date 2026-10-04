@@ -1,9 +1,12 @@
-import { request } from "../api/client.js";
-import { refreshState } from "../store/poller.js";
+import { request, setUnauthorizedHandler } from "../api/client.js";
 import { S } from "../store/state.js";
 import { byId } from "../utils/format.js";
-import { showToast } from "../views/dialogs.js";
-import { drawProspectWaveform } from "../views/prospect-card.js";
+import { showToast } from "../utils/notify.js";
+import { drawProspectWaveform } from "../views/dialer/card.js";
+import { refreshState } from "./poller.js";
+import { applySavedSettings } from "./settings.js";
+
+setUnauthorizedHandler(showLoginGate);
 
 export function showLoginGate(message) {
   const gate = byId("loginGate");
@@ -37,6 +40,7 @@ export async function bootApp() {
   drawProspectWaveform(0);
   refreshState();
   request("/api/settings").then((settings) => {
+    applySavedSettings(settings);
     if (!settings.account_sid || !settings.has_auth_token || !settings.api_key || !settings.has_api_secret || !settings.twiml_app_sid || !settings.public_base_url) {
       showToast("Complete your Twilio Voice credentials and callback URL in Settings to start dialing.");
     }

@@ -5,7 +5,7 @@ import threading
 import time
 
 from crm_store import CRMStore
-from metrics_store import MetricsStore
+from core.metrics_store import MetricsStore
 from twilio_calls import TokenIndex, TwilioDialer
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -123,7 +123,7 @@ class AppRuntime:
             if "HTTP 404" in message or "PGRST205" in message or "does not exist" in message.lower():
                 raise OSError(
                     "Dialer settings could not be saved to your account. "
-                    "Run supabase_schema.sql in the Supabase SQL editor, then save again."
+                    "Run docs/supabase/schema.sql in the Supabase SQL editor, then save again."
                 ) from exc
             raise
 

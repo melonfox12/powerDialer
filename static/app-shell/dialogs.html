@@ -1,0 +1,82 @@
+    <dialog id="settingsDialog" class="settings-dialog">
+      <form id="settingsForm" method="dialog">
+        <div class="dialog-heading"><div><div class="eyebrow">ACCOUNT</div><h2>Dialer settings</h2></div><button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">×</button></div>
+        <label class="form-field"><span>Twilio Account SID</span><input id="accountSidInput" name="account_sid" autocomplete="off" required></label>
+        <label class="form-field"><span>Twilio Auth Token</span><span class="secret-field"><input id="authTokenInput" name="auth_token" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="authTokenInput" aria-pressed="false" aria-label="Show auth token">Show</button></span></label>
+        <label class="form-field"><span>Twilio API Key SID</span><input id="apiKeyInput" name="api_key" autocomplete="off" required></label>
+        <label class="form-field"><span>Twilio API Key Secret</span><span class="secret-field"><input id="apiSecretInput" name="api_secret" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="apiSecretInput" aria-pressed="false" aria-label="Show API key secret">Show</button></span></label>
+        <label class="form-field"><span>Twilio TwiML App SID</span><input id="twimlAppSidInput" name="twiml_app_sid" autocomplete="off" required></label>
+        <label class="form-field"><span>Public HTTPS callback URL</span><input id="publicUrlInput" name="public_base_url" type="url" placeholder="https://your-tunnel.example" autocomplete="off" required></label>
+        <p class="form-footnote">These Twilio and session settings load from your Google account each time the app starts. Auth token and API key secret stay masked until you click Show, and they stay saved until you change them and save again.</p>
+        <section class="call-flow-settings" aria-labelledby="callFlowSettingsTitle">
+          <div class="audio-section-heading"><div class="eyebrow">CALL FLOW</div><h3 id="callFlowSettingsTitle">Session preferences</h3></div>
+          <label class="form-field"><span>Session conversation goal</span><input id="sessionGoalInput" type="number" min="1" max="1000"></label>
+          <label class="form-field"><span>Conversation threshold (seconds)</span><input id="conversationThresholdInput" type="number" min="1" max="3600"></label>
+          <label class="form-field"><span>Auto-advance delay (seconds)</span><input id="autoAdvanceDelayInput" type="number" min="0" max="60"></label>
+          <div class="audio-device-grid">
+            <label class="form-field"><span>Calling starts (local hour, 0–23)</span><input id="callingStartHourInput" type="number" min="0" max="23"></label>
+            <label class="form-field"><span>Calling ends (local hour, 1–24)</span><input id="callingEndHourInput" type="number" min="1" max="24"></label>
+          </div>
+          <label class="form-field"><span>Break nudge interval (minutes)</span><input id="breakNudgeInput" type="number" min="1" max="720"></label>
+          <label class="form-field"><span>Opener / talking points</span><textarea id="openingScriptInput" rows="3" maxlength="2000" placeholder="A short opener and reminders for this session"></textarea></label>
+          <label class="sound-setting"><input id="soundsEnabledInput" type="checkbox"> Connect and booked sounds</label>
+          <label class="form-field"><span>Sound volume <output id="soundVolumeValue">35%</output></span><input id="soundVolumeInput" type="range" min="0" max="100"></label>
+        </section>
+        <details class="arcade-settings">
+          <summary>UI Gamification Profiles</summary>
+          <div class="arcade-settings-content">
+            <p class="form-footnote">Sensory feedback runs only in this browser and never changes call timing.</p>
+            <label class="sound-setting"><input id="arcadeEnabledInput" type="checkbox"> Enable arcade feedback</label>
+            <label class="sound-setting"><input id="arcadeReelsInput" type="checkbox"> Reel animations</label>
+            <label class="sound-setting"><input id="arcadeSoundInput" type="checkbox"> Arcade sound effects</label>
+            <label class="form-field"><span>Arcade sound volume <output id="arcadeVolumeValue">35%</output></span><input id="arcadeVolumeInput" type="range" min="0" max="100" value="35"></label>
+            <label class="sound-setting"><input id="arcadeShakeInput" type="checkbox"> Screen shake</label>
+            <label class="sound-setting"><input id="arcadeHapticsInput" type="checkbox"> Haptic feedback (compatible devices)</label>
+          </div>
+        </details>
+        <section class="audio-settings" aria-labelledby="audioSettingsTitle">
+          <div class="audio-section-heading"><div class="eyebrow">COMPUTER AUDIO</div><h3 id="audioSettingsTitle">Devices &amp; test</h3></div>
+          <div class="audio-device-grid">
+            <label class="form-field"><span>Microphone</span><select id="audioInputSelect" aria-label="Microphone device"><option value="default">System default</option></select></label>
+            <label class="form-field"><span>Speakers / headphones</span><select id="audioOutputSelect" aria-label="Speaker or headphone device"><option value="default">System default</option></select></label>
+          </div>
+          <div class="audio-test-actions">
+            <button id="refreshAudioDevices" class="button button-quiet" type="button">Refresh devices</button>
+            <button id="startMicTest" class="button button-secondary" type="button">Test microphone</button>
+            <button id="stopMicTest" class="button button-quiet" type="button" disabled>Stop &amp; play back</button>
+            <button id="outputTestButton" class="button button-secondary" type="button">Test output</button>
+          </div>
+          <div class="mic-level-row"><span>Live microphone level</span><span id="micQualityStatus">Speak to test</span><output id="micLevelValue">0%</output></div>
+          <div id="microphoneLevel" class="mic-level" role="meter" aria-label="Live microphone level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="microphoneLevelBar"></span></div>
+          <label class="form-field audio-volume-field"><span>Test playback volume <output id="testVolumeValue">70%</output></span><input id="testVolumeInput" type="range" min="10" max="100" value="70"></label>
+          <p id="audioTestStatus" class="audio-test-status" role="status">Mic samples stay in this browser. Playback uses the selected output.</p>
+          <audio id="audioPlayback" controls hidden playsinline></audio>
+          <audio id="outputTestPlayback" hidden playsinline></audio>
+        </section>
+        <div class="dialog-actions"><button id="cancelSettings" class="button button-quiet" type="button">Cancel</button><button class="button button-primary" type="submit">Save settings</button></div>
+      </form>
+    </dialog>
+    <canvas id="arcadeParticles" class="arcade-particles" aria-hidden="true"></canvas>
+
+    <dialog id="sessionSummaryDialog" class="session-summary-dialog" aria-labelledby="sessionSummaryTitle">
+      <section class="session-summary-content">
+        <div class="dialog-heading"><div><div class="eyebrow">SESSION COMPLETE</div><h2 id="sessionSummaryTitle">Your call session</h2></div><button id="closeSessionSummary" class="dialog-close" type="button" aria-label="Close summary">×</button></div>
+        <p id="sessionSummaryDuration" class="summary-duration"></p>
+        <div id="sessionSummaryStats" class="summary-stats"></div>
+        <p id="sessionComparison" class="session-comparison" hidden></p>
+        <div class="dialog-actions"><button id="startNewSession" class="button button-primary" type="button">Start new session</button></div>
+      </section>
+    </dialog>
+
+    <dialog id="transcriptDialog" class="transcript-dialog">
+      <section class="transcript-dialog-content" aria-labelledby="transcriptDialogTitle">
+        <div class="dialog-heading"><div><div class="eyebrow">CALL RECORD</div><h2 id="transcriptDialogTitle">Call transcript</h2><p id="transcriptDialogMeta" class="transcript-dialog-meta"></p></div><div class="transcript-dialog-actions"><button id="downloadTranscriptButton" class="button button-secondary" type="button">Download .txt</button><button id="closeTranscript" class="dialog-close" type="button" aria-label="Close transcript">×</button></div></div>
+        <div id="transcriptDialogBody" class="transcript-dialog-body"></div>
+      </section>
+    </dialog>
+
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+</body>
+</html>

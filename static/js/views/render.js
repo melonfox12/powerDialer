@@ -1,8 +1,8 @@
 import { S, state } from "../store/state.js";
 import { byId, setText } from "../utils/format.js";
-import { renderCallerPool } from "./caller-pool.js";
-import { renderDialer } from "./dialer.js";
-import { renderMetrics } from "./metrics.js";
+import { renderCallerPool } from "./pool/index.js";
+import { renderDialer } from "./dialer/index.js";
+import { renderMetrics } from "./metrics/index.js";
 import { crmTableSignature, renderTable } from "./prospects-table/index.js";
 
 export function render() {

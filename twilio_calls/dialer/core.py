@@ -1,6 +1,6 @@
 import threading
 from datetime import datetime, timezone
-from debug_log import debug_event
+from core.debug_log import debug_event
 
 class CoreMixin:
     def __init__(self, crm, env_path, metrics=None):

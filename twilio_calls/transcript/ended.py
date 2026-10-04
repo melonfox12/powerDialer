@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from dialer_session import record_conversation
+from core.dialer_session import record_conversation
 
 class EndedMixin:
     def _call_ended(self, call, params):

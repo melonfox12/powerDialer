@@ -1,4 +1,4 @@
-from dialer_session import dialer_stage, new_session, recent_streak, local_time, within_calling_window
+from core.dialer_session import dialer_stage, new_session, recent_streak, local_time, within_calling_window
 from twilio_calls.settings import _preferences
 
 class StateMixin:

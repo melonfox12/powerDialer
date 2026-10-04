@@ -17,7 +17,6 @@ export const state = {
 };
 
 export const S = {
-  toastTimer: undefined,
   pollBusy: false,
   metricsFetchedAt: 0,
   outcomeSubmitting: false,

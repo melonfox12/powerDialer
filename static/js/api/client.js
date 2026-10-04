@@ -1,6 +1,13 @@
-import { showLoginGate } from "../controllers/auth.js";
 import { S } from "../store/state.js";
-import { showToast } from "../views/dialogs.js";
+import { showToast } from "../utils/notify.js";
+
+let onUnauthorized = () => {};
+
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
+
+showToast.report = (message) => debugEvent("error", "toast", message);
 
 export function debugEvent(level, message, detail = "") {
   if (level === "error") {
@@ -37,7 +44,7 @@ export async function request(path, options = {}) {
   const type = response.headers.get("content-type") || "";
   const result = type.includes("application/json") ? await response.json() : await response.text();
   if (response.status === 401 && S.googleAuthEnabled) {
-    showLoginGate(result?.error || "Sign in with Google to continue.");
+    onUnauthorized(result?.error || "Sign in with Google to continue.");
     throw new Error(result?.error || "Sign in with Google to continue.");
   }
   if (!response.ok) throw new Error(result?.error || `Request failed (${response.status})`);

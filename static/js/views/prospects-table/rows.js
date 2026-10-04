@@ -1,11 +1,9 @@
-import { changeLeadStatus } from "../../controllers/prospects.js";
 import { S, selectedLeadIds, state } from "../../store/state.js";
-import { STATUS_LABELS, STATUS_STYLES, initials } from "../../utils/format.js";
+import { STATUS_LABELS, STATUS_STYLES, initials, statusDate } from "../../utils/format.js";
 import { formatPhoneNumber } from "../../utils/phone.js";
 import { openTranscript } from "../../utils/transcript.js";
-import { renderTable } from "./render.js";
 
-export function appendLeadRows(body, leads, extras) {
+export function appendLeadRows(body, leads, extras, onSelection) {
   for (const lead of leads) {
     const row = document.createElement("tr");
     row.classList.toggle("selected", selectedLeadIds.has(lead.id));
@@ -32,7 +30,7 @@ export function appendLeadRows(body, leads, extras) {
         selectedLeadIds.delete(lead.id);
       }
       S.selectionAnchorId = lead.id;
-      renderTable();
+      onSelection();
     });
     selectionCell.append(checkbox);
     row.append(selectionCell);
@@ -84,7 +82,11 @@ export function appendLeadRows(body, leads, extras) {
       if (value === "new" && state.pending_outcome?.id === lead.id) option.disabled = true;
       select.append(option);
     }
-    select.addEventListener("change", () => changeLeadStatus(lead, select.value, select));
+    select.addEventListener("change", () => {
+      document.dispatchEvent(new CustomEvent("prospect-status", {
+        detail: { lead, status: select.value, select },
+      }));
+    });
     statusCell.append(select);
     row.append(statusCell);
 

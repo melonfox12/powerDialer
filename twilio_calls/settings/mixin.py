@@ -12,7 +12,9 @@ class SettingsMixin:
         preferences = _preferences(values)
         return {
             "account_sid": values.get("TWILIO_ACCOUNT_SID", ""),
+            "auth_token": values.get("TWILIO_AUTH_TOKEN", ""),
             "api_key": values.get("TWILIO_API_KEY", ""),
+            "api_secret": values.get("TWILIO_API_SECRET", ""),
             "twiml_app_sid": values.get("TWILIO_TWIML_APP_SID", ""),
             "public_base_url": values.get("PUBLIC_BASE_URL", ""),
             "has_auth_token": bool(values.get("TWILIO_AUTH_TOKEN")),
