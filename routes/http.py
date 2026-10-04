@@ -55,6 +55,22 @@ class HandlerMixin:
                 raise ValueError("Expected a JSON object.")
             return result
 
+        def send_app_page(self):
+            parts = (
+                os.path.join(STATIC_DIR, "app-shell", "chrome.html"),
+                os.path.join(STATIC_DIR, "app-shell", "workspace.html"),
+            )
+            try:
+                chunks = []
+                for part in parts:
+                    with open(part, "rb") as source:
+                        chunks.append(source.read())
+                body = b"".join(chunks)
+            except OSError:
+                self.send_json(404, {"error": "File not found"})
+                return
+            self.send_bytes(200, body, "text/html; charset=utf-8")
+
         def send_file(self, filename):
             full_path = os.path.join(STATIC_DIR, filename)
             try:
@@ -98,7 +114,7 @@ class HandlerMixin:
 
         def serve_static(self, path):
             if path in ("/", "/index.html", "/static/", "/static/index.html"):
-                self.send_file("index.html")
+                self.send_app_page()
                 return True
             rel = path[len("/static/"):] if path.startswith("/static/") else path.lstrip("/")
             if not rel or rel.endswith("/") or "\\" in rel or ".." in rel.split("/"):
