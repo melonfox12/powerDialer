@@ -171,7 +171,7 @@ class DialerSessionTests(unittest.TestCase):
             self.assertEqual(crm.timezone_groups(), [])
             self.assertEqual(crm.snapshot()[0]["status"], "do_not_call")
 
-    def test_only_human_answers_count_as_connects_and_long_calls_as_conversations(self):
+    def test_any_pickup_connects_and_a_long_live_call_counts_as_a_conversation(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = CRMStore(Path(directory) / "crm.json")
             lead = {
@@ -183,21 +183,21 @@ class DialerSessionTests(unittest.TestCase):
             dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
             dialer.running = True
             dialer.session = new_session(goal=1)
-            unknown = dialer._new_call("prospect", lead)
-            dialer._machine_result(unknown, {"AnsweredBy": "unknown"})
-            self.assertEqual(dialer.session["connects"], 0)
-
-            lead = crm.snapshot()[0]
-            lead["status"] = "new"
-            crm.leads[0]["status"] = "new"
-            human = dialer._new_call("prospect", lead)
-            dialer._machine_result(human, {"AnsweredBy": "human"})
+            dialer.settings = {"CONVERSATION_THRESHOLD_SECONDS": "30"}
+            call = dialer._new_call("prospect", lead)
+            dialer._pickup(call)
             self.assertEqual(dialer.session["connects"], 1)
-            dialer._call_ended(human, {"CallDuration": "30"})
+            dialer._machine_result(call, {"AnsweredBy": "human"})
+            self.assertEqual(dialer.session["connects"], 1)
+            self.assertEqual(call["answered_by"], "human")
+            dialer._call_ended(call, {"CallDuration": "30"})
             self.assertEqual(dialer.session["conversations"], 1)
-            self.assertEqual(dialer.session["goal"], 1)
+            self.assertEqual(dialer.pending_outcome, lead["id"])
+            self.assertEqual(crm.snapshot()[0]["status"], "new")
+            dialer.choose_outcome(lead["id"], "interested")
+            self.assertEqual(crm.snapshot()[0]["status"], "interested")
 
-    def test_answer_starts_transcription_while_holding_agent_audio_until_human_detection(self):
+    def test_answer_bridges_any_pickup_and_keeps_voicemail_on_the_line(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = CRMStore(Path(directory) / "crm.json")
             lead = {
@@ -208,30 +208,33 @@ class DialerSessionTests(unittest.TestCase):
             crm.leads = [lead]
             dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
             dialer.public_base_url = "https://example.test"
+            dialer.conference = "crm-test"
             dialer.save_settings({"session_goal": 20})
             dialer.running = True
+            dialer.session = new_session()
             call = dialer._new_call("prospect", lead)
             call["call_uuid"] = "CA-test"
+            call["caller_id"] = "+15551230001"
 
             status, _, twiml = dialer.handle_webhook(call["token"], "answer", {"CallSid": "CA-test"})
             self.assertEqual(status, 200)
             self.assertIn("<Transcription", twiml)
-            self.assertIn("<Pause", twiml)
-            self.assertNotIn("<Conference", twiml)
-            self.assertEqual(call["state"], "listening")
-
-            dialer._machine_result(call, {"AnsweredBy": "unknown"})
-            self.assertIsNone(dialer.active)
-            self.assertIn(call["token"], dialer.in_flight)
-            self.assertEqual(dialer.public_state()["live_transcript"]["lead_id"], lead["id"])
-
-            transferred = []
-            dialer._transfer = lambda call_uuid, url: transferred.append((call_uuid, url))
-            dialer._machine_result(call, {"AnsweredBy": "human"})
-            self.assertIs(dialer.active, call)
+            self.assertIn("<Conference", twiml)
+            self.assertNotIn("<Pause", twiml)
+            self.assertNotIn("Please hold", twiml)
             self.assertEqual(call["state"], "live")
-            self.assertEqual(transferred, [("CA-test", "https://example.test/hooks/" + call["token"] + "/winner")])
-            self.assertIsNone(call["answer_detection_timer"])
+            self.assertIs(dialer.active, call)
+            self.assertEqual(dialer.public_state()["live_transcript"]["lead_id"], lead["id"])
+            self.assertEqual(dialer.public_state()["current_caller_id"], "+15551230001")
+
+            hung = []
+            dialer._hangup_call = lambda call_uuid: hung.append(call_uuid)
+            dialer._machine_result(call, {"AnsweredBy": "machine_end_beep"})
+            self.assertEqual(hung, [])
+            self.assertEqual(call["answered_by"], "voicemail")
+            self.assertIs(dialer.active, call)
+            self.assertEqual(crm.snapshot()[0]["status"], "new")
+            self.assertEqual(dialer.session["connects"], 1)
 
     def test_rep_can_manually_enter_listening_line(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -258,7 +261,7 @@ class DialerSessionTests(unittest.TestCase):
             self.assertEqual(result["active_lead"]["id"], lead["id"])
             self.assertEqual(transferred, ["CA-test"])
 
-    def test_answer_detection_timeout_marks_unclassified_answer_for_later(self):
+    def test_slow_answer_detection_does_not_drop_the_line(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = CRMStore(Path(directory) / "crm.json")
             lead = {
@@ -270,14 +273,56 @@ class DialerSessionTests(unittest.TestCase):
             dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
             dialer.running = True
             call = dialer._new_call("prospect", lead)
-            call.update({"call_uuid": "CA-test", "state": "listening"})
+            call.update({"call_uuid": "CA-test", "state": "live", "picked_up": True})
+            dialer.active = call
 
             dialer._answer_detection_timeout(call)
 
-            self.assertNotIn(call["token"], dialer.in_flight)
-            self.assertEqual(crm.snapshot()[0]["status"], "call")
-            with self.assertRaisesRegex(ValueError, "(?i)no prospect line"):
-                dialer.enter_live_line()
+            self.assertIn(call["token"], dialer.in_flight)
+            self.assertIs(dialer.active, call)
+            self.assertEqual(crm.snapshot()[0]["status"], "new")
+
+    def test_caller_ids_rotate_and_only_one_prospect_is_dialed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = CRMStore(Path(directory) / "crm.json")
+            leads = []
+            for index in range(4):
+                leads.append({
+                    "id": f"prospect-{index}",
+                    "name": f"Prospect {index}",
+                    "business": "Shop",
+                    "phone": f"+1202555012{index}",
+                    "timezone": "Eastern",
+                    "status": "new",
+                    "scheduled_until": None,
+                    "transcript": [],
+                    "fields": {},
+                })
+            crm.leads = leads
+            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001", "+15551110002", "+15551110003"]
+            dialer.settings = {"CALLING_START_HOUR": "0", "CALLING_END_HOUR": "24"}
+            launched = []
+            dialer._launch_call = lambda call, destination: launched.append((call["caller_id"], destination))
+
+            dialer.fill_slots()
+            dialer.fill_slots()
+            self.assertEqual(len(launched), 1)
+            self.assertEqual(launched[0][0], "+15551110001")
+
+            dialer.in_flight.clear()
+            dialer.active = None
+            dialer.fill_slots()
+            dialer.in_flight.clear()
+            dialer.fill_slots()
+            dialer.in_flight.clear()
+            dialer.fill_slots()
+            self.assertEqual(
+                [caller for caller, _destination in launched],
+                ["+15551110001", "+15551110002", "+15551110003", "+15551110001"],
+            )
 
 
 if __name__ == "__main__":

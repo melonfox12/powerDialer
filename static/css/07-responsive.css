@@ -1,0 +1,119 @@
+/* file-boundary: static/css/07-responsive.css */
+
+@media (max-width: 560px) {
+  body { min-width: 360px; }
+  .topbar { gap: 12px; padding: 0 12px; }
+  .brand { gap: 7px; font-size: 14px; }
+  .brand-mark { transform: scale(.9); }
+  .primary-nav { gap: 13px; }
+  .nav-tab { font-size: 11px; }
+  .top-actions { gap: 9px; }
+  .connection-state { gap: 5px; font-size: 10px; }
+  .icon-label-button { padding: 6px 0; font-size: 11px; }
+  main { padding: 12px 10px 14px; }
+  .page-heading { align-items: start; flex-direction: column; gap: 15px; margin-bottom: 16px; }
+  h1 { font-size: 23px; }
+  .workspace-grid { gap: 11px; }
+  .table-toolbar { align-items: stretch; flex-direction: column; padding: 11px; }
+  .toolbar-leading { width: 100%; }
+  .toolbar-actions { width: 100%; justify-content: space-between; }
+  .search-box { width: 100%; }
+  .filter-select { max-width: 115px; }
+  .toolbar-actions .button { flex: 1; }
+  th, td { padding-right: 10px; padding-left: 10px; }
+  .side-column { grid-template-columns: 1fr; }
+  .pool-panel { order: 2; }
+  .live-panel { order: 1; }
+  .pool-page-layout { gap: 11px; }
+  .pool-page-panel { padding: 14px; }
+  .pool-page-list { grid-template-columns: 1fr; }
+  .dashboard-stack { gap: 10px; }
+  .dashboard-top-row { gap: 10px; }
+  .metrics-panel { padding-right: 12px; padding-left: 12px; }
+  .dashboard-tabs { gap: 12px; }
+  .dashboard-tab { font-size: 11px; }
+  .performance-mode-button { padding-right: 7px; padding-left: 7px; font-size: 9px; }
+  .performance-tab-panel[data-mode="summary"] .metrics-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .performance-chart-grid { grid-template-columns: 1fr; gap: 5px; }
+  .status-chart-layout { grid-template-columns: minmax(110px, 152px) minmax(0, 1fr); }
+  .prospects-tab-panel .crm-table-panel { min-height: 400px; }
+  .table-footer { padding: 0 10px; }
+  .settings-dialog form, .outcome-dialog form { padding: 20px; }
+    .transcript-dialog-content { padding: 20px; }
+  .pool-table-toolbar { align-items: stretch; flex-direction: column; gap: 8px; }
+  .pool-timezone-filter { width: 100%; }
+  .monitor-header { align-items: start; }
+  .monitor-header-actions { flex-wrap: wrap; }
+  .audio-device-grid { grid-template-columns: 1fr; gap: 0; }
+  .outcome-dialog h2 { font-size: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+@media (min-width: 821px) {
+  main { padding: 20px 40px 22px; }
+  .dashboard-top-row { gap: 20px; }
+  .dialer-run-panel { padding: 28px; }
+}
+
+.dialer-run-panel h2 { font-size: 21px; }
+.live-indicator { font-size: 13px; }
+.line-count { font-size: 12px; }
+.dialer-run-panel { padding: 20px; }
+.live-panel-top { flex-wrap: wrap; }
+.queue-strip .active-copy strong { font-size: 14px; }
+.dialer-message { min-height: 0; padding: 3px 2px 6px; font-size: 13px; }
+.dialer-message[hidden] { display: none; }
+.dialer-controls { gap: 8px; margin-top: 2px; }
+.dialer-controls .button { min-height: 40px; padding: 0 10px; font-size: 13px; }
+.queue-strip .dialer-pool-filter select { width: 100%; height: 32px; padding: 0 8px; font-size: 13px; }
+.outcome-row { gap: 8px; margin-top: 8px; }
+.outcome-row[hidden] { display: none; }
+.outcome-btn { min-height: 52px; padding: 0 12px; font-size: 15px; }
+.caller-id-line { min-width: 0; justify-content: flex-end; gap: 5px; margin: 0 0 0 auto; padding: 0; border: 0; font-size: 10px; white-space: nowrap; }
+.caller-id-line[hidden] { display: none; }
+.caller-id-line span { max-width: min(24vw, 170px); }
+.call-monitor-disclosure { margin-top: 9px; border-top: 1px solid var(--line); }
+.call-monitor-summary { min-height: 42px; gap: 8px; padding: 5px 2px; }
+.call-monitor-title { font-size: 13px; }
+.call-monitor { gap: 9px; margin-top: 0; padding-top: 0; border-top: 0; }
+.monitor-header-actions { justify-content: start; }
+.monitor-skip { min-height: 32px; padding: 0 10px; font-size: 11px; }
+.monitor-subheading { font-size: 11px; }
+.activity-log { max-height: 100px; margin-top: 8px; }
+.transcript-entry p { font-size: 11px; }
+.transcript-empty, .monitor-empty { font-size: 10px; }
+.activity-log li { grid-template-columns: 44px 58px minmax(0, 1fr); gap: 6px; font-size: 9px; }
+.activity-log-disclosure { flex: none; border-top: 1px solid var(--line); }
+.activity-log-disclosure .monitor-subheading { margin: 0; padding: 8px 2px; cursor: pointer; list-style: none; }
+.activity-log-disclosure .monitor-subheading::-webkit-details-marker { display: none; }
+.activity-log-disclosure .monitor-subheading::after { width: 7px; height: 7px; margin-left: auto; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); content: ""; transform: rotate(45deg) translateY(-2px); }
+.activity-log-disclosure[open] .monitor-subheading::after { transform: rotate(225deg) translate(-2px, -1px); }
+
+@media (max-width: 820px) {
+  .dialer-run-panel { padding: 16px; }
+  .dashboard-top-row { grid-template-columns: 1fr; }
+  .queue-strip-content { align-items: stretch; flex-direction: column; gap: 5px; }
+  .queue-strip-content .dialer-pool-filter { flex: 0 0 auto; }
+  .page-heading { margin-bottom: 10px; }
+  .dialer-run-panel h2 { margin-top: 5px; font-size: 18px; }
+  .call-monitor-summary { min-height: 36px; }
+}
+
+@media (max-width: 560px) {
+  .dialer-run-panel { padding: 13px; }
+  .queue-strip { flex-wrap: wrap; align-items: center; }
+  .queue-label, .queue-strip .active-call { flex: 1 1 calc(100% - 64px); }
+  .queue-strip .line-count { margin-left: 0; }
+  .queue-strip .dialer-pool-filter { flex: 1 1 140px; }
+  .caller-id-line span { max-width: 34vw; }
+  .outcome-buttons { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .outcome-buttons .outcome-btn { grid-column: auto; min-height: 52px; font-size: 15px; }
+  .call-monitor-summary { gap: 7px; }
+  .call-monitor-summary .monitor-status { margin-left: auto; }
+}
+
+.live-panel-top .caller-id-line { font-family: var(--mono); }
+.performance-chart-panel.has-no-data .line-chart-legend { display: none; }

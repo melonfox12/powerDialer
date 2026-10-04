@@ -10,33 +10,11 @@ from decimal import Decimal, InvalidOperation
 from io import StringIO
 from pathlib import Path
 
-STATUSES = ("new", "call", "disqualified", "booked", "interested", "do_not_call")
-PHONE_HEADER_WORDS = ("phone", "mobile", "cell", "tel", "number", "whatsapp")
-BUSINESS_HEADER_WORDS = ("business", "company", "organization", "organisation", "employer", "account", "firm")
-TIMEZONE_HEADER_WORDS = ("timezone", "time zone", "tz")
-REVIEW_HEADER_WORDS = ("review", "rating count", "num reviews", "num_reviews")
-
-TIMEZONE_ALIASES = {
-    "eastern": "Eastern", "est": "Eastern", "edt": "Eastern", "et": "Eastern",
-    "america/new_york": "Eastern", "america/detroit": "Eastern", "america/indianapolis": "Eastern",
-    "central": "Central", "cst": "Central", "cdt": "Central", "ct": "Central",
-    "america/chicago": "Central",
-    "mountain": "Mountain", "mst": "Mountain", "mdt": "Mountain", "mt": "Mountain",
-    "america/denver": "Mountain", "america/phoenix": "Mountain",
-    "pacific": "Pacific", "pst": "Pacific", "pdt": "Pacific", "pt": "Pacific",
-    "america/los_angeles": "Pacific",
-    "alaska": "Alaska", "akst": "Alaska", "akdt": "Alaska", "america/anchorage": "Alaska",
-    "hawaii": "Hawaii", "hst": "Hawaii", "pacific/honolulu": "Hawaii",
-}
-UTC_OFFSET_ZONES = {-5: "Eastern", -6: "Central", -7: "Mountain", -8: "Pacific", -9: "Alaska", -10: "Hawaii"}
-TIMEZONE_ABBREVIATION = re.compile(r"\b(e[sd]t|c[sd]t|m[sd]t|p[sd]t|akst|akdt|hst)\b", re.I)
-JUNK_HEADER = re.compile(r"\b(e-?mail|address|street|city|state|zip|postal|country|url|website|linkedin|notes?|status|id|title|industry|revenue|source|date|fax)\b", re.I)
-SCIENTIFIC_NUMBER = re.compile(r"^(\d)(?:\.(\d+))?[eE]\+?(\d+)$")
-
-
-def utc_now():
-    return datetime.now(timezone.utc)
-
+from crm_store.statuses import (
+    BUSINESS_HEADER_WORDS, JUNK_HEADER, PHONE_HEADER_WORDS, REVIEW_HEADER_WORDS,
+    SCIENTIFIC_NUMBER, TIMEZONE_ABBREVIATION, TIMEZONE_ALIASES, TIMEZONE_HEADER_WORDS,
+    UTC_OFFSET_ZONES, utc_now,
+)
 
 def _phone(value):
     text = str(value or "").strip()
@@ -239,133 +217,6 @@ def parse_csv(data, known_phones=()):
             "created_at": utc_now().isoformat(),
         })
     return leads, {"duplicates": duplicates, "skipped": skipped, "columns": headers}
-
-
-class CRMStore:
-    def __init__(self, path):
-        self.path = Path(path)
-        self.lock = threading.RLock()
-        self.leads = []
-        self.revision = 0
-        self.load()
-
-    def load(self):
-        with self.lock:
-            if self.path.exists():
-                try:
-                    data = json.loads(self.path.read_text(encoding="utf-8"))
-                    self.leads = data if isinstance(data, list) else []
-                except (OSError, json.JSONDecodeError):
-                    self.leads = []
-            self.expire_due(save=False)
-
-    def save(self):
-        with self.lock:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            temp_path = self.path.with_suffix(self.path.suffix + ".tmp")
-            temp_path.write_text(json.dumps(self.leads, ensure_ascii=False, indent=2), encoding="utf-8")
-            temp_path.replace(self.path)
-            self.revision += 1
-
-    def expire_due(self, save=True):
-        now = utc_now()
-        changed = False
-        with self.lock:
-            for lead in self.leads:
-                deadline = lead.get("scheduled_until")
-                if lead.get("status") == "call" and deadline:
-                    try:
-                        due = datetime.fromisoformat(deadline)
-                    except ValueError:
-                        due = now
-                    if due <= now:
-                        lead["status"] = "new"
-                        lead["scheduled_until"] = None
-                        changed = True
-            if changed and save:
-                self.save()
-        return changed
-
-    def add_csv(self, data):
-        with self.lock:
-            self.expire_due(save=False)
-            leads, info = parse_csv(data, (lead["phone"] for lead in self.leads))
-            self.leads.extend(leads)
-            self.save()
-            info["added"] = len(leads)
-            info["total"] = len(self.leads)
-            return info
-
-    def set_status(self, lead_id, status, scheduled_until=None):
-        if status not in STATUSES:
-            raise ValueError("Unknown prospect status")
-        with self.lock:
-            self.expire_due(save=False)
-            lead = next((item for item in self.leads if item["id"] == lead_id), None)
-            if lead is None:
-                raise KeyError("Prospect not found")
-            lead["status"] = status
-            if scheduled_until:
-                try:
-                    due = datetime.fromisoformat(str(scheduled_until))
-                except ValueError as exc:
-                    raise ValueError("Callback time must be a valid ISO datetime.") from exc
-                if due.tzinfo is None:
-                    raise ValueError("Callback time must include a timezone.")
-                if due <= utc_now():
-                    raise ValueError("Callback time must be in the future.")
-                lead["scheduled_until"] = due.isoformat()
-            else:
-                lead["scheduled_until"] = (utc_now() + timedelta(hours=24)).isoformat() if status == "call" else None
-            self.save()
-            return dict(lead)
-
-    def append_transcript(self, lead_id, segment):
-        entry = {
-            "id": str(segment.get("id", "")),
-            "timestamp": str(segment.get("timestamp", "")),
-            "speaker": str(segment.get("speaker", "")),
-            "text": str(segment.get("text", "")).strip(),
-        }
-        if not entry["text"] or entry["speaker"] not in ("Agent", "Prospect"):
-            raise ValueError("A transcript segment needs text and a known speaker.")
-        with self.lock:
-            lead = next((item for item in self.leads if item["id"] == lead_id), None)
-            if lead is None:
-                raise KeyError("Prospect not found")
-            transcript = lead.setdefault("transcript", [])
-            if entry["id"] and any(item.get("id") == entry["id"] for item in transcript):
-                return dict(lead)
-            transcript.append(entry)
-            transcript.sort(key=lambda item: item.get("timestamp", ""))
-            self.save()
-            return dict(lead)
-
-    def remove(self, lead_id):
-        with self.lock:
-            original_count = len(self.leads)
-            self.leads = [lead for lead in self.leads if lead["id"] != lead_id]
-            if len(self.leads) == original_count:
-                raise KeyError("Prospect not found")
-            self.save()
-
-    def snapshot(self):
-        self.expire_due()
-        with self.lock:
-            return [dict(lead) for lead in self.leads]
-
-    def timezone_groups(self, leads=None):
-        counts = {}
-        for lead in self.snapshot() if leads is None else leads:
-            if lead["status"] != "new":
-                continue
-            tz = lead.get("timezone") or "Unknown"
-            counts[tz] = counts.get(tz, 0) + 1
-        return sorted(counts.items(), key=lambda item: (item[0] == "Unknown", -item[1], item[0]))
-
-    def csv_bytes(self):
-        return csv_bytes_for(self.snapshot())
-
 
 def csv_bytes_for(leads):
     field_names = []

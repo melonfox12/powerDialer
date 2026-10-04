@@ -26,7 +26,8 @@ def dialer_stage(running, paused, active, pending_outcome, in_flight):
         return "idle"
     if paused:
         return "paused"
-    if pending_outcome:
+    wrapping = isinstance(active, dict) and active.get("wrapping")
+    if pending_outcome or wrapping:
         return "wrapup"
     if active:
         return "connected"
