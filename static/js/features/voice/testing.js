@@ -1,7 +1,7 @@
 import { S, state } from "../../store/state.js";
 import { byId } from "../../utils/format.js";
 import { showToast } from "../../views/dialogs.js";
-import { refreshAudioDevices, routeTestAudio, setMicLevel } from "./device.js";
+import { refreshAudioDevices, routeTestAudio, setMicLevel } from "./device/devices.js";
 
 export async function startMicrophoneTest() {
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {

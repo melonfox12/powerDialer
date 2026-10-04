@@ -1,5 +1,5 @@
 import { request } from "../api/client.js";
-import { arcadeSensory } from "../features/arcade/controller.js";
+import { arcadeSensory } from "../features/arcade/controller/index.js";
 import { byId } from "../utils/format.js";
 import { showToast } from "../views/dialogs.js";
 import { render } from "../views/render.js";

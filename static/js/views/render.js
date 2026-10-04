@@ -3,7 +3,7 @@ import { byId, setText } from "../utils/format.js";
 import { renderCallerPool } from "./caller-pool.js";
 import { renderDialer } from "./dialer.js";
 import { renderMetrics } from "./metrics.js";
-import { crmTableSignature, renderTable } from "./prospects-table.js";
+import { crmTableSignature, renderTable } from "./prospects-table/index.js";
 
 export function render() {
   byId("headingImportButton").hidden = state.leads.length > 0;

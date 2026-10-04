@@ -1,5 +1,5 @@
 import { debugEvent, postJson, request } from "../api/client.js";
-import { applyVoiceAudioDevices, createVoiceDevice, refreshAudioDevices } from "../features/voice/device.js";
+import { applyVoiceAudioDevices, createVoiceDevice, refreshAudioDevices } from "../features/voice/device/index.js";
 import { S, state } from "../store/state.js";
 import { byId } from "../utils/format.js";
 import { renderCallMonitor } from "../views/call-monitor.js";

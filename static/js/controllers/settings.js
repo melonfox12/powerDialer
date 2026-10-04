@@ -1,6 +1,6 @@
 import { postJson, request } from "../api/client.js";
-import { arcadeSensory } from "../features/arcade/controller.js";
-import { refreshAudioDevices } from "../features/voice/device.js";
+import { arcadeSensory } from "../features/arcade/controller/index.js";
+import { refreshAudioDevices } from "../features/voice/device/index.js";
 import { stopMicrophoneTest } from "../features/voice/testing.js";
 import { S, state } from "../store/state.js";
 import { byId, setText } from "../utils/format.js";

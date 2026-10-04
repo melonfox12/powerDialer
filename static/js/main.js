@@ -6,14 +6,14 @@ import { bindKeyboard } from "./controllers/keyboard.js";
 import { bindNavigation } from "./controllers/navigation.js";
 import { bindOutcomes } from "./controllers/outcomes.js";
 import { bindSettings } from "./controllers/settings.js";
-import { arcadeSensory, startArcade } from "./features/arcade/controller.js";
-import { bindVoice } from "./features/voice/device.js";
+import { arcadeSensory, startArcade } from "./features/arcade/controller/index.js";
+import { bindVoice } from "./features/voice/device/index.js";
 import { startPolling } from "./store/poller.js";
 import { byId, setText } from "./utils/format.js";
 import { bindCallMonitor } from "./views/call-monitor.js";
 import { bindCallerPool } from "./views/caller-pool.js";
 import { bindDialogs } from "./views/dialogs.js";
-import { renderTable } from "./views/prospects-table.js";
+import { renderTable } from "./views/prospects-table/index.js";
 import { bindSessionGoal } from "./views/session-goal.js";
 
 bindDebugListeners();

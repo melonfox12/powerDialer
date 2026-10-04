@@ -1,6 +1,6 @@
 import { S, state } from "../store/state.js";
 import { byId, setText } from "../utils/format.js";
-import { renderCallStage } from "./call-stage.js";
+import { renderCallStage } from "./call-stage/index.js";
 import { renderDialerControls } from "./dialer-controls.js";
 import { renderOutcomeRow } from "./outcome-row.js";
 import { renderQueueStrip } from "./queue-strip.js";

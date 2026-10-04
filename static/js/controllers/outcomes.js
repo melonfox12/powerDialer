@@ -1,6 +1,6 @@
 import { postJson } from "../api/client.js";
 import { celebrateBooked } from "../features/arcade/audio.js";
-import { arcadeSensory } from "../features/arcade/controller.js";
+import { arcadeSensory } from "../features/arcade/controller/index.js";
 import { S, state } from "../store/state.js";
 import { byId } from "../utils/format.js";
 import { localDateTimeToUtc, nextBusinessCallback, timezoneFor } from "../utils/time.js";
