@@ -1,5 +1,4 @@
 import random
-from core.dialer_session import within_calling_window
 
 class SlotMixin:
     def fill_slots(self):
@@ -17,11 +16,6 @@ class SlotMixin:
                 pool = [
                     lead for lead in self._pool_leads(leads)
                     if lead["id"] not in active_leads
-                    and within_calling_window(
-                        lead.get("timezone"),
-                        int(self.settings.get("CALLING_START_HOUR", "8")),
-                        int(self.settings.get("CALLING_END_HOUR", "21")),
-                    )
                 ]
                 selected = random.sample(pool, min(slots, len(pool)))
             for lead in selected:

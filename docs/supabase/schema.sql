@@ -114,33 +114,33 @@ grant select, insert, update, delete on public.dialer_settings to authenticated;
 
 drop function if exists public.increment_dialer_metric(text, integer);
 drop function if exists public.increment_dialer_metric(text, integer, uuid);
-create or replace function public.increment_dialer_metric(metric_key text, increment_by integer, for_user uuid)
+create or replace function public.increment_dialer_metric(p_metric_key text, p_increment_by integer, p_for_user uuid)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-    if for_user is null then
+    if p_for_user is null then
         raise exception 'A user is required to increment dialer metrics';
     end if;
-    if metric_key not in (
+    if p_metric_key not in (
         'booked', 'call_later', 'connected', 'disqualified', 'interested',
         'dials', 'failed', 'talk_seconds', 'voicemail'
     ) then
         raise exception 'Unknown dialer metric';
     end if;
-    if increment_by <= 0 then
+    if p_increment_by <= 0 then
         raise exception 'Metric increment must be positive';
     end if;
 
     insert into public.dialer_metric_daily as daily (user_id, day, metric_key, value)
-    values (for_user, timezone('utc', now())::date, metric_key, increment_by)
+    values (p_for_user, timezone('utc', now())::date, p_metric_key, p_increment_by)
     on conflict (user_id, day, metric_key)
     do update set value = daily.value + excluded.value;
 
     insert into public.dialer_metric_totals as totals (user_id, metric_key, value)
-    values (for_user, metric_key, increment_by)
+    values (p_for_user, p_metric_key, p_increment_by)
     on conflict (user_id, metric_key)
     do update set value = totals.value + excluded.value;
 end;

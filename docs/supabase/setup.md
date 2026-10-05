@@ -20,7 +20,7 @@ If Supabase is not configured, the app uses the local `crm_data` folder and `met
 
 The anon key is only used for Google sign-in. The Python server still uses the secret key for Twilio webhooks and storage.
 
-Dialer Twilio credentials and session preferences are saved per Google account in `dialer_settings`. Calling hours use each prospect's timezone; prospects with missing or unrecognized timezones are not auto-dialed.
+Dialer Twilio credentials and session preferences are saved per Google account in `dialer_settings`. Each prospect keeps a timezone for display and filtering. Calls are not blocked by local time or a missing timezone.
 
 ## Move existing local data
 

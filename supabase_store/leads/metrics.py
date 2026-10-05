@@ -24,10 +24,21 @@ class SupabaseMetricsStore:
         if not self.user_id:
             raise ValueError("Sign in to record dialer metrics.")
         self._cached_snapshot = None
+        today = utc_now().date().isoformat()
+        self._increment("dialer_metric_daily", {"user_id": self.user_id, "day": today, "metric_key": key}, amount, "user_id,day,metric_key")
+        self._increment("dialer_metric_totals", {"user_id": self.user_id, "metric_key": key}, amount, "user_id,metric_key")
+
+    def _increment(self, resource, identity, amount, conflict):
+        filters = {key: f"eq.{value}" for key, value in identity.items()}
+        filters["select"] = "value"
+        rows = self.client.request("GET", resource, filters)
+        current = int(rows[0]["value"]) if rows else 0
         self.client.request(
             "POST",
-            "rpc/increment_dialer_metric",
-            payload={"metric_key": key, "increment_by": amount, "for_user": self.user_id},
+            resource,
+            {"on_conflict": conflict},
+            {**identity, "value": current + amount},
+            "resolution=merge-duplicates,return=minimal",
         )
 
     def save_session(self, session):

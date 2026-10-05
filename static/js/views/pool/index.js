@@ -20,7 +20,7 @@ export function renderCallerPool() {
   const pool = state.pool || [];
   renderTimezoneFilters();
   setText("poolTabCount", String(pool.length));
-  setText("poolTableSummary", `${pool.length} new prospect${pool.length === 1 ? "" : "s"}${state.selected_timezone ? ` · ${state.selected_timezone}` : ""}${state.skipped_outside_hours ? ` · ${state.skipped_outside_hours} skipped: outside calling hours` : ""}${state.skipped_unknown_timezone ? ` · ${state.skipped_unknown_timezone} skipped: timezone unavailable` : ""}`);
+  setText("poolTableSummary", `${pool.length} new prospect${pool.length === 1 ? "" : "s"}${state.selected_timezone ? ` · ${state.selected_timezone}` : ""}`);
   const body = byId("poolTableBody");
   body.replaceChildren(...pool.map((lead) => {
     const row = document.createElement("tr");

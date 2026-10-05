@@ -1,4 +1,4 @@
-from core.dialer_session import dialer_stage, new_session, recent_streak, local_time, within_calling_window
+from core.dialer_session import dialer_stage, new_session, recent_streak
 from twilio_calls.settings import _preferences
 
 class StateMixin:
@@ -71,29 +71,7 @@ class StateMixin:
             "calling_end_hour": int(preferences["CALLING_END_HOUR"]),
             "opening_script": preferences["OPENING_SCRIPT"],
         }
-        state["skipped_unknown_timezone"] = sum(
-            local_time(lead.get("timezone")) is None for lead in state["pool"]
-        )
-        state["skipped_outside_hours"] = sum(
-            local_time(lead.get("timezone")) is not None
-            and not within_calling_window(
-                lead.get("timezone"),
-                state["settings"]["calling_start_hour"],
-                state["settings"]["calling_end_hour"],
-            )
-            for lead in state["pool"]
-        )
-        state["next_lead"] = by_id.get(state.get("manual_lead_id")) or next(
-            (
-                lead for lead in state["pool"]
-                if within_calling_window(
-                    lead.get("timezone"),
-                    state["settings"]["calling_start_hour"],
-                    state["settings"]["calling_end_hour"],
-                )
-            ),
-            None,
-        )
+        state["next_lead"] = by_id.get(state.get("manual_lead_id")) or next(iter(state["pool"]), None)
         state["queue_count"] = self.queue_total if self.session else len(state["pool"])
         state["stage"] = dialer_stage(
             state["running"], state["paused"], active_call,

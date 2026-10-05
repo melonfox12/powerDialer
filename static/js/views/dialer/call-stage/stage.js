@@ -74,13 +74,8 @@ export function renderCallStage(stage, target) {
     const clock = next ? localTimeLabel(next.timezone) : "";
     const context = next && Object.entries(next.fields || {}).find(([key, value]) => /notes?/i.test(key) && value);
     detail.textContent = next
-      ? `Next up: ${next.business || next.name || "Prospect"} · ${formatPhoneNumber(next.phone)} · ${clock || next.timezone || "Local time unavailable"} · ${context ? `Context: ${context[1]}` : `Status: ${STATUS_LABELS[next.status] || "New"}`}${state.skipped_outside_hours ? ` · ${state.skipped_outside_hours} skipped: outside calling hours` : ""}${state.skipped_unknown_timezone ? ` · ${state.skipped_unknown_timezone} skipped: timezone unavailable` : ""}`
-      : state.skipped_outside_hours || state.skipped_unknown_timezone
-        ? [
-          state.skipped_outside_hours && `${state.skipped_outside_hours} skipped: outside calling hours; they’ll be dialed when local hours open.`,
-          state.skipped_unknown_timezone && `${state.skipped_unknown_timezone} skipped: timezone unavailable.`,
-        ].filter(Boolean).join(" ")
-        : "No prospects available in this queue.";
+      ? `Next up: ${next.business || next.name || "Prospect"} · ${formatPhoneNumber(next.phone)} · ${clock || next.timezone || "Local time unavailable"} · ${context ? `Context: ${context[1]}` : `Status: ${STATUS_LABELS[next.status] || "New"}`}`
+      : "No prospects available in this queue.";
     container.classList.remove("call-stage-live");
   }
 
