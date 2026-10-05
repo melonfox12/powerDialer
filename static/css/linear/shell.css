@@ -1,0 +1,103 @@
+/* Linear-style shell and dialer document. Loaded last so it wins equal-specificity rules. */
+
+.app-shell {
+  background: #08090a;
+  color: #f7f8f8;
+  font-size: 13px;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.side-nav {
+  flex-basis: 220px;
+  padding: 10px 8px 8px;
+  background: #08090a;
+}
+.side-brand {
+  gap: 8px;
+  min-height: 32px;
+  padding: 4px 8px;
+  color: #f7f8f8;
+  font-size: 13px;
+  font-weight: 590;
+  letter-spacing: -0.016em;
+}
+.brand-mark {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: #f7f8f8;
+}
+.brand-name,
+.login-brand span {
+  text-transform: none;
+  letter-spacing: -0.016em;
+}
+.login-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: #f7f8f8;
+  font-size: 13px;
+  font-weight: 590;
+  letter-spacing: -0.016em;
+}
+.side-section {
+  margin: 18px 8px 4px;
+  color: #62666d;
+  font-size: 12px;
+  font-weight: 450;
+}
+.side-link {
+  min-height: 28px;
+  border-radius: 6px;
+  color: #9b9da3;
+  font-size: 13px;
+  font-weight: 450;
+}
+.side-link.active {
+  background: #191a1b;
+  color: #f7f8f8;
+}
+.side-link .dashboard-tab-count {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 450;
+  color: #62666d;
+}
+.side-foot .connection-state { color: #8a8f98; font-size: 12px; font-weight: 450; }
+
+main {
+  margin: 4px 4px 4px 0;
+  border: 1px solid #23252a;
+  border-radius: 8px;
+  background: #0f1011;
+}
+.page-heading {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 12px 0 20px;
+  border-bottom: 1px solid #23252a;
+}
+.page-heading h1 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 510;
+  letter-spacing: -0.011em;
+  line-height: 1.2;
+}
+.heading-import-button { min-height: 28px; padding: 0 10px; font-size: 13px; }
+
+.eyebrow {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 450;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+.eyebrow::first-letter { text-transform: uppercase; }

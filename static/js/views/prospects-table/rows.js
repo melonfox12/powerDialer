@@ -6,6 +6,8 @@ import { openTranscript } from "../../utils/transcript.js";
 export function appendLeadRows(body, leads, extras, onSelection) {
   for (const lead of leads) {
     const row = document.createElement("tr");
+    row.dataset.leadId = lead.id;
+    row.title = lead.status === "do_not_call" ? "Marked do not call" : lead.phone ? "Right-click to dial" : "No phone number";
     row.classList.toggle("selected", selectedLeadIds.has(lead.id));
     const selectionCell = document.createElement("td");
     selectionCell.className = "selection-cell";

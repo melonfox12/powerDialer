@@ -24,6 +24,8 @@ export function renderCallerPool() {
   const body = byId("poolTableBody");
   body.replaceChildren(...pool.map((lead) => {
     const row = document.createElement("tr");
+    row.dataset.leadId = lead.id;
+    row.title = lead.phone ? "Right-click to dial" : "No phone number";
     const prospect = document.createElement("td");
     const contact = document.createElement("div");
     contact.className = "contact-copy";

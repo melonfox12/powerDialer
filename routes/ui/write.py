@@ -49,6 +49,9 @@ class WriteMixin:
                 self.send_json(200, dialer.enter_live_line())
             elif path == "/api/advance":
                 self.send_json(200, dialer.advance_now())
+            elif path.startswith("/api/leads/") and path.endswith("/dial"):
+                lead_id = urllib.parse.unquote(path.removeprefix("/api/leads/").removesuffix("/dial"))
+                self.send_json(200, dialer.dial_lead(lead_id))
             elif path.startswith("/api/leads/") and path.endswith("/status"):
                 lead_id = urllib.parse.unquote(path.removeprefix("/api/leads/").removesuffix("/status"))
                 data = self.read_json(body)

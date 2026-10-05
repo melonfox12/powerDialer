@@ -48,6 +48,7 @@ class StateMixin:
                 "session": dict(self.session) if self.session else None,
                 "advance_at": self.advance_at,
                 "active_call_started_at": active_call.get("connected_at") if active_call else None,
+                "manual_lead_id": self.manual_lead_id,
             }
         by_id = {lead["id"]: lead for lead in leads}
         state["active_lead"] = by_id.get(active_id)
@@ -82,7 +83,7 @@ class StateMixin:
             )
             for lead in state["pool"]
         )
-        state["next_lead"] = next(
+        state["next_lead"] = by_id.get(state.get("manual_lead_id")) or next(
             (
                 lead for lead in state["pool"]
                 if within_calling_window(

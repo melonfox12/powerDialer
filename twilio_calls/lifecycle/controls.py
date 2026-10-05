@@ -96,6 +96,7 @@ class ControlsMixin:
             self.agent_ready = False
             self.active = None
             self.pending_outcome = None
+            self.manual_lead_id = None
             self.in_flight.clear()
             self.last_event = "Stopped"
             if self.advance_timer:

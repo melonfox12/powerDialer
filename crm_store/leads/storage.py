@@ -3,6 +3,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from crm_store.csv_io import csv_bytes_for
+from crm_store.leads.parts import read_lead_parts, write_lead_parts
 from crm_store.statuses import utc_now
 
 class StorageMixin:
@@ -13,22 +14,30 @@ class StorageMixin:
         self.revision = 0
         self.load()
 
+    def _stores_parts(self):
+        return self.path.is_dir() or self.path.suffix == ""
+
     def load(self):
         with self.lock:
-            if self.path.exists():
-                try:
+            try:
+                if self.path.is_dir():
+                    self.leads = read_lead_parts(self.path)
+                elif self.path.is_file():
                     data = json.loads(self.path.read_text(encoding="utf-8"))
                     self.leads = data if isinstance(data, list) else []
-                except (OSError, json.JSONDecodeError):
-                    self.leads = []
+            except (OSError, json.JSONDecodeError):
+                self.leads = []
             self.expire_due(save=False)
 
     def save(self):
         with self.lock:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
-            temp_path = self.path.with_suffix(self.path.suffix + ".tmp")
-            temp_path.write_text(json.dumps(self.leads, ensure_ascii=False, indent=2), encoding="utf-8")
-            temp_path.replace(self.path)
+            if self._stores_parts():
+                write_lead_parts(self.path, self.leads)
+            else:
+                self.path.parent.mkdir(parents=True, exist_ok=True)
+                temp_path = self.path.with_suffix(self.path.suffix + ".tmp")
+                temp_path.write_text(json.dumps(self.leads, ensure_ascii=False, indent=2), encoding="utf-8")
+                temp_path.replace(self.path)
             self.revision += 1
 
     def expire_due(self, save=True):

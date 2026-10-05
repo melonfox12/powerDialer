@@ -55,6 +55,7 @@ secret.key
 # Project-specific local runtime artifacts
 call_log.csv
 crm_data.json
+crm_data/
 metrics.json
 *.tmp
 

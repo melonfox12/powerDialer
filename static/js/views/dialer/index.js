@@ -29,7 +29,7 @@ export function renderDialer() {
   else if (state.paused) indicator.classList.add("tone-primary");
   else if (stage === "dialing" || stage === "ringing") indicator.classList.add("tone-amber", "is-pulsing");
   else if (state.running) indicator.classList.add("tone-amber");
-  setText("liveLabel", pending ? "OUTCOME REQUIRED" : active ? "LIVE CALL" : state.paused ? "DIALER PAUSED" : connected ? "DIALING" : state.running ? "CONNECTING" : "DIALER STANDBY");
+  setText("liveLabel", pending ? "Outcome needed" : active ? "Live" : state.paused ? "Paused" : connected ? "Dialing" : state.running ? "Connecting" : "Standby");
   setText("lineCount", `${state.session_stats?.dials || 0} of ${state.queue_count ?? state.pool?.length ?? 0} dialed`);
   byId("dialerMessage").hidden = !state.last_error;
   setText("dialerMessage", state.last_error || "");

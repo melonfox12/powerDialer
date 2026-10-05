@@ -38,6 +38,7 @@ class CoreMixin:
         self.advance_remaining = None
         self.queue_total = 0
         self.calling_window_timer = None
+        self.manual_lead_id = None
 
     def _save_session(self):
         if self.metrics and self.session and hasattr(self.metrics, "save_session"):

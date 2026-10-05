@@ -10,7 +10,7 @@ from twilio_calls import TokenIndex, TwilioDialer
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(APP_DIR, "static")
-CRM_PATH = os.path.join(APP_DIR, "crm_data.json")
+CRM_PATH = os.path.join(APP_DIR, "crm_data")
 METRICS_PATH = os.path.join(APP_DIR, "metrics.json")
 ENV_PATH = os.path.join(APP_DIR, ".env")
 APP_HOST = "127.0.0.1"

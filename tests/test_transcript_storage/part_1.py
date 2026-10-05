@@ -103,3 +103,20 @@ class Part1:
         self.assertEqual(info["added"], 1)
         phones = [lead["phone"] for lead in mine.snapshot()]
         self.assertEqual(phones, ["+12025550102"])
+
+    def test_a_directory_of_part_files_reloads_as_one_list(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "crm_data"
+            crm = CRMStore(path)
+            crm.leads = []
+            for index in range(20):
+                lead = prospect()
+                lead["id"] = f"prospect-{index}"
+                crm.leads.append(lead)
+            crm.save()
+            reloaded = CRMStore(path)
+            self.assertEqual([lead["id"] for lead in reloaded.leads], [f"prospect-{index}" for index in range(20)])
+            parts = list(path.glob("*.json"))
+            self.assertGreater(len(parts), 1)
+            for part in parts:
+                self.assertLessEqual(part.read_text(encoding="utf-8").count("\n"), 150)

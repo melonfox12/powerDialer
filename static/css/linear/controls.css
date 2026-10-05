@@ -1,0 +1,145 @@
+.dialer-document .dialer-message { padding: 12px 0 0; font-size: 13px; }
+
+.dialer-document .dialer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  margin-top: 22px;
+}
+.dialer-document .dialer-controls .button,
+.dialer-document .dialer-controls[data-controls="idle"] #startButton,
+.dialer-document .dialer-controls[data-controls="connected"] #hangupButton,
+.dialer-document .dialer-controls[data-controls="paused"] #pauseButton,
+.dialer-document .dialer-controls[data-controls="ringing"] #hangupButton {
+  grid-column: auto;
+  order: 0;
+  width: auto;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.button-icon {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+.dialer-document .dialer-controls kbd,
+.dialer-document .outcome-btn kbd,
+.dialer-document .advance-now kbd {
+  min-width: 16px;
+  height: 16px;
+  margin-left: 8px;
+  border: 1px solid #2c2e33;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, .03);
+  color: #8a8f98;
+  font: 11px/1 var(--mono);
+}
+.dialer-document .outcome-btn kbd { margin-right: 6px; margin-left: 0; }
+.dialer-document .shortcut-help { margin-left: 2px; }
+.dialer-document .shortcut-help summary {
+  width: 22px;
+  height: 22px;
+  border-color: #2a2e33;
+  font-size: 12px;
+}
+
+.dialer-document .outcome-row { gap: 8px; margin-top: 20px; }
+.outcome-label {
+  color: #8a8f98;
+  font-size: 12px;
+  font-weight: 450;
+}
+.dialer-document .outcome-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dialer-document .outcome-buttons .outcome-btn {
+  grid-column: auto;
+  width: auto;
+  min-height: 32px;
+  padding: 0 10px;
+  border-color: #2a2e33;
+  border-radius: 6px;
+  background: transparent;
+  color: #d0d6e0;
+  font-size: 13px;
+  font-weight: 450;
+}
+.dialer-document .outcome-btn-booked,
+.dialer-document .outcome-btn-booked:hover:not(:disabled) {
+  border-color: #2a2e33;
+  background: transparent;
+  color: #d0d6e0;
+}
+.dialer-document .outcome-btn-booked:hover:not(:disabled),
+.dialer-document .outcome-btn.outcome-pressed-booked {
+  border-color: rgba(76, 195, 138, .45);
+  background: rgba(76, 195, 138, .12);
+  color: #4cc38a;
+}
+.dialer-document .callback-picker { font-size: 13px; }
+.dialer-document .callback-picker input { height: 32px; font-size: 13px; }
+
+.dialer-document .call-stage {
+  flex: none;
+  justify-content: flex-start;
+  gap: 6px;
+  max-width: 640px;
+  min-height: 0;
+  margin-top: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.dialer-document .call-stage strong {
+  color: #8a8f98;
+  font-size: 13px;
+  font-weight: 510;
+  letter-spacing: 0;
+}
+.dialer-document .call-stage span,
+.dialer-document .call-prospect-notes,
+.dialer-document .call-stage-script {
+  color: #8a8f98;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.dialer-document .call-prospect-name {
+  margin: 2px 0 0;
+  color: #f7f8f8;
+  font-size: 20px;
+  font-weight: 590;
+  letter-spacing: -0.02em;
+}
+.dialer-document .call-prospect-business { color: #d0d6e0; font-size: 15px; }
+.dialer-document .call-prospect-meta { color: #8a8f98; font-size: 13px; }
+.dialer-document .call-stage-live,
+.dialer-document .call-stage-live[data-stage="connected"] {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+}
+.dialer-document .call-stage-live strong { color: #eb5757; letter-spacing: 0.04em; }
+.dialer-document .call-stage-script {
+  max-height: none;
+  padding-top: 10px;
+  border-top: 0;
+}
+.dialer-document .call-stage[data-stage="dialing"],
+.dialer-document .call-stage[data-stage="ringing"] { animation: none; }
+
+.dialer-document .arcade-viewport {
+  max-width: 440px;
+  margin-top: 20px;
+  border-color: #2a2e33;
+  border-radius: 8px;
+  background: #08090a;
+}
+.dialer-document .advance-controls { justify-content: flex-start; margin-top: 16px; }
+.dialer-document .advance-now { min-height: 32px; font-size: 13px; }
+.dialer-document .auto-advance { font-size: 13px; }

@@ -19,7 +19,7 @@ def main():
         )
     result = migrate_local_data(
         client,
-        os.path.join(APP_DIR, "crm_data.json"),
+        os.path.join(APP_DIR, "crm_data"),
         os.path.join(APP_DIR, "metrics.json"),
     )
     print(

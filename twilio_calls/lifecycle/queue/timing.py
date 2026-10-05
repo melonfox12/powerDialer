@@ -1,9 +1,7 @@
-import random
 import threading
 import time
-from core.dialer_session import within_calling_window
 
-class QueueMixin:
+class AdvanceTimingMixin:
     def _schedule_advance(self, delay=None):
         with self.lock:
             if not self.running or self.paused or self.pending_outcome or self.active:
@@ -36,31 +34,6 @@ class QueueMixin:
             self.advance_remaining = None
         self.fill_slots()
         return self.public_state()
-
-    def fill_slots(self):
-        leads = self.crm.snapshot()
-        launches = []
-        with self.lock:
-            if not self.running or self.paused or not self.agent_ready or self.active or self.pending_outcome:
-                return
-            active_leads = {call["lead_id"] for call in self.in_flight.values()}
-            slots = max(0, 1 - len(self.in_flight))
-            pool = [
-                lead for lead in self._pool_leads(leads)
-                if lead["id"] not in active_leads
-                and within_calling_window(
-                    lead.get("timezone"),
-                    int(self.settings.get("CALLING_START_HOUR", "8")),
-                    int(self.settings.get("CALLING_END_HOUR", "21")),
-                )
-            ]
-            for lead in random.sample(pool, min(slots, len(pool))):
-                call = self._new_call("prospect", lead)
-                call["caller_id"] = self._next_caller()
-                launches.append((call, lead["phone"]))
-        for call, destination in launches:
-            self._launch_call(call, destination)
-        self._schedule_calling_window_check()
 
     def _schedule_calling_window_check(self):
         with self.lock:

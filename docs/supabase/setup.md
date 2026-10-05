@@ -2,7 +2,7 @@
 
 The app stores prospects, transcripts, settings, and call metrics in Supabase. You sign in with Google in the browser. Each Gmail account only sees its own data. Supabase URL and keys stay in the private `.env` file on the machine that runs `server.py` — they are not entered in Settings.
 
-If Supabase is not configured, the app uses local `crm_data.json` and `metrics.json` and does not show Google sign-in.
+If Supabase is not configured, the app uses the local `crm_data` folder and `metrics.json` and does not show Google sign-in.
 
 ## Configure
 

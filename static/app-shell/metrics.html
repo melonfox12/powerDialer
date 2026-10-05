@@ -2,7 +2,6 @@
               <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton" data-mode="summary">
                 <div class="section-heading">
                   <div>
-                    <div class="eyebrow">PERFORMANCE</div>
                     <h2 id="metricsTitle">Live metrics</h2>
                   </div>
                   <div class="performance-mode-control" role="group" aria-label="Performance display mode">
@@ -39,7 +38,7 @@
                 </div>
                 <div class="performance-chart-grid">
                   <section class="performance-chart-panel chart-wide" aria-labelledby="trendTitle">
-                    <div class="chart-panel-heading"><span class="eyebrow">LAST 7 DAYS</span><h3 id="trendTitle">Call trends</h3></div>
+                    <div class="chart-panel-heading"><h3 id="trendTitle">Call trends</h3><span class="eyebrow">Last 7 days</span></div>
                     <div class="chart-legend line-chart-legend">
                       <span class="legend-item"><i class="legend-line legend-line-dials" aria-hidden="true"></i>Dials</span>
                       <span class="legend-item"><i class="legend-line legend-line-connected" aria-hidden="true"></i>Connected</span>
@@ -47,14 +46,14 @@
                     <div id="metricsLineChart" class="line-chart" role="img" aria-label="Dials and connected calls trend over the last 7 days"></div>
                   </section>
                   <section class="performance-chart-panel status-chart-panel" aria-labelledby="statusMixTitle" data-performance-detail="all">
-                    <div class="chart-panel-heading"><span class="eyebrow">CRM MIX</span><h3 id="statusMixTitle">Prospect status</h3></div>
+                    <div class="chart-panel-heading"><h3 id="statusMixTitle">Prospect status</h3><span class="eyebrow">Status mix</span></div>
                     <div class="status-chart-layout">
                       <div id="statusPieChart" class="status-pie-chart" role="img" aria-label="Prospects by call status"></div>
                       <ul id="statusPieLegend" class="status-pie-legend"></ul>
                     </div>
                   </section>
                   <section class="performance-chart-panel" aria-labelledby="connectionMixTitle" data-performance-detail="all">
-                    <div class="chart-panel-heading"><span class="eyebrow">ALL TIME</span><h3 id="connectionMixTitle">Dial outcomes</h3></div>
+                    <div class="chart-panel-heading"><h3 id="connectionMixTitle">Dial outcomes</h3><span class="eyebrow">All time</span></div>
                     <div class="status-chart-layout">
                       <div id="connectionPieChart" class="status-pie-chart" role="img" aria-label="Connected versus unconnected dials"></div>
                       <ul id="connectionPieLegend" class="status-pie-legend"></ul>
@@ -103,7 +102,7 @@
               <div id="poolTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="poolTabButton" hidden>
                 <section class="pool-table-panel" aria-label="Eligible new prospects">
                   <div class="pool-table-toolbar">
-                    <div><div class="eyebrow">ELIGIBLE PROSPECTS</div><h2>Caller pool</h2><span id="poolTableSummary" class="pool-table-summary">0 new prospects</span></div>
+                    <div><h2>Caller pool</h2><span id="poolTableSummary" class="pool-table-summary">0 new prospects</span></div>
                     <label class="pool-timezone-filter"><span>Timezone</span><select id="poolTimezoneFilter" aria-label="Filter caller pool by timezone"><option value="">All time zones</option></select></label>
                   </div>
                   <div class="table-scroll pool-table-scroll" role="region" aria-label="New prospect pool table" tabindex="0">

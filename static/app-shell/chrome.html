@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08090a">
-  <title>Prospect Desk</title>
+  <title>GoDial</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
@@ -17,6 +17,11 @@
   <link rel="stylesheet" href="css/07-responsive.css">
   <link rel="stylesheet" href="css/08-arcade.css">
   <link rel="stylesheet" href="css/09-shell.css">
+  <link rel="stylesheet" href="css/linear/shell.css">
+  <link rel="stylesheet" href="css/linear/document.css">
+  <link rel="stylesheet" href="css/linear/controls.css">
+  <link rel="stylesheet" href="css/linear/monitor.css">
+  <link rel="stylesheet" href="css/linear/metrics.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script type="module" src="js/main.js"></script>
@@ -24,7 +29,7 @@
 <body>
   <div id="loginGate" class="login-gate" hidden>
     <div class="login-card">
-      <div class="eyebrow">PROSPECT DESK</div>
+      <div class="login-brand"><svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M8 1.4a6.6 6.6 0 1 0 0 13.2a6.6 6.6 0 1 0 0-13.2Zm0 6.6L4.5 2.45 11.5 2.45Z"/></svg><span>GoDial</span></div>
       <h1>Sign in with Google</h1>
       <p>Each Gmail account has its own prospects, settings, and call history. You do not enter Supabase keys in the app.</p>
       <button id="googleSignInButton" class="button button-primary" type="button">Continue with Google</button>
@@ -33,9 +38,9 @@
   </div>
   <div class="app-shell" hidden>
     <nav class="side-nav" aria-label="Workspace">
-      <a class="brand side-brand" href="#crm" aria-label="Prospect Desk home">
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span>Prospect Desk</span>
+      <a class="brand side-brand" href="#crm" aria-label="GoDial home">
+        <svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M8 1.4a6.6 6.6 0 1 0 0 13.2a6.6 6.6 0 1 0 0-13.2Zm0 6.6L4.5 2.45 11.5 2.45Z"/></svg>
+        <span class="brand-name">GoDial</span>
       </a>
       <div class="side-section">Workspace</div>
       <div class="side-links" role="tablist" aria-label="Call desk views">

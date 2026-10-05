@@ -7,7 +7,8 @@ from twilio_calls.client import normalize_phone, twilio_request
 from twilio_calls.settings import _preferences
 
 class StartMixin:
-    def start(self):
+    def start(self, priority_lead_id=None):
+        priority = self._dialable_lead(priority_lead_id) if priority_lead_id else None
         with self.lock:
             if self.running:
                 return self.public_state()
@@ -43,7 +44,7 @@ class StartMixin:
             raise ValueError("No voice-enabled Twilio phone numbers were found on this account.")
         self.record_activity(f"Twilio ready: {len(callers)} caller ID(s) available", "api")
         eligible = self._pool_leads()
-        if not eligible:
+        if not eligible and priority is None:
             where = f" in the {self.selected_timezone} timezone" if self.selected_timezone else ""
             raise ValueError(f"There are no prospects with new status{where} in the caller pool.")
         with self.lock:
@@ -60,7 +61,9 @@ class StartMixin:
             self.caller_index = 0
             self.conference = "crm-" + secrets.token_hex(8)
             self.session = new_session(goal=int(preferences["SESSION_GOAL"]))
-            self.queue_total = len(eligible)
+            self.manual_lead_id = priority["id"] if priority else None
+            pinned_extra = 1 if priority and all(item["id"] != priority["id"] for item in eligible) else 0
+            self.queue_total = len(eligible) + pinned_extra
             self.advance_at = None
             self.advance_remaining = None
             self._save_session()
