@@ -10,6 +10,46 @@ from tests.test_transcript_storage.fixtures import FakeSupabaseClient
 from tests.test_transcript_storage.fixtures import prospect
 
 class Part1:
+    def test_manual_prospect_is_saved_and_rejects_a_duplicate_phone(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = CRMStore(Path(directory) / "crm.json")
+            lead = crm.add_lead({
+                "name": "Ada Lovelace",
+                "business": "Analytical Engines",
+                "phone": "(202) 555-0142",
+                "timezone": "Pacific",
+                "status": "interested",
+                "transcript": "Asked for a follow-up.",
+                "fields": {"Email": "ada@example.com"},
+            })
+            self.assertEqual(lead["phone"], "+12025550142")
+            self.assertEqual(lead["timezone"], "Pacific")
+            saved = CRMStore(Path(directory) / "crm.json").snapshot()[0]
+            self.assertEqual(saved["name"], "Ada Lovelace")
+            self.assertEqual(saved["business"], "Analytical Engines")
+            self.assertEqual(saved["status"], "interested")
+            self.assertEqual(saved["fields"]["Email"], "ada@example.com")
+            self.assertEqual(saved["transcript"][0]["text"], "Asked for a follow-up.")
+            with self.assertRaises(ValueError):
+                crm.add_lead({"name": "Duplicate", "phone": "202-555-0142"})
+            with self.assertRaises(ValueError):
+                crm.add_lead({"name": "No phone"})
+
+    def test_supabase_manual_prospect_is_stored(self):
+        client = FakeSupabaseClient(prospect())
+        crm = SupabaseCRMStore(client, user_id="user-a")
+        lead = crm.add_lead({
+            "name": "Grace Hopper",
+            "business": "Navy",
+            "phone": "4155550199",
+            "status": "call",
+        })
+        self.assertEqual(lead["phone"], "+14155550199")
+        self.assertEqual(lead["status"], "call")
+        self.assertTrue(lead["scheduled_until"])
+        self.assertEqual(client.leads[lead["id"]]["name"], "Grace Hopper")
+        self.assertEqual(client.users[lead["id"]], "user-a")
+
     def test_local_transcript_is_persisted_and_exported_in_crm_csv(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "crm.json"

@@ -20,7 +20,10 @@ class WriteMixin:
             dialer.record_activity(f"POST {path}", "web")
         try:
             body = self.read_body()
-            if path == "/api/import":
+            if path == "/api/leads":
+                lead = crm.add_lead(self.read_json(body))
+                self.send_json(200, {"lead": lead, "state": dialer.public_state()})
+            elif path == "/api/import":
                 result = crm.add_csv(body)
                 try:
                     state = dialer.public_state()

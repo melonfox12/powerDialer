@@ -1,8 +1,17 @@
 from datetime import datetime, timedelta
 from crm_store.csv_io import parse_csv
+from crm_store.leads.manual import build_manual_lead
 from crm_store.statuses import STATUSES, utc_now
 
 class RecordMixin:
+    def add_lead(self, payload):
+        with self.lock:
+            self.expire_due(save=False)
+            lead = build_manual_lead(payload, (item["phone"] for item in self.leads))
+            self.leads.append(lead)
+            self.save()
+            return dict(lead)
+
     def add_csv(self, data):
         with self.lock:
             self.expire_due(save=False)

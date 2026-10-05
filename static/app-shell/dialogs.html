@@ -68,6 +68,15 @@
       </section>
     </dialog>
 
+    <dialog id="addProspectDialog" class="add-prospect-dialog" aria-labelledby="addProspectTitle">
+      <form id="addProspectForm">
+        <div class="dialog-heading"><div><div class="eyebrow">PROSPECT</div><h2 id="addProspectTitle">Add prospect</h2></div><button id="closeAddProspect" class="dialog-close" type="button" aria-label="Close add prospect">×</button></div>
+        <div id="addProspectFields"></div>
+        <p id="addProspectError" class="form-footnote add-prospect-error" hidden></p>
+        <div class="dialog-actions"><button id="cancelAddProspect" class="button button-quiet" type="button">Cancel</button><button id="saveAddProspect" class="button button-primary" type="submit">Add prospect</button></div>
+      </form>
+    </dialog>
+
     <dialog id="transcriptDialog" class="transcript-dialog">
       <section class="transcript-dialog-content" aria-labelledby="transcriptDialogTitle">
         <div class="dialog-heading"><div><div class="eyebrow">CALL RECORD</div><h2 id="transcriptDialogTitle">Call transcript</h2><p id="transcriptDialogMeta" class="transcript-dialog-meta"></p></div><div class="transcript-dialog-actions"><button id="downloadTranscriptButton" class="button button-secondary" type="button">Download .txt</button><button id="closeTranscript" class="dialog-close" type="button" aria-label="Close transcript">×</button></div></div>

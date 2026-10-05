@@ -113,6 +113,8 @@ h2 { margin-bottom: 0; font-size: 17px; font-weight: 590; letter-spacing: -0.01e
 .button[hidden] { display: none; }
 .button-primary { background: var(--ink); color: var(--paper); }
 .button-primary:hover:not(:disabled) { background: #ffffff; }
+.button-light { border-color: #ffffff; background: #ffffff; color: #111111; }
+.button-light:hover:not(:disabled) { background: #f2f2f2; color: #111111; }
 .button-secondary { border-color: var(--line-strong); background: transparent; color: var(--ink-secondary); }
 .button-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, .05); color: var(--ink); }
 .button-quiet { background: transparent; color: var(--muted); }

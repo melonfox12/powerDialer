@@ -81,6 +81,7 @@
                     </div>
                     <div class="toolbar-actions">
                       <input id="csvInput" type="file" accept=".csv,.tsv,.txt,text/csv" hidden>
+                      <button id="addProspectButton" class="button button-light" type="button">Add prospect</button>
                       <button id="importButton" class="button button-secondary" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
                       <a id="exportButton" class="button button-quiet" href="/api/export.csv"><span class="button-symbol" aria-hidden="true">↓</span>Export</a>
                     </div>
@@ -93,7 +94,7 @@
                     <div id="emptyState" class="empty-state">
                       <span class="empty-glyph" aria-hidden="true">＋</span>
                       <h2>Your CRM starts here</h2>
-                      <p>Import a CSV to add prospects to your workspace.</p>
+                      <p>Import a CSV or add a prospect to start your workspace.</p>
                     </div>
                   </div>
                   <div class="table-footer"><span id="tableSummary">0 prospects</span><button id="deleteSelectedButton" class="button button-danger-quiet table-delete-button" type="button" hidden>Delete selected</button><span id="saveState">All changes saved</span></div>

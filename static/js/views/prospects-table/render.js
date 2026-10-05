@@ -48,7 +48,7 @@ export function renderTable() {
   empty.classList.toggle("visible", leads.length === 0);
   empty.querySelector("h2").textContent = state.leads.length === 0 ? "Your CRM starts here" : "No matching prospects";
   empty.querySelector("p").textContent = state.leads.length === 0
-    ? "Import a CSV to add prospects to your workspace."
+    ? "Import a CSV or add a prospect to start your workspace."
     : "Change the search or status filter to see more rows.";
   byId("crmTable").hidden = state.leads.length === 0;
   const summary = `${leads.length} of ${state.leads.length} prospect${state.leads.length === 1 ? "" : "s"}`;

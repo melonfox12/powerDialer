@@ -1,7 +1,24 @@
 from datetime import datetime, timedelta
 from crm_store import STATUSES, parse_csv, utc_now
+from crm_store.leads.manual import build_manual_lead
 
 class ChangeMixin:
+    def add_lead(self, payload):
+        with self.lock:
+            leads = self._all()
+            self._expire(leads)
+            lead = build_manual_lead(payload, (item["phone"] for item in leads))
+            self.client.request(
+                "POST",
+                "prospects",
+                {"on_conflict": "id"},
+                [{"id": lead["id"], "user_id": self.user_id, "data": lead}],
+                "resolution=merge-duplicates,return=minimal",
+            )
+            leads.append(lead)
+            self._touch()
+            return dict(lead)
+
     def add_csv(self, data):
         with self.lock:
             leads = self._all()
