@@ -5,7 +5,7 @@ import { showToast } from "../../_core/notify.js";
 import { renderCallMonitor } from "./monitor.js";
 import { showSessionSummary } from "./summary.js";
 import { stopProspectWaveform } from "./card.js";
-import { render } from "../../js/views/render.js";
+import { render } from "../../core.js";
 import { selectTimezone } from "./pool.js";
 import { startDialing } from "./session.js";
 

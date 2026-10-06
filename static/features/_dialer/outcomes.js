@@ -5,7 +5,7 @@ import { byId } from "../../_core/format.js";
 import { localDateTimeToUtc, nextBusinessCallback, timezoneFor } from "../../_core/time.js";
 import { renderDialer } from "./render-dialer.js";
 import { showToast } from "../../_core/notify.js";
-import { render } from "../../js/views/render.js";
+import { render } from "../../core.js";
 
 export async function submitOutcome(disposition, scheduledUntil = null) {
   const lead = state.pending_outcome;

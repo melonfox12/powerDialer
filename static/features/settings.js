@@ -1,6 +1,5 @@
 import { arcadeSensory } from "./arcade.js";
-import { postJson, refreshAudioDevices, request, SECRET_INPUTS, S, byId, setText, showToast, state, stopMicrophoneTest } from "../core.js";
-import { render } from "../js/views/render.js";
+import { postJson, refreshAudioDevices, render, request, SECRET_INPUTS, S, byId, setText, showToast, state, stopMicrophoneTest } from "../core.js";
 
 const SECRET_FIELDS = SECRET_INPUTS;
 

@@ -2,7 +2,7 @@ import { debugEvent, postJson, request } from "../../_core/api.js";
 import { createVoiceDevice } from "./_voice/connect.js";
 import { applyVoiceAudioDevices, refreshAudioDevices } from "./_voice/devices.js";
 import { S, state } from "../../_core/state.js";
-import { render } from "../../js/views/render.js";
+import { render } from "../../core.js";
 import { byId } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { showToast } from "../../_core/notify.js";

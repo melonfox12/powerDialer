@@ -3,7 +3,7 @@ import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { stopProspectWaveform } from "./card.js";
-import { render } from "../../js/views/render.js";
+import { render } from "../../core.js";
 import { openSettings } from "../settings.js";
 import { connectAndCleanup } from "./connect.js";
 

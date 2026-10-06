@@ -1,12 +1,12 @@
-import { bindDebugListeners } from "../_core/api.js";
-import { bindAuth, initAuth, showLoginGate } from "../features/auth.js";
-import { renderTable } from "../core.js";
-import { bindCallMonitor, bindDialer, bindKeyboard, bindOutcomes, bindSessionGoal, bindVoice, startPolling } from "../features/dialer.js";
-import { bindNavigation } from "./controllers/navigation.js";
-import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "../features/prospects.js";
-import { bindSettings } from "../features/settings.js";
-import { arcadeSensory, startArcade } from "../features/arcade.js";
-import { byId, setText } from "../_core/format.js";
+import { bindDebugListeners } from "./_core/api.js";
+import { bindAuth, initAuth, showLoginGate } from "./features/auth.js";
+import { bindNavigation, renderTable } from "./core.js";
+import { bindCallMonitor, bindDialer, bindKeyboard, bindOutcomes, bindSessionGoal, bindVoice, startPolling } from "./features/dialer.js";
+import "./features/performance.js";
+import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "./features/prospects.js";
+import { bindSettings } from "./features/settings.js";
+import { arcadeSensory, startArcade } from "./features/arcade.js";
+import { byId, setText } from "./_core/format.js";
 
 bindDebugListeners();
 startArcade();

@@ -2,8 +2,7 @@ import { request } from "../../_core/api.js";
 import { state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
-import { render } from "../../js/views/render.js";
-import { setDashboardTab } from "../../js/controllers/navigation.js";
+import { render, setDashboardTab } from "../../core.js";
 import { deleteSelectedProspects } from "./records.js";
 
 export async function importCsv(file) {

@@ -3,7 +3,7 @@ import { state } from "../../_core/state.js";
 import { STATUS_KEYS, STATUS_LABELS, byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { importedColumns } from "./query.js";
-import { render } from "../../js/views/render.js";
+import { render } from "../../core.js";
 
 const STANDARD_FIELDS = [
   ["name", "Prospect", "text", ""],

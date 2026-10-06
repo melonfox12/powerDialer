@@ -1,4 +1,4 @@
-import { byId, formatMinutes, setText, statMemory, state } from "../core.js";
+import { byId, formatMinutes, registerRenderer, setText, statMemory, state } from "../core.js";
 import { buildConnectionPieChart, buildMetricsLineChart, buildStatusPieChart } from "./_performance/charts.js";
 
 export function rememberStat(id, text) {
@@ -30,3 +30,5 @@ export function renderMetrics() {
   buildStatusPieChart(state.leads);
   buildConnectionPieChart(allTime);
 }
+
+registerRenderer(renderMetrics);

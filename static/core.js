@@ -50,35 +50,16 @@ export function stopMicrophoneTest() {
   return stopMicrophoneTestImpl();
 }
 
-const renderers = [];
-let callerPoolRenderer = () => {};
-
-export function registerRenderer(fn, position = "end") {
-  if (position === "start") renderers.unshift(fn);
-  else renderers.push(fn);
-}
-
-let tableRenderer = () => {};
-
-export function registerTable(fn) {
-  tableRenderer = fn;
-}
-
-export function renderTable() {
-  tableRenderer();
-}
-
-export function runRenderers() {
-  for (const fn of renderers) fn();
-}
-
-export function registerCallerPool(fn) {
-  callerPoolRenderer = fn;
-}
-
-export function renderCallerPool() {
-  callerPoolRenderer();
-}
+export {
+  registerRenderer,
+  runRenderers,
+  registerTable,
+  renderTable,
+  registerCallerPool,
+  renderCallerPool,
+} from "./_core/registry.js";
+export { render } from "./_core/render.js";
+export { bindNavigation, setDashboardTab, setPerformanceMode } from "./_core/navigation.js";
 
 export {
   state,

@@ -1,6 +1,6 @@
-import { S } from "../../_core/state.js";
-import { byId, setText } from "../../_core/format.js";
-import { renderCallerPool, renderTable } from "../../core.js";
+import { byId, setText } from "./format.js";
+import { renderCallerPool, renderTable } from "./registry.js";
+import { S } from "./state.js";
 
 export function setDashboardTab(name, moveFocus = false) {
   const tabs = ["dialer", "performance", "prospects", "pool"];

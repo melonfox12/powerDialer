@@ -8,10 +8,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
 PARTIALS = (
-    STATIC / "app-shell" / "chrome.html",
-    STATIC / "app-shell" / "dialer.html",
-    STATIC / "app-shell" / "metrics.html",
-    STATIC / "app-shell" / "dialogs.html",
+    STATIC / "shell.html",
+    STATIC / "features" / "dialer.html",
+    STATIC / "features" / "performance.html",
+    STATIC / "features" / "prospects.html",
+    STATIC / "features" / "settings.html",
+    STATIC / "shell-end.html",
 )
 
 IMPORT_FROM = re.compile(

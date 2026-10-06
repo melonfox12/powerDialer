@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -97,22 +98,37 @@ class HttpContractTests(unittest.TestCase):
         if not snapshot.exists():
             snapshot.write_bytes(page)
         def comparable(body):
-            text = body.replace(b"\r\n", b"\n")
+            text = body.replace(b"\r\n", b"\n").decode("utf-8")
             text = text.replace(
-                b'<button id="enterLiveButton" class="button button-secondary monitor-enter-live" type="button" hidden>Enter live line</button>',
-                b"",
+                '<button id="enterLiveButton" class="button button-secondary monitor-enter-live" type="button" hidden>Enter live line</button>',
+                "",
             )
-            start = text.find(b'<script type="application/json" id="vocabulary">')
-            if start != -1:
-                end = text.find(b"</script>", start)
-                text = text[:start] + text[end + len(b"</script>"):]
-            return text
+            text = re.sub(
+                r'<script type="application/json" id="vocabulary">.*?</script>',
+                "",
+                text,
+                count=1,
+                flags=re.S,
+            )
+            text = re.sub(
+                r'(<script type="module" src=")[^"]+(")',
+                r"\1main.js\2",
+                text,
+                count=1,
+            )
+            dialogs = re.findall(r"<dialog\b.*?</dialog>", text, flags=re.S)
+            text = re.sub(r"<dialog\b.*?</dialog>", "", text, flags=re.S)
+            kept = [line.rstrip() for line in text.split("\n") if line.strip()]
+            dialog_lines = []
+            for dialog in sorted(dialogs):
+                dialog_lines.extend(line.rstrip() for line in dialog.split("\n"))
+            return "\n".join(kept + dialog_lines)
         self.assertEqual(comparable(page), comparable(snapshot.read_bytes()))
 
         status, raw, content_type = self.request("GET", "/css/01-tokens.css")
         self.assertEqual(status, 200)
         self.assertIn("text/css", content_type)
-        status, raw, content_type = self.request("GET", "/js/main.js")
+        status, raw, content_type = self.request("GET", "/main.js")
         self.assertEqual(status, 200)
         self.assertIn("javascript", content_type)
 

@@ -3,7 +3,7 @@ import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
 import { STATUS_LABELS, byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
-import { render } from "../../js/views/render.js";
+import { render } from "../../core.js";
 
 export function bindProspects() {
   document.addEventListener("prospect-status", (event) => {
