@@ -1,7 +1,8 @@
-import { S, selectedLeadIds, state } from "../../../_core/state.js";
-import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, initials, statusDate } from "../../../_core/format.js";
-import { formatPhoneNumber } from "../../../_core/phone.js";
-import { openTranscript } from "../../../_core/transcript.js";
+import { state } from "../../_core/state.js";
+import { selectedLeadIds, selection } from "./selection.js";
+import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, initials, statusDate } from "../../_core/format.js";
+import { formatPhoneNumber } from "../../_core/phone.js";
+import { openTranscript } from "./transcript.js";
 
 export function appendLeadRows(body, leads, extras, onSelection) {
   for (const lead of leads) {
@@ -18,7 +19,7 @@ export function appendLeadRows(body, leads, extras, onSelection) {
     checkbox.setAttribute("aria-label", `Select ${lead.name || lead.phone || "prospect"}`);
     checkbox.addEventListener("click", (event) => {
       const targetIndex = leads.findIndex((item) => item.id === lead.id);
-      const anchorIndex = leads.findIndex((item) => item.id === S.selectionAnchorId);
+      const anchorIndex = leads.findIndex((item) => item.id === selection.anchorId);
       if (event.shiftKey && anchorIndex >= 0 && targetIndex >= 0) {
         const start = Math.min(anchorIndex, targetIndex);
         const end = Math.max(anchorIndex, targetIndex);
@@ -31,7 +32,7 @@ export function appendLeadRows(body, leads, extras, onSelection) {
       } else {
         selectedLeadIds.delete(lead.id);
       }
-      S.selectionAnchorId = lead.id;
+      selection.anchorId = lead.id;
       onSelection();
     });
     selectionCell.append(checkbox);

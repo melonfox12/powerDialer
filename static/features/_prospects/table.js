@@ -1,10 +1,17 @@
-import { S, selectedLeadIds, state } from "../../../_core/state.js";
-import { byId, setText } from "../../../_core/format.js";
+import { state } from "../../_core/state.js";
+import { selectedLeadIds, selection } from "./selection.js";
+import { byId, setText } from "../../_core/format.js";
 import { appendLeadRows } from "./rows.js";
 import { crmTableSignature, filteredLeads, importedColumns } from "./query.js";
 
+let lastCrmTableSignature = null;
+
+export function renderTableIfStale() {
+  if (crmTableSignature() !== lastCrmTableSignature) renderTable();
+}
+
 export function renderTable() {
-  S.lastCrmTableSignature = crmTableSignature();
+  lastCrmTableSignature = crmTableSignature();
   const head = byId("tableHead");
   const body = byId("tableBody");
   const leads = filteredLeads();
@@ -13,7 +20,7 @@ export function renderTable() {
   for (const id of selectedLeadIds) {
     if (!currentLeadIds.has(id)) selectedLeadIds.delete(id);
   }
-  if (!currentLeadIds.has(S.selectionAnchorId)) S.selectionAnchorId = null;
+  if (!currentLeadIds.has(selection.anchorId)) selection.anchorId = null;
   head.replaceChildren();
   body.replaceChildren();
 

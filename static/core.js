@@ -32,6 +32,7 @@ export {
   renderTranscriptEntries,
   openTranscript,
   downloadTranscript,
+  registerTranscriptActions,
 } from "./_core/transcript.js";
 let refreshAudioDevicesImpl = async () => {};
 let stopMicrophoneTestImpl = async () => {};
@@ -52,8 +53,19 @@ export function stopMicrophoneTest() {
 const renderers = [];
 let callerPoolRenderer = () => {};
 
-export function registerRenderer(fn) {
-  renderers.push(fn);
+export function registerRenderer(fn, position = "end") {
+  if (position === "start") renderers.unshift(fn);
+  else renderers.push(fn);
+}
+
+let tableRenderer = () => {};
+
+export function registerTable(fn) {
+  tableRenderer = fn;
+}
+
+export function renderTable() {
+  tableRenderer();
 }
 
 export function runRenderers() {
@@ -71,7 +83,6 @@ export function renderCallerPool() {
 export {
   state,
   S,
-  selectedLeadIds,
   statMemory,
   seenSensoryActivity,
   audioInputStorageKey,

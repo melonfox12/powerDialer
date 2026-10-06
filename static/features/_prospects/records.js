@@ -1,8 +1,9 @@
 import { postJson, request } from "../../_core/api.js";
-import { S, selectedLeadIds, state } from "../../_core/state.js";
+import { state } from "../../_core/state.js";
+import { selectedLeadIds, selection } from "./selection.js";
 import { STATUS_LABELS, byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
-import { render } from "../views/render.js";
+import { render } from "../../js/views/render.js";
 
 export function bindProspects() {
   document.addEventListener("prospect-status", (event) => {
@@ -43,7 +44,7 @@ export async function deleteSelectedProspects() {
     const failed = results.filter((result) => result.status === "rejected");
     if (failed.length === 0) {
       selectedLeadIds.clear();
-      S.selectionAnchorId = null;
+      selection.anchorId = null;
       byId("saveState").textContent = "All changes saved";
       render();
       showToast(`${ids.length} ${noun} deleted`);

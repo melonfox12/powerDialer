@@ -121,12 +121,15 @@ Prospects:
 
 | Current | Target |
 | --- | --- |
-| `controllers/prospects.js` | `prospects.js` |
-| `controllers/add-prospect.js`, `controllers/csv.js` | `_prospects/csv.js` |
-| `controllers/prospect-menu.js` | `_prospects/table.js` |
-| `views/prospects-table/**` | `_prospects/table.js` |
-| `utils/transcript.js` `openTranscript`, `downloadTranscript` | `_prospects/transcript.js` |
-| `views/dialogs/index.js` transcript dialog | `_prospects/transcript.js` |
+| `controllers/prospects.js` | `_prospects/records.js`. `prospects.js` re-exports it. `csv.js` calls `deleteSelectedProspects`, and a part cannot import the entry. |
+| `controllers/add-prospect.js` | `_prospects/add-prospect.js` |
+| `controllers/csv.js` | `_prospects/csv.js` |
+| `controllers/prospect-menu.js` | `_prospects/menu.js` |
+| `views/prospects-table/**` | `_prospects/table.js`, `query.js`, `rows.js`. One file would pass 250 lines. |
+| `utils/transcript.js` `openTranscript`, `downloadTranscript` | `_prospects/transcript.js`. Core keeps wrappers so the dialer pool can open a transcript without importing prospects. |
+| `views/dialogs/index.js` transcript dialog | `_prospects/transcript.js` `bindDialogs` |
+
+`selectedLeadIds` and the selection anchor move to `_prospects/selection.js`. The table signature comparison moves into `renderTableIfStale`, registered ahead of the dialer renderer.
 
 Auth: `controllers/auth.js` → `static/features/auth.js`. It calls `setUnauthorizedHandler` on core. Core does not import auth. `onUnauthorized` is the registry.
 

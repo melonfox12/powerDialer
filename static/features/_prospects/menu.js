@@ -1,7 +1,7 @@
 import { state } from "../../_core/state.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
-import { dialLead } from "../../features/dialer.js";
-import { setDashboardTab } from "./navigation.js";
+import { dialLead } from "../dialer.js";
+import { setDashboardTab } from "../../js/controllers/navigation.js";
 
 export function bindProspectMenu() {
   const menu = document.createElement("div");

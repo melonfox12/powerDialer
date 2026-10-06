@@ -24,7 +24,6 @@ export const S = {
   performanceMode: "summary",
   observedActiveLeadId: null,
   lastLiveTranscriptKey: "",
-  lastCrmTableSignature: null,
   voiceDevice: null,
   voiceCall: null,
   micTestStream: null,
@@ -35,7 +34,6 @@ export const S = {
   micPeakLevel: 0,
   micClippingFrames: 0,
   micPlaybackUrl: null,
-  selectionAnchorId: null,
   previousStage: "",
   previousSessionConversations: 0,
   goalCelebrated: false,
@@ -58,7 +56,6 @@ export const S = {
   googleAuthEnabled: false,
 };
 
-export const selectedLeadIds = new Set();
 export const statMemory = {};
 export const seenSensoryActivity = new Set();
 export const audioInputStorageKey = "prospect-desk-audio-input";
