@@ -6,7 +6,7 @@ import urllib.error
 import urllib.request
 
 from routes.hooks import make_hook_handler
-from routes.runtime import AppRuntime
+from features.accounts import AppRuntime
 from routes.ui import make_app_handler
 from server import QuietThreadingHTTPServer
 
@@ -29,7 +29,7 @@ class LocalServers:
         self._threads = []
 
     def start(self):
-        import routes.runtime as runtime_module
+        import features.accounts as runtime_module
 
         for key in _ISOLATED:
             if key in os.environ:
@@ -64,7 +64,7 @@ class LocalServers:
         for thread in self._threads:
             thread.join(timeout=2)
         if self.runtime is not None:
-            import routes.runtime as runtime_module
+            import features.accounts as runtime_module
 
             runtime_module.ENV_PATH, runtime_module.CRM_PATH, runtime_module.METRICS_PATH = self._saved_paths
         os.environ.update(self._saved_env)

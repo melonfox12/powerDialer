@@ -37,8 +37,12 @@ def preferences(values):
     return result
 
 
+def merged_values(env_path, account_values):
+    return {**read_env(env_path), **account_values}
+
+
 def values(dialer):
-    return {**read_env(dialer.env_path), **dialer.account_values}
+    return merged_values(dialer.env_path, dialer.account_values)
 
 
 def settings_state(dialer):
@@ -144,42 +148,17 @@ def save_app_settings(client, stored_values, user_id=None):
     )
 
 
-def persist_settings(runtime, dialer):
-    user_id = getattr(dialer, "account_user_id", None)
-    if not runtime.client or not user_id:
-        return
-    try:
-        save_app_settings(runtime.client, values(dialer), user_id)
-    except OSError as exc:
-        message = str(exc)
-        if "HTTP 404" in message or "PGRST205" in message or "does not exist" in message.lower():
-            raise OSError(
-                "Dialer settings could not be saved to your account. "
-                "Run docs/supabase/schema.sql in the Supabase SQL editor, then save again."
-            ) from exc
-        raise
-
-
-def reload_settings(runtime, dialer):
-    user_id = getattr(dialer, "account_user_id", None)
-    if not runtime.client or not user_id:
-        return
-    remote = load_app_settings(runtime.client, user_id)
-    if remote:
-        dialer.account_values.update(remote)
-
-
 def get_settings(request):
     dialer = request.account.dialer
-    reload_settings(request.runtime, dialer)
-    request.send_json(200, settings_state(dialer))
+    request.runtime.reload_settings(dialer)
+    request.send_json(200, dialer.settings_state())
 
 
 def post_settings(request, data):
     dialer = request.account.dialer
-    save_settings(dialer, data)
-    persist_settings(request.runtime, dialer)
-    request.send_json(200, settings_state(dialer))
+    dialer.save_settings(data)
+    request.runtime.persist_settings(dialer)
+    request.send_json(200, dialer.settings_state())
 
 
 ROUTES = [

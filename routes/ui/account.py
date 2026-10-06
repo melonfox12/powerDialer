@@ -1,20 +1,15 @@
 import json
+
+from features.accounts import resolve_account
 from shared.infra import debug_event
-from routes.runtime import PUBLIC_API_PATHS
 
 class AccountMixin:
     def open_account(self, path):
-        google = bool(self.runtime.client and self.runtime.client.anon_key)
-        if not google or path in PUBLIC_API_PATHS or not path.startswith("/api/"):
-            self.account = self.runtime.local
-            return True
-        header = self.headers.get("Authorization", "")
-        token = header[7:].strip() if header.lower().startswith("bearer ") else ""
-        user = self.runtime.client.auth_user(token)
-        if not user:
-            self.send_json(401, {"error": "Sign in with Google to continue."})
+        account, error = resolve_account(self.runtime, path, self.headers.get("Authorization", ""))
+        if error:
+            self.send_json(401, error)
             return False
-        self.account = self.runtime.session_for(user)
+        self.account = account
         return True
 
     def ingest_client_debug(self):

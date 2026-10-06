@@ -4,7 +4,8 @@ import threading
 from http.server import ThreadingHTTPServer
 
 from routes.hooks import make_hook_handler
-from routes.runtime import APP_HOST, APP_PORT, HOOK_HOST, HOOK_PORT, AppRuntime
+from features.accounts import AppRuntime
+from shared.config import APP_HOST, APP_PORT, HOOK_HOST, HOOK_PORT
 from routes.ui import make_app_handler
 
 

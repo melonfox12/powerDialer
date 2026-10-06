@@ -8,7 +8,7 @@ import traceback
 import urllib.parse
 
 from shared.infra import debug_event
-from routes.runtime import MAX_BODY, QUIET_HTTP, STATIC_DIR
+from shared.config import MAX_BODY, QUIET_HTTP, STATIC_DIR
 from shared.vocabulary import vocabulary_json
 
 

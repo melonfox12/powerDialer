@@ -1,24 +1,14 @@
-"""Account sessions for the local app server."""
+"""Backend choice, signed-in sessions, and the Google bearer check."""
 
 import threading
 import time
 
-from features.prospects import ProspectStore
-from features.metrics import MetricsStore, SupabaseMetricsStore
-from shared.config import (
-    APP_HOST,
-    APP_PORT,
-    CRM_PATH,
-    ENV_PATH,
-    HOOK_HOST,
-    HOOK_PORT,
-    MAX_BODY,
-    METRICS_PATH,
-    PUBLIC_API_PATHS,
-    QUIET_HTTP,
-    STATIC_DIR,
-)
 from features.dialer import Dialer, TokenIndex
+from features.metrics import MetricsStore, SupabaseMetricsStore
+from features.prospects import ProspectStore
+from features.settings import load_app_settings, save_app_settings
+from shared.config import CRM_PATH, ENV_PATH, METRICS_PATH, PUBLIC_API_PATHS, read_env
+from shared.infra import SupabaseClient
 
 
 class Account:
@@ -40,9 +30,6 @@ class AppRuntime:
         self._health = {"ok": True, "storage": self.storage_name}
 
     def configure(self):
-        from shared.config import read_env
-        from supabase_store import SupabaseClient
-
         values = read_env(ENV_PATH)
         client = SupabaseClient.from_env(values)
         self.tokens = TokenIndex()
@@ -88,8 +75,6 @@ class AppRuntime:
         if existing:
             existing.dialer.account_email = user.get("email") or existing.dialer.account_email
             return existing
-        from features.settings import load_app_settings
-
         crm = ProspectStore(client=self.client, user_id=user_id)
         metrics = SupabaseMetricsStore(self.client, user_id=user_id)
         dialer = Dialer(crm, ENV_PATH, metrics=metrics)
@@ -108,11 +93,38 @@ class AppRuntime:
         return account
 
     def persist_settings(self, dialer):
-        from features.settings import persist_settings
+        from features.settings import merged_values
 
-        return persist_settings(self, dialer)
+        user_id = getattr(dialer, "account_user_id", None)
+        if not self.client or not user_id:
+            return
+        try:
+            save_app_settings(self.client, merged_values(dialer.env_path, dialer.account_values), user_id)
+        except OSError as exc:
+            message = str(exc)
+            if "HTTP 404" in message or "PGRST205" in message or "does not exist" in message.lower():
+                raise OSError(
+                    "Dialer settings could not be saved to your account. "
+                    "Run docs/supabase/schema.sql in the Supabase SQL editor, then save again."
+                ) from exc
+            raise
 
     def reload_settings(self, dialer):
-        from features.settings import reload_settings
+        user_id = getattr(dialer, "account_user_id", None)
+        if not self.client or not user_id:
+            return
+        remote = load_app_settings(self.client, user_id)
+        if remote:
+            dialer.account_values.update(remote)
 
-        return reload_settings(self, dialer)
+
+def resolve_account(runtime, path, authorization):
+    google = bool(runtime.client and runtime.client.anon_key)
+    if not google or path in PUBLIC_API_PATHS or not path.startswith("/api/"):
+        return runtime.local, None
+    header = authorization or ""
+    token = header[7:].strip() if header.lower().startswith("bearer ") else ""
+    user = runtime.client.auth_user(token)
+    if not user:
+        return None, {"error": "Sign in with Google to continue."}
+    return runtime.session_for(user), None
