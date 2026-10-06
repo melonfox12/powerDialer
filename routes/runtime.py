@@ -18,7 +18,7 @@ from shared.config import (
     QUIET_HTTP,
     STATIC_DIR,
 )
-from twilio_calls import TokenIndex, TwilioDialer
+from features.dialer import Dialer, TokenIndex
 
 
 class Account:
@@ -56,7 +56,7 @@ class AppRuntime:
             self.storage_name = "local JSON files"
             crm = ProspectStore(CRM_PATH)
             metrics = MetricsStore(METRICS_PATH)
-            dialer = TwilioDialer(crm, ENV_PATH, metrics=metrics)
+            dialer = Dialer(crm, ENV_PATH, metrics=metrics)
             dialer.storage_name = self.storage_name
             dialer.token_index = self.tokens
             self.local = Account(crm, metrics, dialer)
@@ -92,7 +92,7 @@ class AppRuntime:
 
         crm = ProspectStore(client=self.client, user_id=user_id)
         metrics = SupabaseMetricsStore(self.client, user_id=user_id)
-        dialer = TwilioDialer(crm, ENV_PATH, metrics=metrics)
+        dialer = Dialer(crm, ENV_PATH, metrics=metrics)
         dialer.storage_name = "Supabase"
         dialer.token_index = self.tokens
         dialer.account_user_id = user_id

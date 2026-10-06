@@ -82,31 +82,27 @@ fake_twilio.calls = 0
 
 class CallFlowTests(unittest.TestCase):
     def setUp(self):
-        import twilio_calls.client.calls as calls
-        import twilio_calls.lifecycle.controls as controls
-        import twilio_calls.lifecycle.queue.timing as timing
-        import twilio_calls.token.start as start
-        import twilio_calls.token.voice as voice
-        import twilio_calls.webhooks.dispatch as dispatch
+        import features._dialer.call_events as call_events
+        import features._dialer.queue as queue
+        import features._dialer._queue.timing as timing
+        import features._dialer.twilio_api as twilio_api
 
-        self._modules = (calls, controls, timing, voice, dispatch)
+        self._modules = (call_events, queue, timing)
         self._saved_threading = [module.threading for module in self._modules]
         for module in self._modules:
             module.threading = _ThreadNamespace(module.threading)
-        self._saved_twilio = (start.twilio_request, calls.twilio_request)
+        self._saved_twilio = twilio_api.twilio_request
         fake_twilio.calls = 0
-        start.twilio_request = fake_twilio
-        calls.twilio_request = fake_twilio
+        twilio_api.twilio_request = fake_twilio
         self._tmp = tempfile.TemporaryDirectory()
         self.servers = LocalServers(self._tmp.name).start()
 
     def tearDown(self):
         self.servers.stop()
         self._tmp.cleanup()
-        import twilio_calls.client.calls as calls
-        import twilio_calls.token.start as start
+        import features._dialer.twilio_api as twilio_api
 
-        start.twilio_request, calls.twilio_request = self._saved_twilio
+        twilio_api.twilio_request = self._saved_twilio
         for module, saved in zip(self._modules, self._saved_threading):
             module.threading = saved
 

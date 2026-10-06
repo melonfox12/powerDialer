@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from core.dialer_session import new_session
+from features._dialer.session_stats import new_session
 from features.metrics import MetricsStore
 
 

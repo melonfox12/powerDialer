@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 from features.prospects import ProspectStore
-from twilio_calls import TwilioDialer
+from features.dialer import Dialer
 
 class Part4:
     def test_caller_ids_rotate_and_only_one_prospect_is_dialed(self):
@@ -21,7 +21,7 @@ class Part4:
                     "fields": {},
                 })
             crm.leads = leads
-            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.running = True
             dialer.agent_ready = True
             dialer.callers = ["+15551110001", "+15551110002", "+15551110003"]
@@ -65,7 +65,7 @@ class Part4:
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
             crm.leads = [auto, chosen, blocked]
-            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.running = True
             dialer.agent_ready = True
             dialer.callers = ["+15551110001"]
@@ -109,7 +109,7 @@ class Part4:
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
             crm.leads = [chosen]
-            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.running = True
             dialer.paused = True
             dialer.agent_ready = True

@@ -1,6 +1,6 @@
 import traceback
-import urllib.parse
-from core.debug_log import debug_event
+
+from shared.infra import debug_event
 
 class WriteMixin:
     def do_POST(self):
@@ -33,31 +33,41 @@ class WriteMixin:
 
                 post_settings(self, self.read_json(body))
             elif path == "/api/timezone":
-                result = dialer.set_timezone_filter(self.read_json(body).get("timezone"))
-                self.send_json(200, result)
+                from features.dialer import post_timezone
+
+                post_timezone(self, self.read_json(body))
             elif path == "/api/start":
-                self.send_json(200, dialer.start())
+                from features.dialer import post_start
+
+                post_start(self)
             elif path == "/api/pause":
-                self.send_json(200, dialer.pause())
+                from features.dialer import post_pause
+
+                post_pause(self)
             elif path == "/api/stop":
-                self.send_json(200, dialer.stop())
+                from features.dialer import post_stop
+
+                post_stop(self)
             elif path == "/api/hangup":
-                self.send_json(200, dialer.hangup_active())
+                from features.dialer import post_hangup
+
+                post_hangup(self)
             elif path == "/api/skip":
-                self.send_json(200, dialer.skip_active())
+                from features.dialer import post_skip
+
+                post_skip(self)
             elif path == "/api/advance":
-                self.send_json(200, dialer.advance_now())
+                from features.dialer import post_advance
+
+                post_advance(self)
             elif path.startswith("/api/leads/") and path.endswith("/dial"):
-                lead_id = urllib.parse.unquote(path.removeprefix("/api/leads/").removesuffix("/dial"))
-                self.send_json(200, dialer.dial_lead(lead_id))
+                from features.dialer import post_dial
+
+                post_dial(self)
             elif path.startswith("/api/leads/") and path.endswith("/status"):
-                lead_id = urllib.parse.unquote(path.removeprefix("/api/leads/").removesuffix("/status"))
-                data = self.read_json(body)
-                lead = dialer.update_status(
-                    lead_id, data.get("status"), data.get("scheduled_until"),
-                    data.get("disposition"),
-                )
-                self.send_json(200, {"lead": lead, "state": dialer.public_state()})
+                from features.dialer import post_status
+
+                post_status(self, self.read_json(body))
             else:
                 self.send_json(404, {"error": "Not found"})
         except (ValueError, KeyError, UnicodeDecodeError) as exc:

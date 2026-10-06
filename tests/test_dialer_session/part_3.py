@@ -1,8 +1,8 @@
 import tempfile
 from pathlib import Path
 from features.prospects import ProspectStore
-from core.dialer_session import new_session
-from twilio_calls import TwilioDialer
+from features._dialer.session_stats import new_session
+from features.dialer import Dialer
 
 class Part3:
     def test_answer_bridges_any_pickup_and_keeps_voicemail_on_the_line(self):
@@ -14,7 +14,7 @@ class Part3:
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
             crm.leads = [lead]
-            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.public_base_url = "https://example.test"
             dialer.conference = "crm-test"
             dialer.save_settings({"session_goal": 20})

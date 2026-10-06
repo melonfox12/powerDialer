@@ -1,4 +1,4 @@
-"""Pure helpers for dialer stage, session accounting, and local-time rules."""
+"""Stage, session accounting, local time, and metric bumps."""
 
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -123,3 +123,11 @@ def session_summary(session, ended_at=None):
     result.pop("connect_times", None)
     result.pop("current_streak", None)
     return result
+
+def _save_session(state):
+    if state.metrics and state.session and hasattr(state.metrics, "save_session"):
+        state.metrics.save_session(state.session)
+
+def _bump(state, key, amount=1):
+    if state.metrics:
+        state.metrics.bump(key, amount)

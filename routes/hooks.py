@@ -5,7 +5,7 @@ import traceback
 import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
-from core.debug_log import debug_event
+from shared.infra import debug_event
 from routes.http import HandlerMixin, log_server_fault
 
 

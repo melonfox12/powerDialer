@@ -5,7 +5,7 @@ from pathlib import Path
 from features.prospects import ProspectStore
 from features.settings import load_app_settings, preferences, save_app_settings
 from shared.vocabulary import SETTING_DEFAULTS
-from twilio_calls import TwilioDialer
+from features.dialer import Dialer
 
 
 class SettingsTests(unittest.TestCase):
@@ -20,7 +20,7 @@ class SettingsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             env_path = Path(directory) / ".env"
             crm = ProspectStore(Path(directory) / "crm.json")
-            dialer = TwilioDialer(crm, str(env_path))
+            dialer = Dialer(crm, str(env_path))
             settings = dialer.save_settings({
                 "session_goal": "25",
                 "conversation_threshold": "45",
@@ -49,7 +49,7 @@ class SettingsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             env_path = Path(directory) / ".env"
             crm = ProspectStore(Path(directory) / "crm.json")
-            dialer = TwilioDialer(crm, str(env_path))
+            dialer = Dialer(crm, str(env_path))
             dialer.account_user_id = "user-1"
             saved = []
             dialer.settings_saver = saved.append

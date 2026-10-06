@@ -1,8 +1,19 @@
+"""Dialer state and the call record shape.
+
+A call stays a dict. `_new_call` in queue.py builds it. Keys: token, kind,
+lead_id, lead, call_uuid, state, handled, cancelled, machine, transcribing,
+transcript_partials, transcription_started, caller_id, answered_by, picked_up,
+connect_counted, transcript_lines, end_processed. outcome_chosen and wrapping
+are set later by outcome and end handlers. connected_at is set on pickup.
+"""
+
 import threading
 from datetime import datetime, timezone
-from core.debug_log import debug_event
 
-class CoreMixin:
+from shared.infra import debug_event
+
+
+class DialerState:
     def __init__(self, crm, env_path, metrics=None):
         self.crm = crm
         self.env_path = env_path
@@ -40,33 +51,6 @@ class CoreMixin:
         self.calling_window_timer = None
         self.manual_lead_id = None
 
-    def _save_session(self):
-        if self.metrics and self.session and hasattr(self.metrics, "save_session"):
-            self.metrics.save_session(self.session)
-
-    def _pool_leads(self, leads=None):
-        leads = self.crm.snapshot() if leads is None else leads
-        pool = [lead for lead in leads if lead["status"] == "new"]
-        if self.selected_timezone:
-            pool = [lead for lead in pool if (lead.get("timezone") or "Unknown") == self.selected_timezone]
-        return pool
-
-    def set_timezone_filter(self, timezone):
-        timezone = str(timezone or "").strip() or None
-        leads = self.crm.snapshot()
-        with self.lock:
-            self.selected_timezone = timezone
-            if self.session:
-                self.queue_total = len(self._pool_leads(leads))
-            self.last_event = f"Dialing pool set to {timezone}" if timezone else "Dialing pool set to all timezones"
-            should_fill = self.running and self.agent_ready and not self.paused and not self.pending_outcome and not self.active
-        if should_fill:
-            self.fill_slots()
-        return self.public_state()
-
-    def _bump(self, key, amount=1):
-        if self.metrics:
-            self.metrics.bump(key, amount)
 
     def record_activity(self, message, source="dialer"):
         with self.lock:
@@ -81,8 +65,3 @@ class CoreMixin:
         if source != "web":
             debug_event(source, message)
 
-    def live_state(self):
-        state = self.public_state()
-        state.pop("leads", None)
-        state.pop("pool", None)
-        return state

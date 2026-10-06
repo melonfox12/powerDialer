@@ -7,7 +7,7 @@ import time
 import traceback
 import urllib.parse
 
-from core.debug_log import debug_event
+from shared.infra import debug_event
 from routes.runtime import MAX_BODY, QUIET_HTTP, STATIC_DIR
 from shared.vocabulary import vocabulary_json
 

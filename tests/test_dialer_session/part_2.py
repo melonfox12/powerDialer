@@ -1,8 +1,8 @@
 import tempfile
 from pathlib import Path
 from features.prospects import ProspectStore
-from core.dialer_session import new_session
-from twilio_calls import TwilioDialer
+from features._dialer.session_stats import new_session
+from features.dialer import Dialer
 
 class Part2:
     def test_callback_is_persisted_and_do_not_call_leaves_the_auto_dial_pool(self):
@@ -35,7 +35,7 @@ class Part2:
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
             crm.leads = [lead]
-            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.running = True
             dialer.session = new_session(goal=1)
             dialer.settings = {"CONVERSATION_THRESHOLD_SECONDS": "30"}

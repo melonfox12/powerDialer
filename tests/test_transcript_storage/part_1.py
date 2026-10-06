@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from io import StringIO
 from features.prospects import ProspectStore, parse_csv
-from twilio_calls import TwilioDialer
+from features.dialer import Dialer
 from tests.test_transcript_storage.fixtures import FakeSupabaseClient
 from tests.test_transcript_storage.fixtures import prospect
 
@@ -90,7 +90,7 @@ class Part1:
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
             crm.leads = [prospect()]
-            dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
             call = dialer._new_call("prospect", prospect())
             dialer._transcription_event(call, {
                 "TranscriptionEvent": "transcription-content",

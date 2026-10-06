@@ -33,15 +33,13 @@ class ReadMixin:
         if path.startswith("/api/") and path not in ("/api/state", "/api/live", "/api/metrics", "/api/health"):
             dialer.record_activity(f"GET {path}", "web")
         if path == "/api/state":
-            try:
-                self.send_json(200, dialer.public_state())
-            except OSError as exc:
-                self.report_storage_error(exc)
+            from features.dialer import get_state
+
+            get_state(self)
         elif path == "/api/live":
-            try:
-                self.send_json(200, dialer.live_state())
-            except OSError as exc:
-                self.report_storage_error(exc)
+            from features.dialer import get_live
+
+            get_live(self)
         elif path == "/api/metrics":
             from features.metrics import get_metrics
 
@@ -51,11 +49,9 @@ class ReadMixin:
 
             get_settings(self)
         elif path == "/api/voice-token":
-            try:
-                self.send_json(200, {"token": dialer.voice_access_token()})
-            except ValueError as exc:
-                self._trace_error = str(exc)
-                self.send_json(400, {"error": str(exc)})
+            from features.dialer import get_voice_token
+
+            get_voice_token(self)
         elif path == "/api/export.csv":
             from features.prospects import get_export
 
