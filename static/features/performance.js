@@ -1,6 +1,5 @@
-import { statMemory, state } from "../../../_core/state.js";
-import { byId, formatMinutes, setText } from "../../../_core/format.js";
-import { buildConnectionPieChart, buildMetricsLineChart, buildStatusPieChart } from "./charts.js";
+import { byId, formatMinutes, setText, statMemory, state } from "../core.js";
+import { buildConnectionPieChart, buildMetricsLineChart, buildStatusPieChart } from "./_performance/charts.js";
 
 export function rememberStat(id, text) {
   const node = byId(id);

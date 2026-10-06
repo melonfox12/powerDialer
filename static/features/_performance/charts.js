@@ -1,4 +1,4 @@
-import { STATUS_COLOR_VARS, STATUS_KEYS, STATUS_LABELS, byId, dayLabel } from "../../../_core/format.js";
+import { STATUS_COLOR_VARS, STATUS_KEYS, STATUS_LABELS, byId, dayLabel } from "../../core.js";
 
 export function buildMetricsLineChart(series) {
   const container = byId("metricsLineChart");

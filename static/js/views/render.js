@@ -2,7 +2,7 @@ import { S, state } from "../../_core/state.js";
 import { byId, setText } from "../../_core/format.js";
 import { renderCallerPool } from "./pool/index.js";
 import { renderDialer } from "./dialer/index.js";
-import { renderMetrics } from "./metrics/index.js";
+import { renderMetrics } from "../../features/performance.js";
 import { crmTableSignature, renderTable } from "./prospects-table/index.js";
 
 export function render() {
