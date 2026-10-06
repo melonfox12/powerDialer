@@ -48,8 +48,9 @@ class ReadMixin:
             except OSError as exc:
                 self.report_storage_error(exc)
         elif path == "/api/settings":
-            self.runtime.reload_settings(dialer)
-            self.send_json(200, dialer.settings_state())
+            from features.settings import get_settings
+
+            get_settings(self)
         elif path == "/api/voice-token":
             try:
                 self.send_json(200, {"token": dialer.voice_access_token()})

@@ -32,9 +32,9 @@ class WriteMixin:
                     state = {"leads": crm.snapshot()}
                 self.send_json(200, {"import": result, "state": state})
             elif path == "/api/settings":
-                dialer.save_settings(self.read_json(body))
-                self.runtime.persist_settings(dialer)
-                self.send_json(200, dialer.settings_state())
+                from features.settings import post_settings
+
+                post_settings(self, self.read_json(body))
             elif path == "/api/timezone":
                 result = dialer.set_timezone_filter(self.read_json(body).get("timezone"))
                 self.send_json(200, result)

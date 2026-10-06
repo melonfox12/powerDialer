@@ -1,5 +1,5 @@
 from core.dialer_session import dialer_stage, new_session, recent_streak
-from twilio_calls.settings import _preferences
+from features.settings import preferences as _preferences
 
 class StateMixin:
     def public_state(self):

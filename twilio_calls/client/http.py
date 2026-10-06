@@ -3,7 +3,8 @@ import json
 import urllib.error
 import urllib.parse
 import urllib.request
-from twilio_calls.settings import TWILIO_API
+
+TWILIO_API = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}"
 
 class TwilioError(Exception):
     pass

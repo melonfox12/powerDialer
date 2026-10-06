@@ -40,8 +40,8 @@ class AppRuntime:
         self._health = {"ok": True, "storage": self.storage_name}
 
     def configure(self):
+        from shared.config import read_env
         from supabase_store import SupabaseClient
-        from twilio_calls import read_env
 
         values = read_env(ENV_PATH)
         client = SupabaseClient.from_env(values)
@@ -88,7 +88,8 @@ class AppRuntime:
         if existing:
             existing.dialer.account_email = user.get("email") or existing.dialer.account_email
             return existing
-        from supabase_store import SupabaseCRMStore, SupabaseMetricsStore, load_app_settings
+        from features.settings import load_app_settings
+        from supabase_store import SupabaseCRMStore, SupabaseMetricsStore
 
         crm = SupabaseCRMStore(self.client, user_id=user_id)
         metrics = SupabaseMetricsStore(self.client, user_id=user_id)
@@ -108,28 +109,11 @@ class AppRuntime:
         return account
 
     def persist_settings(self, dialer):
-        from supabase_store import save_app_settings
+        from features.settings import persist_settings
 
-        user_id = getattr(dialer, "account_user_id", None)
-        if not self.client or not user_id:
-            return
-        try:
-            save_app_settings(self.client, dialer._values(), user_id)
-        except OSError as exc:
-            message = str(exc)
-            if "HTTP 404" in message or "PGRST205" in message or "does not exist" in message.lower():
-                raise OSError(
-                    "Dialer settings could not be saved to your account. "
-                    "Run docs/supabase/schema.sql in the Supabase SQL editor, then save again."
-                ) from exc
-            raise
+        return persist_settings(self, dialer)
 
     def reload_settings(self, dialer):
-        from supabase_store import load_app_settings
+        from features.settings import reload_settings
 
-        user_id = getattr(dialer, "account_user_id", None)
-        if not self.client or not user_id:
-            return
-        remote = load_app_settings(self.client, user_id)
-        if remote:
-            dialer.account_values.update(remote)
+        return reload_settings(self, dialer)

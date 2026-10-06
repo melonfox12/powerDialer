@@ -3,8 +3,8 @@
 
 import os
 
+from shared.config import read_env
 from supabase_store import SupabaseClient, migrate_local_data
-from twilio_calls import read_env
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

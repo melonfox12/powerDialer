@@ -4,7 +4,7 @@ import urllib.parse
 import urllib.request
 from core.dialer_session import new_session
 from twilio_calls.client import normalize_phone, twilio_request
-from twilio_calls.settings import _preferences
+from features.settings import preferences as _preferences
 
 class StartMixin:
     def start(self, priority_lead_id=None):
