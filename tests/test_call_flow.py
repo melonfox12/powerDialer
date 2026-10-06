@@ -82,12 +82,14 @@ fake_twilio.calls = 0
 
 class CallFlowTests(unittest.TestCase):
     def setUp(self):
+        import features._dialer._queue.calls as calls
+        import features._dialer._queue.slots as slots
+        import features._dialer._queue.timing as timing
         import features._dialer.call_events as call_events
         import features._dialer.queue as queue
-        import features._dialer._queue.timing as timing
         import features._dialer.twilio_api as twilio_api
 
-        self._modules = (call_events, queue, timing)
+        self._modules = (call_events, queue, timing, calls, slots)
         self._saved_threading = [module.threading for module in self._modules]
         for module in self._modules:
             module.threading = _ThreadNamespace(module.threading)

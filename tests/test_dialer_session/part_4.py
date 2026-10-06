@@ -1,7 +1,8 @@
 import tempfile
 from pathlib import Path
-from features.prospects import ProspectStore
+from features._dialer._queue import calls
 from features.dialer import Dialer
+from features.prospects import ProspectStore
 
 class Part4:
     def test_caller_ids_rotate_and_only_one_prospect_is_dialed(self):
@@ -27,8 +28,14 @@ class Part4:
             dialer.callers = ["+15551110001", "+15551110002", "+15551110003"]
             dialer.settings = {"CALLING_START_HOUR": "0", "CALLING_END_HOUR": "24"}
             launched = []
-            dialer._launch_call = lambda call, destination: launched.append((call["caller_id"], destination))
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append((call["caller_id"], destination))
+            try:
+                self._rotate_callers(dialer, launched)
+            finally:
+                calls._launch_call = original_launch
 
+    def _rotate_callers(self, dialer, launched):
             dialer.fill_slots()
             dialer.fill_slots()
             self.assertEqual(len(launched), 1)
@@ -71,8 +78,14 @@ class Part4:
             dialer.callers = ["+15551110001"]
             dialer.settings = {"CALLING_START_HOUR": "0", "CALLING_END_HOUR": "24"}
             launched = []
-            dialer._launch_call = lambda call, destination: launched.append((destination, call["lead_id"]))
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append((destination, call["lead_id"]))
+            try:
+                self._manual_dial(dialer, launched, auto, chosen, blocked)
+            finally:
+                calls._launch_call = original_launch
 
+    def _manual_dial(self, dialer, launched, auto, chosen, blocked):
             with self.assertRaises(ValueError):
                 dialer.dial_lead(blocked["id"])
             with self.assertRaises(KeyError):
@@ -116,9 +129,12 @@ class Part4:
             dialer.callers = ["+15551110001"]
             dialer.settings = {"CALLING_START_HOUR": "8", "CALLING_END_HOUR": "9"}
             launched = []
-            dialer._launch_call = lambda call, destination: launched.append(destination)
-
-            state = dialer.dial_lead(chosen["id"])
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append(destination)
+            try:
+                state = dialer.dial_lead(chosen["id"])
+            finally:
+                calls._launch_call = original_launch
 
             self.assertFalse(dialer.paused)
             self.assertEqual(state["dial_status"], "now")

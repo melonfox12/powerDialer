@@ -2,6 +2,8 @@
 
 from datetime import datetime, timezone
 
+from features._dialer._queue import calls
+from features._dialer import session_stats
 from features._dialer.session_stats import add_connect
 
 def _pickup(state, call):
@@ -16,15 +18,15 @@ def _pickup(state, call):
         call["connected_at"] = datetime.now(timezone.utc).isoformat()
         state.active = call
         if state.session and not call.get("connect_counted"):
-            add_connect(state.session)
-            call["connect_counted"] = True
-            state._save_session()
+                add_connect(state.session)
+                call["connect_counted"] = True
+                session_stats._save_session(state)
         name = (call.get("lead") or {}).get("name") or (call.get("lead") or {}).get("phone") or "prospect"
         caller = call.get("caller_id") or ""
         state.last_event = f"Picked up {name}" + (f" from {caller}" if caller else "")
         others = [item for item in state.in_flight.values() if item is not call]
     for other in others:
-        state._cancel_call(other)
+            calls._cancel_call(state, other)
     state.record_activity(f"Pickup on the line: {name}. Stay on it or skip.", "call")
     return True
 
@@ -45,7 +47,7 @@ def _machine_result(state, call, params):
             call["machine"] = True
             if not call.get("machine_counted"):
                 call["machine_counted"] = True
-                state._bump("voicemail")
+                session_stats._bump(state, "voicemail")
         name = (call.get("lead") or {}).get("name") or (call.get("lead") or {}).get("phone") or "prospect"
         if label == "voicemail":
             state.last_event = f"Voicemail on the line: {name}"
@@ -54,7 +56,7 @@ def _machine_result(state, call, params):
         else:
             state.last_event = f"On the line: {name}"
     if not call.get("picked_up"):
-        state._pickup(call)
+        _pickup(state, call)
     state.record_activity(
         "Voicemail is on the line" if label == "voicemail"
         else "Live voice is on the line" if label == "human"

@@ -1,16 +1,16 @@
-"""Dialer entry. Part import order:
+"""Dialer entry. Part import order, low to high:
 
-twilio_api, state, session_stats, queue (slots then timing), call_events (pickup, transcript, ended), outcomes, projection.
+twilio_api → state → session_stats → _queue/calls → projection → _queue/slots → _queue/timing → queue → _call_events → call_events → outcomes.
 
-Nothing in features/_dialer imports this module.
+slots imports calls. timing imports slots and projection. queue imports calls, then slots, then timing. call_events imports pickup, transcript, then ended. projection imports calls and does not import anything above it. Nothing in features/_dialer imports this module.
 """
 
 import urllib.parse
 
 from features import settings as settings_feature
-from features._dialer import call_events, outcomes, projection, queue, session_stats, twilio_api
+from features._dialer import call_events, outcomes, projection, queue, twilio_api
 from features._dialer._call_events import ended, pickup, transcript
-from features._dialer._queue import slots, timing
+from features._dialer._queue import calls, slots, timing
 from features._dialer.state import DialerState
 from features._dialer.twilio_api import TokenIndex, TwilioError
 
@@ -24,53 +24,17 @@ class Dialer(DialerState):
     def live_state(self):
         return projection.live_state(self)
 
-    def _save_session(self):
-        return session_stats._save_session(self)
-
-    def _bump(self, key, amount=1):
-        return session_stats._bump(self, key, amount)
-
-    def _pool_leads(self, leads=None):
-        return queue._pool_leads(self, leads)
-
     def set_timezone_filter(self, timezone):
         return queue.set_timezone_filter(self, timezone)
-
-    def _next_caller(self):
-        return queue._next_caller(self)
-
-    def _launch_call(self, call, destination):
-        return queue._launch_call(self, call, destination)
-
-    def _create_call(self, call, destination):
-        return queue._create_call(self, call, destination)
-
-    def _cancel_call(self, call):
-        return queue._cancel_call(self, call)
 
     def start(self, priority_lead_id=None):
         return queue.start(self, priority_lead_id)
 
     def _new_call(self, kind, lead):
-        return queue._new_call(self, kind, lead)
-
-    def _watch_token(self, token):
-        return queue._watch_token(self, token)
-
-    def _release_tokens(self):
-        return queue._release_tokens(self)
+        return calls._new_call(self, kind, lead)
 
     def dial_lead(self, lead_id):
         return queue.dial_lead(self, lead_id)
-
-    def _dialable_lead(self, lead_id):
-        return queue._dialable_lead(self, lead_id)
-
-    def _claim_manual_lead(self, leads, active_leads):
-        return queue._claim_manual_lead(self, leads, active_leads)
-
-    def _pin_manual_dial(self, lead, name):
-        return queue._pin_manual_dial(self, lead, name)
 
     def pause(self):
         return queue.pause(self)
@@ -81,23 +45,8 @@ class Dialer(DialerState):
     def fill_slots(self):
         return slots.fill_slots(self)
 
-    def _schedule_advance(self, delay=None):
-        return timing._schedule_advance(self, delay)
-
-    def _advance_queue(self):
-        return timing._advance_queue(self)
-
     def advance_now(self):
         return timing.advance_now(self)
-
-    def _schedule_calling_window_check(self):
-        return timing._schedule_calling_window_check(self)
-
-    def _check_calling_window(self):
-        return timing._check_calling_window(self)
-
-    def _uuid(self, params):
-        return call_events._uuid(params)
 
     def handle_webhook(self, token, action, params):
         return call_events.handle_webhook(self, token, action, params)
@@ -117,23 +66,11 @@ class Dialer(DialerState):
     def _machine_result(self, call, params):
         return pickup._machine_result(self, call, params)
 
-    def _live_twiml(self, call):
-        return transcript._live_twiml(self, call)
-
-    def _start_transcription(self, response, call):
-        return transcript._start_transcription(self, response, call)
-
     def _transcription_event(self, call, params):
         return transcript._transcription_event(self, call, params)
 
     def _call_ended(self, call, params):
         return ended._call_ended(self, call, params)
-
-    def _agent_call_ended(self):
-        return ended._agent_call_ended(self)
-
-    def live_outcome_lead_id(self):
-        return outcomes.live_outcome_lead_id(self)
 
     def choose_outcome(self, lead_id, status, scheduled_until=None):
         return outcomes.choose_outcome(self, lead_id, status, scheduled_until)
@@ -144,17 +81,8 @@ class Dialer(DialerState):
     def validate_webhook(self, url, signature, params):
         return twilio_api.validate_webhook(self, url, signature, params)
 
-    def _url(self, call, action):
-        return twilio_api._url(self, call, action)
-
-    def _hangup_call(self, call_uuid):
-        return twilio_api._hangup_call(self, call_uuid)
-
     def voice_access_token(self):
         return twilio_api.voice_access_token(self)
-
-    def _values(self):
-        return settings_feature.values(self)
 
     def settings_state(self):
         return settings_feature.settings_state(self)

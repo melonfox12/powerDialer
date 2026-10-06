@@ -1,9 +1,11 @@
-"""Auto-advance and calling-window timers."""
+"""Auto-advance timer. Imports slots, not queue."""
 
 import threading
 import time
 
 from features._dialer._queue import slots
+from features._dialer import projection
+
 
 def _schedule_advance(state, delay=None):
     with state.lock:
@@ -14,9 +16,10 @@ def _schedule_advance(state, delay=None):
         seconds = max(0, float(delay if delay is not None else state.settings.get("AUTO_ADVANCE_DELAY_SECONDS", 3)))
         state.advance_at = time.time() + seconds
         state.advance_remaining = seconds
-        state.advance_timer = threading.Timer(seconds, state._advance_queue)
+        state.advance_timer = threading.Timer(seconds, _advance_queue, args=(state,))
         state.advance_timer.daemon = True
         state.advance_timer.start()
+
 
 def _advance_queue(state):
     with state.lock:
@@ -25,7 +28,8 @@ def _advance_queue(state):
         state.advance_remaining = None
         should_fill = state.running and not state.paused and not state.pending_outcome
     if should_fill:
-        state.fill_slots()
+        slots.fill_slots(state)
+
 
 def advance_now(state):
     with state.lock:
@@ -35,25 +39,5 @@ def advance_now(state):
         state.advance_timer = None
         state.advance_at = None
         state.advance_remaining = None
-    state.fill_slots()
-    return state.public_state()
-
-def _schedule_calling_window_check(state):
-    with state.lock:
-        if state.calling_window_timer:
-            state.calling_window_timer.cancel()
-            state.calling_window_timer = None
-        if not state.running or state.paused:
-            return
-        state.calling_window_timer = threading.Timer(60, state._check_calling_window)
-        state.calling_window_timer.daemon = True
-        state.calling_window_timer.start()
-
-def _check_calling_window(state):
-    with state.lock:
-        state.calling_window_timer = None
-        should_fill = state.running and not state.paused and not state.active and not state.pending_outcome
-    if should_fill:
-        state.fill_slots()
-    else:
-        state._schedule_calling_window_check()
+    slots.fill_slots(state)
+    return projection.public_state(state)

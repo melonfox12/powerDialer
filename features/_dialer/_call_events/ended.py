@@ -2,13 +2,15 @@
 
 from datetime import datetime, timezone
 
+from features._dialer._queue import calls, timing
+from features._dialer import session_stats
 from features._dialer.session_stats import record_conversation
 
 def _call_ended(state, call, params):
     log_entry = None
     with state.lock:
         if call["kind"] == "agent":
-            state._agent_call_ended()
+            _agent_call_ended(state)
             return
         if call.get("end_processed"):
             return
@@ -32,13 +34,13 @@ def _call_ended(state, call, params):
                 duration = int(float(params.get("CallDuration") or params.get("Duration") or params.get("BillDuration") or 0))
             except (TypeError, ValueError):
                 duration = 0
-            state._bump("connected")
+            session_stats._bump(state, "connected")
             if duration:
-                state._bump("talk_seconds", duration)
+                session_stats._bump(state, "talk_seconds", duration)
                 threshold = int(state.settings.get("CONVERSATION_THRESHOLD_SECONDS", "30"))
                 if state.session and call.get("answered_by") != "voicemail":
                     record_conversation(state.session, duration, threshold)
-            state._save_session()
+            session_stats._save_session(state)
             log_entry = {
                 "id": call.get("call_uuid") or call["token"],
                 "started_at": call.get("connected_at") or "",
@@ -61,14 +63,14 @@ def _call_ended(state, call, params):
             should_schedule_advance = True
         others = list(state.in_flight.values()) if state.running else []
     for other in others:
-        state._cancel_call(other)
+        calls._cancel_call(state, other)
     if log_entry and call.get("lead_id"):
         try:
             state.crm.append_call_log(call["lead_id"], log_entry)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call: {exc}", "error")
     if should_schedule_advance:
-        state._schedule_advance()
+        timing._schedule_advance(state)
 
 def _agent_call_ended(state):
     with state.lock:

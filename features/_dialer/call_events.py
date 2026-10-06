@@ -3,6 +3,8 @@
 import threading
 
 from features._dialer._call_events import ended, pickup, transcript
+from features._dialer._queue import slots
+from features._dialer import projection, session_stats, twilio_api
 from features._dialer.twilio_api import escape_xml
 from shared.vocabulary import OUTCOME_METRIC
 
@@ -14,7 +16,7 @@ def handle_webhook(state, token, action, params):
         call = state.calls.get(token)
         if not call:
             return 200, "application/xml", "<Response><Hangup/></Response>"
-        call_uuid = state._uuid(params)
+        call_uuid = _uuid(params)
         if call_uuid:
             call["call_uuid"] = call_uuid
             if call["kind"] == "agent":
@@ -39,13 +41,13 @@ def handle_webhook(state, token, action, params):
             ):
                 call["state"] = "ringing"
         if call.get("cancelled") and call_uuid:
-            state._hangup_call(call_uuid)
+            twilio_api._hangup_call(state, call_uuid)
         return 200, "text/plain", "OK"
     if action == "answer" and call["kind"] == "agent":
         with state.lock:
             state.agent_ready = True
             state.last_event = "Computer audio connected"
-        threading.Thread(target=state.fill_slots, daemon=True).start()
+        threading.Thread(target=slots.fill_slots, args=(state,), daemon=True).start()
         xml = ("<Response><Say>Dialer connected. Stay on the line.</Say><Dial>"
                '<Conference beep="false" startConferenceOnEnter="true" '
                f'endConferenceOnExit="true">{escape_xml(state.conference)}</Conference></Dial></Response>')
@@ -53,17 +55,17 @@ def handle_webhook(state, token, action, params):
     if action == "answer":
         if call["kind"] != "prospect" or call["cancelled"] or not state.running:
             return 200, "application/xml", "<Response><Hangup/></Response>"
-        state._pickup(call)
-        return 200, "application/xml", str(state._live_twiml(call))
+        pickup._pickup(state, call)
+        return 200, "application/xml", str(transcript._live_twiml(state, call))
     if action == "machine":
-        return state._machine_result(call, params)
+        return pickup._machine_result(state, call, params)
     if action == "transcript":
-        return state._transcription_event(call, params)
+        return transcript._transcription_event(state, call, params)
     if action == "hangup":
-        state._call_ended(call, params)
+        ended._call_ended(state, call, params)
         return 200, "text/plain", "OK"
     if action == "agent-ended" and call["kind"] == "agent":
-        state._agent_call_ended()
+        ended._agent_call_ended(state)
         return 200, "application/xml", "<Response/>"
     return 404, "text/plain", "Unknown callback"
 
@@ -80,9 +82,9 @@ def handle_client_voice(state, params):
         state.agent_ready = True
         state.last_event = "Computer audio connected"
     state.record_activity("Browser audio joined the conference", "call")
-    threading.Thread(target=state.fill_slots, daemon=True).start()
+    threading.Thread(target=slots.fill_slots, args=(state,), daemon=True).start()
     xml = (
-        f'<Response><Dial action="{escape_xml(state._url(call, "agent-ended"))}" method="POST">'
+        f'<Response><Dial action="{escape_xml(twilio_api._url(state, call, "agent-ended"))}" method="POST">'
         '<Conference beep="false" startConferenceOnEnter="true" endConferenceOnExit="true">'
         f'{escape_xml(state.conference)}</Conference></Dial></Response>'
     )
@@ -111,8 +113,8 @@ def hangup_active(state):
                 state.pending_outcome = call["lead_id"]
                 state.last_event = "Call ended; choose a disposition"
     if call_uuid:
-        threading.Thread(target=state._hangup_call, args=(call_uuid,), daemon=True).start()
-    return state.public_state()
+        threading.Thread(target=twilio_api._hangup_call, args=(state, call_uuid), daemon=True).start()
+    return projection.public_state(state)
 
 def skip_active(state):
     with state.lock:
@@ -138,8 +140,8 @@ def skip_active(state):
             state.last_event = "Prospect skipped; choose a disposition" if state.running else "Prospect skipped"
     if not state.running:
         state.crm.set_status(call["lead_id"], "call")
-        state._bump(OUTCOME_METRIC["call"])
+        session_stats._bump(state, OUTCOME_METRIC["call"])
     state.record_activity("Prospect skipped; choose a disposition", "call")
     if call_uuid:
-        threading.Thread(target=state._hangup_call, args=(call_uuid,), daemon=True).start()
-    return state.public_state()
+        threading.Thread(target=twilio_api._hangup_call, args=(state, call_uuid), daemon=True).start()
+    return projection.public_state(state)

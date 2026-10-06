@@ -1,7 +1,9 @@
 """Public and live snapshots."""
 
+from features._dialer._queue import calls
 from features._dialer.session_stats import dialer_stage, new_session, recent_streak
 from features.settings import preferences as _preferences
+from features.settings import values as setting_values
 
 def public_state(state):
     leads = state.crm.snapshot()
@@ -59,8 +61,8 @@ def public_state(state):
     view["timezone_groups"] = [{"name": name, "count": count} for name, count in groups]
     view["leads_version"] = getattr(state.crm, "revision", 0)
     view["selected_timezone"] = state.selected_timezone
-    view["pool"] = state._pool_leads(leads)
-    preferences = _preferences(state._values())
+    view["pool"] = calls._pool_leads(state, leads)
+    preferences = _preferences(setting_values(state))
     view["settings"] = {
         "session_goal": int(preferences["SESSION_GOAL"]),
         "conversation_threshold": int(preferences["CONVERSATION_THRESHOLD_SECONDS"]),
@@ -97,7 +99,7 @@ def public_state(state):
     return view
 
 def live_state(state):
-    view = state.public_state()
+    view = public_state(state)
     view.pop("leads", None)
     view.pop("pool", None)
     return view
