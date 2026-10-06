@@ -1,5 +1,5 @@
 import { request } from "../../_core/api.js";
-import { arcadeSensory } from "../features/arcade/controller/index.js";
+import { arcadeSensory } from "../../features/arcade.js";
 import { S, seenSensoryActivity, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";

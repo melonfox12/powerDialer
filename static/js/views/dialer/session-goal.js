@@ -1,4 +1,4 @@
-import { arcadeSensory } from "../../features/arcade/controller/index.js";
+import { arcadeSensory } from "../../../features/arcade.js";
 import { S, state } from "../../../_core/state.js";
 import { byId, setText } from "../../../_core/format.js";
 import { showToast } from "../../../_core/notify.js";

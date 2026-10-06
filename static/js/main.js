@@ -6,7 +6,7 @@ import { bindKeyboard } from "./controllers/keyboard.js";
 import { bindNavigation } from "./controllers/navigation.js";
 import { bindOutcomes } from "./controllers/outcomes.js";
 import { bindSettings } from "./controllers/settings.js";
-import { arcadeSensory, startArcade } from "./features/arcade/controller/index.js";
+import { arcadeSensory, startArcade } from "../features/arcade.js";
 import { bindVoice } from "./features/voice/device/index.js";
 import { bindAddProspect } from "./controllers/add-prospect.js";
 import { bindProspects } from "./controllers/prospects.js";

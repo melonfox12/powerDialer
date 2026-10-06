@@ -1,5 +1,5 @@
 import { postJson, request } from "../../_core/api.js";
-import { arcadeSensory } from "../features/arcade/controller/index.js";
+import { arcadeSensory } from "../../features/arcade.js";
 import { refreshAudioDevices } from "../features/voice/device/index.js";
 import { stopMicrophoneTest } from "../features/voice/testing/index.js";
 import { S, state } from "../../_core/state.js";

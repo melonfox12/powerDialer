@@ -1,5 +1,5 @@
-import { S, state } from "../../../../_core/state.js";
-import { byId } from "../../../../_core/format.js";
+import { byId } from "../../_core/format.js";
+import { S, state } from "../../_core/state.js";
 
 export function celebrateBooked() {
   const stage = byId("callStage");
@@ -35,15 +35,14 @@ export function playCue(kind) {
   });
 }
 
-export const AudioMixin = (Base) => class extends Base {
-  canPlaySound() {
-    return S.userInteracted && this.preferences.enabled && this.preferences.sound &&
-      state.settings?.sounds_enabled !== false && this.preferences.volume > 0;
+export function canPlaySound(arcade) {
+    return S.userInteracted && arcade.preferences.enabled && arcade.preferences.sound &&
+      state.settings?.sounds_enabled !== false && arcade.preferences.volume > 0;
   }
 
-  playTick(frequency) {
+export function playTick(arcade, frequency) {
     const AudioContextType = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextType || !this.canPlaySound()) return;
+    if (!AudioContextType || !arcade.canPlaySound()) return;
     if (!S.audioContext) S.audioContext = new AudioContextType();
     if (S.audioContext.state === "suspended") {
       S.audioContext.resume().catch((error) => console.warn("Arcade audio could not resume:", error));
@@ -54,7 +53,7 @@ export const AudioMixin = (Base) => class extends Base {
     oscillator.type = "square";
     oscillator.frequency.setValueAtTime(frequency, now);
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(this.preferences.volume / 100 * 0.035, now + 0.003);
+    gain.gain.exponentialRampToValueAtTime(arcade.preferences.volume / 100 * 0.035, now + 0.003);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.022);
     oscillator.connect(gain);
     gain.connect(S.audioContext.destination);
@@ -62,8 +61,8 @@ export const AudioMixin = (Base) => class extends Base {
     oscillator.stop(now + 0.025);
   }
 
-  playRewardChime() {
-    if (!this.canPlaySound()) return;
+export function playRewardChime(arcade) {
+    if (!arcade.canPlaySound()) return;
     const AudioContextType = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextType) return;
     if (!S.audioContext) S.audioContext = new AudioContextType();
@@ -71,7 +70,7 @@ export const AudioMixin = (Base) => class extends Base {
       S.audioContext.resume().catch((error) => console.warn("Arcade audio could not resume:", error));
     }
     const notes = [523.25, 659.25, 783.99, 1046.5];
-    const volume = this.preferences.volume / 100 * 0.07;
+    const volume = arcade.preferences.volume / 100 * 0.07;
     notes.forEach((frequency, index) => {
       const oscillator = S.audioContext.createOscillator();
       const gain = S.audioContext.createGain();
@@ -88,8 +87,8 @@ export const AudioMixin = (Base) => class extends Base {
     });
   }
 
-  playResetTone() {
-    if (!this.canPlaySound()) return;
+export function playResetTone(arcade) {
+    if (!arcade.canPlaySound()) return;
     const AudioContextType = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextType) return;
     if (!S.audioContext) S.audioContext = new AudioContextType();
@@ -102,7 +101,7 @@ export const AudioMixin = (Base) => class extends Base {
     oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(80, now);
     oscillator.frequency.linearRampToValueAtTime(40, now + 0.3);
-    gain.gain.setValueAtTime(this.preferences.volume / 100 * 0.08, now);
+    gain.gain.setValueAtTime(arcade.preferences.volume / 100 * 0.08, now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
     oscillator.connect(gain);
     gain.connect(S.audioContext.destination);
@@ -110,12 +109,11 @@ export const AudioMixin = (Base) => class extends Base {
     oscillator.stop(now + 0.33);
   }
 
-  vibrate(pattern) {
-    if (!this.preferences.enabled || !this.preferences.haptics || typeof navigator.vibrate !== "function") return;
+export function vibrate(arcade, pattern) {
+    if (!arcade.preferences.enabled || !arcade.preferences.haptics || typeof navigator.vibrate !== "function") return;
     try {
       navigator.vibrate(pattern);
     } catch (error) {
       console.warn("Haptic feedback could not run:", error);
     }
   }
-};
