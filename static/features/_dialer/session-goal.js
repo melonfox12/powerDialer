@@ -1,7 +1,7 @@
-import { arcadeSensory } from "../../../features/arcade.js";
-import { S, state } from "../../../_core/state.js";
-import { byId, setText } from "../../../_core/format.js";
-import { showToast } from "../../../_core/notify.js";
+import { stageEffects } from "./effects.js";
+import { S, state } from "../../_core/state.js";
+import { byId, setText } from "../../_core/format.js";
+import { showToast } from "../../_core/notify.js";
 
 export function renderSessionMomentum() {
   const stats = state.session_stats || {};
@@ -42,7 +42,7 @@ export function renderSessionMomentum() {
     S.goalCelebrated = true;
     localStorage.setItem(`prospect-desk-goal-${sessionId}`, "shown");
     showToast("Session goal reached — great work!");
-    if (arcadeSensory.preferences.enabled) arcadeSensory.burstParticles();
+    stageEffects.goalReached();
   }
   if (Number(stats.meetings_booked || 0) > S.previousMeetings) byId("statBookedToday").classList.add("meeting-highlight");
   S.previousMeetings = Number(stats.meetings_booked || 0);

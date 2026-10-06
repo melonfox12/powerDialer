@@ -111,7 +111,9 @@ Dialer (`static/features/dialer.js` and `static/features/_dialer/`):
 | `views/dialogs/index.js` `showSessionSummary`, `setStartNewSession` | `_dialer/summary.js` |
 | `features/voice/**` | `_dialer/voice.js`, `_dialer/_voice/devices.js`, `_dialer/_voice/testing.js` |
 
-`startDialing` and `dialLead` share one connect-and-cleanup helper. Both public behaviors stay the same.
+`startDialing` and `dialLead` share `connectAndCleanup` in `_dialer/connect.js`. Both public behaviors stay the same. The two functions stay in `_dialer/session.js` and `_dialer/lead.js`, and `dialer.js` re-exports them. `bindings.js` calls `startDialing`, and a part cannot import the entry.
+
+Views stay as separate files under `_dialer/` (`stage.js`, `timer.js`, `card.js`, `controls.js`, `queue.js`, `outcome-row.js`, `render-dialer.js`, `session-goal.js`, `monitor.js`, `pool-view.js`). Folding them into the two files named above would pass 250 lines. `pool.js` is the timezone controller. Voice lives in `_dialer/_voice/`.
 
 `call-stage` and `session-goal` call `playCue` and `arcadeSensory` today. Those calls move to `dialer.js`. The view functions return what happened, or accept a callback the entry passes in. They do not import arcade.
 

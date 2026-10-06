@@ -49,6 +49,25 @@ export function stopMicrophoneTest() {
   return stopMicrophoneTestImpl();
 }
 
+const renderers = [];
+let callerPoolRenderer = () => {};
+
+export function registerRenderer(fn) {
+  renderers.push(fn);
+}
+
+export function runRenderers() {
+  for (const fn of renderers) fn();
+}
+
+export function registerCallerPool(fn) {
+  callerPoolRenderer = fn;
+}
+
+export function renderCallerPool() {
+  callerPoolRenderer();
+}
+
 export {
   state,
   S,

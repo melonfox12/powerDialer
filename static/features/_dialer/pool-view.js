@@ -1,6 +1,6 @@
-import { state } from "../../../_core/state.js";
-import { byId, setText } from "../../../_core/format.js";
-import { openTranscript } from "../../../_core/transcript.js";
+import { state } from "../../_core/state.js";
+import { byId, setText } from "../../_core/format.js";
+import { openTranscript } from "../../_core/transcript.js";
 
 export function renderTimezoneFilters() {
   const groups = state.timezone_groups || [];

@@ -1,22 +1,16 @@
 import { bindDebugListeners } from "../_core/api.js";
 import { bindAuth, initAuth, showLoginGate } from "./controllers/auth.js";
 import { bindCsv } from "./controllers/csv.js";
-import { bindDialer } from "./controllers/dialer/index.js";
-import { bindKeyboard } from "./controllers/keyboard.js";
+import { bindCallMonitor, bindDialer, bindKeyboard, bindOutcomes, bindSessionGoal, bindVoice, startPolling } from "../features/dialer.js";
 import { bindNavigation } from "./controllers/navigation.js";
-import { bindOutcomes } from "./controllers/outcomes.js";
 import { bindSettings } from "../features/settings.js";
 import { arcadeSensory, startArcade } from "../features/arcade.js";
-import { bindVoice } from "./features/voice/device/index.js";
 import { bindAddProspect } from "./controllers/add-prospect.js";
 import { bindProspects } from "./controllers/prospects.js";
 import { bindProspectMenu } from "./controllers/prospect-menu.js";
-import { startPolling } from "./controllers/poller.js";
 import { byId, setText } from "../_core/format.js";
-import { bindCallMonitor } from "./views/monitor/index.js";
 import { bindDialogs } from "./views/dialogs/index.js";
 import { renderTable } from "./views/prospects-table/index.js";
-import { bindSessionGoal } from "./views/dialer/session-goal.js";
 
 bindDebugListeners();
 startArcade();

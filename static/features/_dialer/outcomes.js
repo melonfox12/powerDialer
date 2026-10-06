@@ -1,11 +1,11 @@
 import { postJson } from "../../_core/api.js";
-import { arcadeSensory, celebrateBooked } from "../../features/arcade.js";
+import { stageEffects } from "./effects.js";
 import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { localDateTimeToUtc, nextBusinessCallback, timezoneFor } from "../../_core/time.js";
-import { renderDialer } from "../views/dialer/index.js";
+import { renderDialer } from "./render-dialer.js";
 import { showToast } from "../../_core/notify.js";
-import { render } from "../views/render.js";
+import { render } from "../../js/views/render.js";
 
 export async function submitOutcome(disposition, scheduledUntil = null) {
   const lead = state.pending_outcome;
@@ -19,10 +19,7 @@ export async function submitOutcome(disposition, scheduledUntil = null) {
     });
     Object.assign(state, result.state);
     byId("callbackPicker").dataset.open = "";
-    if (disposition === "booked") {
-      celebrateBooked();
-      arcadeSensory.match(lead);
-    }
+    if (disposition === "booked") stageEffects.booked(lead);
     const lines = result.lead?.transcript?.length || 0;
     showToast(`${lead.name || lead.phone}: ${disposition.replaceAll("_", " ")} · status updated${lines ? ` · ${lines} transcript line${lines === 1 ? "" : "s"} saved` : ""}`);
   } catch (error) {

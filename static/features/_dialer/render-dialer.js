@@ -1,8 +1,8 @@
-import { S, state } from "../../../_core/state.js";
-import { byId, setText } from "../../../_core/format.js";
-import { renderCallStage } from "./call-stage/index.js";
+import { S, state } from "../../_core/state.js";
+import { byId, setText } from "../../_core/format.js";
+import { renderCallStage } from "./stage.js";
 import { renderDialerControls } from "./controls.js";
-import { renderOutcomeRow } from "./outcome.js";
+import { renderOutcomeRow } from "./outcome-row.js";
 import { renderQueueStrip } from "./queue.js";
 import { renderSessionMomentum } from "./session-goal.js";
 

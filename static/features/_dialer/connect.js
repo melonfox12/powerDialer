@@ -1,10 +1,12 @@
-import { debugEvent } from "../../../_core/api.js";
-import { applyVoiceAudioDevices, createVoiceDevice, refreshAudioDevices } from "../../features/voice/device/index.js";
-import { S } from "../../../_core/state.js";
-import { byId } from "../../../_core/format.js";
-import { formatPhoneNumber } from "../../../_core/phone.js";
-import { showToast } from "../../../_core/notify.js";
-import { drawProspectWaveform, startProspectWaveform, stopProspectWaveform } from "../../views/dialer/card.js";
+import { debugEvent, postJson, request } from "../../_core/api.js";
+import { createVoiceDevice } from "./_voice/connect.js";
+import { applyVoiceAudioDevices, refreshAudioDevices } from "./_voice/devices.js";
+import { S, state } from "../../_core/state.js";
+import { render } from "../../js/views/render.js";
+import { byId } from "../../_core/format.js";
+import { formatPhoneNumber } from "../../_core/phone.js";
+import { showToast } from "../../_core/notify.js";
+import { drawProspectWaveform, startProspectWaveform, stopProspectWaveform } from "./card.js";
 
 export function prospectLabel(lead) {
   return lead?.name || lead?.business || formatPhoneNumber(lead?.phone) || "Prospect";
@@ -42,4 +44,25 @@ export async function connectBrowserCall(clientCallToken) {
   });
   startProspectWaveform(S.voiceCall);
   S.voiceCall.on("error", (error) => showToast(error.message || "Browser call failed.", true));
+}
+
+export async function connectAndCleanup(clientCallToken, sessionState) {
+  Object.assign(state, sessionState);
+  render();
+  try {
+    await connectBrowserCall(clientCallToken);
+  } catch (error) {
+    await postJson("/api/stop").catch(() => {});
+    S.voiceDevice?.destroy();
+    S.voiceDevice = null;
+    S.voiceCall = null;
+    stopProspectWaveform();
+    Object.assign(state, await request("/api/state").catch(() => ({})));
+    render();
+    showToast(error.message, true);
+    return error;
+  }
+  Object.assign(state, await request("/api/state"));
+  render();
+  return null;
 }

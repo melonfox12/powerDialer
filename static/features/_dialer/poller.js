@@ -1,9 +1,9 @@
 import { request } from "../../_core/api.js";
-import { arcadeSensory } from "../../features/arcade.js";
+import { arcadeSensory } from "../arcade.js";
 import { S, seenSensoryActivity, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
-import { render } from "../views/render.js";
+import { render } from "../../js/views/render.js";
 
 export function processSensoryActivity(activity) {
   const keyFor = (entry) => `${entry.timestamp || ""}:${entry.source || ""}:${entry.message || ""}`;

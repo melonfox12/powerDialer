@@ -1,7 +1,7 @@
-import { S, state } from "../../../../_core/state.js";
-import { byId } from "../../../../_core/format.js";
-import { showToast } from "../../../../_core/notify.js";
-import { refreshAudioDevices, routeTestAudio, setMicLevel } from "../device/devices.js";
+import { S, state } from "../../../_core/state.js";
+import { byId } from "../../../_core/format.js";
+import { showToast } from "../../../_core/notify.js";
+import { refreshAudioDevices, routeTestAudio, setMicLevel } from "./devices.js";
 
 export async function startMicrophoneTest() {
   if (!window.MediaRecorder || !navigator.mediaDevices?.getUserMedia) {

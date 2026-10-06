@@ -1,7 +1,7 @@
-import { S, state } from "../../../_core/state.js";
-import { byId, setText } from "../../../_core/format.js";
-import { renderTranscriptEntries, transcriptTimestamp } from "../../../_core/transcript.js";
-import { drawProspectWaveform, renderDialedProspect } from "../dialer/card.js";
+import { S, state } from "../../_core/state.js";
+import { byId, setText } from "../../_core/format.js";
+import { renderTranscriptEntries, transcriptTimestamp } from "../../_core/transcript.js";
+import { drawProspectWaveform, renderDialedProspect } from "./card.js";
 
 export function renderCallMonitor() {
   const activity = state.activity_log || [];

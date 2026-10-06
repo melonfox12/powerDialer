@@ -1,5 +1,5 @@
-import { S, state } from "../../../_core/state.js";
-import { byId, setText } from "../../../_core/format.js";
+import { S, state } from "../../_core/state.js";
+import { byId, setText } from "../../_core/format.js";
 
 export function drawProspectWaveform(level = 0, samples = null) {
   const canvas = byId("prospectWaveform");

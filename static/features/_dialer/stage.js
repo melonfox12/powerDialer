@@ -1,7 +1,7 @@
-import { arcadeSensory, playCue } from "../../../../features/arcade.js";
-import { S, state } from "../../../../_core/state.js";
-import { STATUS_LABELS, byId, setText } from "../../../../_core/format.js";
-import { formatPhoneNumber } from "../../../../_core/phone.js";
+import { stageEffects } from "./effects.js";
+import { S, state } from "../../_core/state.js";
+import { STATUS_LABELS, byId, setText } from "../../_core/format.js";
+import { formatPhoneNumber } from "../../_core/phone.js";
 import { startCallTimer, stopCallTimer } from "./timer.js";
 
 export function renderCallStage(stage, target) {
@@ -54,7 +54,7 @@ export function renderCallStage(stage, target) {
     script.textContent = state.settings?.opening_script || "Introduce yourself, confirm you have the right person, then ask one clear question.";
     fragment.append(script);
     container.classList.add("call-stage-live");
-    if (S.previousStage !== "connected") playCue("connect");
+    if (S.previousStage !== "connected") stageEffects.playCue("connect");
   } else if (stage === "paused") {
     heading.textContent = "Session paused";
     detail.textContent = "Resume when you’re ready to continue the queue.";
@@ -114,14 +114,14 @@ export function renderCallStage(stage, target) {
   }
   if (stage === "idle" && S.previousStage !== "idle") setText("stageAnnouncer", "Dialing session stopped.");
   if (stage === "connected" && S.previousStage !== "connected") S.connectedAt = Date.now();
-  if (stage === "connected" && S.previousStage !== "connected") arcadeSensory.match(state.active_lead);
-  if (S.previousStage === "connected" && stage === "wrapup") arcadeSensory.reset(true);
-  if (S.previousStage === "ringing" && stage === "dialing") arcadeSensory.reset();
-  if ((stage === "idle" || stage === "paused") && stage !== S.previousStage) arcadeSensory.stop();
+  if (stage === "connected" && S.previousStage !== "connected") stageEffects.match(state.active_lead);
+  if (S.previousStage === "connected" && stage === "wrapup") stageEffects.reset(true);
+  if (S.previousStage === "ringing" && stage === "dialing") stageEffects.reset();
+  if ((stage === "idle" || stage === "paused") && stage !== S.previousStage) stageEffects.stop();
   if (stage === "dialing" || stage === "ringing") {
     const call = (state.in_flight || []).find((item) => ["creating", "ringing"].includes(item.state));
     const lead = call?.lead || state.next_lead;
-    arcadeSensory.startSpin(lead?.id || call?.lead_id || "dialing");
+    stageEffects.startSpin(lead?.id || call?.lead_id || "dialing");
   }
   if (stage !== "connected") S.connectedAt = null;
   S.previousStage = stage;

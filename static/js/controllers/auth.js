@@ -2,8 +2,7 @@ import { request, setUnauthorizedHandler } from "../../_core/api.js";
 import { S } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
-import { drawProspectWaveform } from "../views/dialer/card.js";
-import { refreshState } from "./poller.js";
+import { drawProspectWaveform, refreshState } from "../../features/dialer.js";
 import { applySavedSettings } from "../../features/settings.js";
 
 setUnauthorizedHandler(showLoginGate);

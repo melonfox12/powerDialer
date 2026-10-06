@@ -1,9 +1,12 @@
-import { request } from "../../../../_core/api.js";
-import { S, audioInputStorageKey, audioOutputStorageKey } from "../../../../_core/state.js";
-import { byId } from "../../../../_core/format.js";
-import { showToast } from "../../../../_core/notify.js";
-import { startMicrophoneTest, stopMicrophoneTest, testAudioOutput } from "../testing/index.js";
+import { registerAudioDevices } from "../../../core.js";
+import { request } from "../../../_core/api.js";
+import { S, audioInputStorageKey, audioOutputStorageKey } from "../../../_core/state.js";
+import { byId } from "../../../_core/format.js";
+import { showToast } from "../../../_core/notify.js";
+import { startMicrophoneTest, stopMicrophoneTest, testAudioOutput } from "./testing.js";
 import { applyVoiceAudioDevices, refreshAudioDevices, routeTestAudio, setMicLevel } from "./devices.js";
+
+registerAudioDevices(refreshAudioDevices, stopMicrophoneTest);
 
 export async function createVoiceDevice() {
   if (S.voiceDevice) return S.voiceDevice;

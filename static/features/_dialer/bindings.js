@@ -1,12 +1,12 @@
-import { postJson } from "../../../_core/api.js";
-import { S, state } from "../../../_core/state.js";
-import { byId } from "../../../_core/format.js";
-import { showToast } from "../../../_core/notify.js";
-import { renderCallMonitor } from "../../views/monitor/index.js";
-import { showSessionSummary } from "../../views/dialogs/index.js";
-import { stopProspectWaveform } from "../../views/dialer/card.js";
-import { render } from "../../views/render.js";
-import { selectTimezone } from "../pool.js";
+import { postJson } from "../../_core/api.js";
+import { S, state } from "../../_core/state.js";
+import { byId } from "../../_core/format.js";
+import { showToast } from "../../_core/notify.js";
+import { renderCallMonitor } from "./monitor.js";
+import { showSessionSummary } from "./summary.js";
+import { stopProspectWaveform } from "./card.js";
+import { render } from "../../js/views/render.js";
+import { selectTimezone } from "./pool.js";
 import { startDialing } from "./session.js";
 
 export function bindDialer() {

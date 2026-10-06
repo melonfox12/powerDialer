@@ -1,7 +1,7 @@
-import { S, state } from "../../../_core/state.js";
-import { byId } from "../../../_core/format.js";
-import { formatPhoneNumber } from "../../../_core/phone.js";
-import { renderCallMonitor } from "../monitor/index.js";
+import { S, state } from "../../_core/state.js";
+import { byId } from "../../_core/format.js";
+import { formatPhoneNumber } from "../../_core/phone.js";
+import { renderCallMonitor } from "./monitor.js";
 
 export function renderDialerControls(stage, active, ringing) {
   byId("startButton").disabled = state.running;
