@@ -51,7 +51,6 @@ export const S = {
   halfwayTimer: 0,
   callTimerId: null,
   sensoryActivityPrimed: false,
-  supabaseClient: null,
   accessToken: null,
   googleAuthEnabled: false,
 };

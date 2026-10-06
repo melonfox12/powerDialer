@@ -1,5 +1,5 @@
 import { bindDebugListeners } from "../_core/api.js";
-import { bindAuth, initAuth, showLoginGate } from "./controllers/auth.js";
+import { bindAuth, initAuth, showLoginGate } from "../features/auth.js";
 import { renderTable } from "../core.js";
 import { bindCallMonitor, bindDialer, bindKeyboard, bindOutcomes, bindSessionGoal, bindVoice, startPolling } from "../features/dialer.js";
 import { bindNavigation } from "./controllers/navigation.js";
