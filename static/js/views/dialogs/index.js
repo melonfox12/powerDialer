@@ -1,6 +1,6 @@
-import { state } from "../../store/state.js";
-import { byId, setText } from "../../utils/format.js";
-import { downloadTranscript } from "../../utils/transcript.js";
+import { state } from "../../../_core/state.js";
+import { byId, setText } from "../../../_core/format.js";
+import { downloadTranscript } from "../../../_core/transcript.js";
 
 let startNewSession = () => {};
 

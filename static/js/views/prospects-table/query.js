@@ -1,5 +1,5 @@
-import { S, selectedLeadIds, state } from "../../store/state.js";
-import { byId } from "../../utils/format.js";
+import { S, selectedLeadIds, state } from "../../../_core/state.js";
+import { byId } from "../../../_core/format.js";
 
 export function importedColumns() {
   const columns = [];

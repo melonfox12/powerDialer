@@ -1,6 +1,6 @@
-import { S, state } from "../../store/state.js";
-import { byId } from "../../utils/format.js";
-import { formatPhoneNumber } from "../../utils/phone.js";
+import { S, state } from "../../../_core/state.js";
+import { byId } from "../../../_core/format.js";
+import { formatPhoneNumber } from "../../../_core/phone.js";
 import { renderCallMonitor } from "../monitor/index.js";
 
 export function renderDialerControls(stage, active, ringing) {

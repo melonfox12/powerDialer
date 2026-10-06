@@ -1,5 +1,5 @@
-import { S } from "../store/state.js";
-import { showToast } from "../utils/notify.js";
+import { S } from "./state.js";
+import { showToast } from "./notify.js";
 
 let onUnauthorized = () => {};
 

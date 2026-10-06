@@ -1,7 +1,7 @@
-import { postJson } from "../api/client.js";
-import { state } from "../store/state.js";
-import { STATUS_KEYS, STATUS_LABELS, byId } from "../utils/format.js";
-import { showToast } from "../utils/notify.js";
+import { postJson } from "../../_core/api.js";
+import { state } from "../../_core/state.js";
+import { STATUS_KEYS, STATUS_LABELS, byId } from "../../_core/format.js";
+import { showToast } from "../../_core/notify.js";
 import { importedColumns } from "../views/prospects-table/index.js";
 import { render } from "../views/render.js";
 

@@ -1,4 +1,4 @@
-import { setText } from "../../../utils/format.js";
+import { setText } from "../../../../_core/format.js";
 
 export const ReelsMixin = (Base) => class extends Base {
   stopTicking() {

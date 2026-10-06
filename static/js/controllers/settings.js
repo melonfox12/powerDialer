@@ -1,10 +1,10 @@
-import { postJson, request } from "../api/client.js";
+import { postJson, request } from "../../_core/api.js";
 import { arcadeSensory } from "../features/arcade/controller/index.js";
 import { refreshAudioDevices } from "../features/voice/device/index.js";
 import { stopMicrophoneTest } from "../features/voice/testing/index.js";
-import { S, state } from "../store/state.js";
-import { SECRET_INPUTS, byId, setText } from "../utils/format.js";
-import { showToast } from "../utils/notify.js";
+import { S, state } from "../../_core/state.js";
+import { SECRET_INPUTS, byId, setText } from "../../_core/format.js";
+import { showToast } from "../../_core/notify.js";
 import { render } from "../views/render.js";
 
 const SECRET_FIELDS = SECRET_INPUTS;

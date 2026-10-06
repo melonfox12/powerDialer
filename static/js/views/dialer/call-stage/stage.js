@@ -1,8 +1,8 @@
 import { playCue } from "../../../features/arcade/fx/audio.js";
 import { arcadeSensory } from "../../../features/arcade/controller/index.js";
-import { S, state } from "../../../store/state.js";
-import { STATUS_LABELS, byId, setText } from "../../../utils/format.js";
-import { formatPhoneNumber } from "../../../utils/phone.js";
+import { S, state } from "../../../../_core/state.js";
+import { STATUS_LABELS, byId, setText } from "../../../../_core/format.js";
+import { formatPhoneNumber } from "../../../../_core/phone.js";
 import { startCallTimer, stopCallTimer } from "./timer.js";
 
 export function renderCallStage(stage, target) {

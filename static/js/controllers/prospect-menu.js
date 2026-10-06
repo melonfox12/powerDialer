@@ -1,5 +1,5 @@
-import { state } from "../store/state.js";
-import { formatPhoneNumber } from "../utils/phone.js";
+import { state } from "../../_core/state.js";
+import { formatPhoneNumber } from "../../_core/phone.js";
 import { dialLead } from "./dialer/index.js";
 import { setDashboardTab } from "./navigation.js";
 

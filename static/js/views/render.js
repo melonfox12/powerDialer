@@ -1,5 +1,5 @@
-import { S, state } from "../store/state.js";
-import { byId, setText } from "../utils/format.js";
+import { S, state } from "../../_core/state.js";
+import { byId, setText } from "../../_core/format.js";
 import { renderCallerPool } from "./pool/index.js";
 import { renderDialer } from "./dialer/index.js";
 import { renderMetrics } from "./metrics/index.js";

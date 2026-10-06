@@ -1,9 +1,9 @@
-import { debugEvent } from "../../api/client.js";
+import { debugEvent } from "../../../_core/api.js";
 import { applyVoiceAudioDevices, createVoiceDevice, refreshAudioDevices } from "../../features/voice/device/index.js";
-import { S } from "../../store/state.js";
-import { byId } from "../../utils/format.js";
-import { formatPhoneNumber } from "../../utils/phone.js";
-import { showToast } from "../../utils/notify.js";
+import { S } from "../../../_core/state.js";
+import { byId } from "../../../_core/format.js";
+import { formatPhoneNumber } from "../../../_core/phone.js";
+import { showToast } from "../../../_core/notify.js";
 import { drawProspectWaveform, startProspectWaveform, stopProspectWaveform } from "../../views/dialer/card.js";
 
 export function prospectLabel(lead) {

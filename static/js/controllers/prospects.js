@@ -1,7 +1,7 @@
-import { postJson, request } from "../api/client.js";
-import { S, selectedLeadIds, state } from "../store/state.js";
-import { STATUS_LABELS, byId } from "../utils/format.js";
-import { showToast } from "../utils/notify.js";
+import { postJson, request } from "../../_core/api.js";
+import { S, selectedLeadIds, state } from "../../_core/state.js";
+import { STATUS_LABELS, byId } from "../../_core/format.js";
+import { showToast } from "../../_core/notify.js";
 import { render } from "../views/render.js";
 
 export function bindProspects() {

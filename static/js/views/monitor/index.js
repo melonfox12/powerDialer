@@ -1,6 +1,6 @@
-import { S, state } from "../../store/state.js";
-import { byId, setText } from "../../utils/format.js";
-import { renderTranscriptEntries, transcriptTimestamp } from "../../utils/transcript.js";
+import { S, state } from "../../../_core/state.js";
+import { byId, setText } from "../../../_core/format.js";
+import { renderTranscriptEntries, transcriptTimestamp } from "../../../_core/transcript.js";
 import { drawProspectWaveform, renderDialedProspect } from "../dialer/card.js";
 
 export function renderCallMonitor() {

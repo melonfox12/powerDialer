@@ -1,5 +1,5 @@
-import { S, state } from "../../store/state.js";
-import { byId, setText } from "../../utils/format.js";
+import { S, state } from "../../../_core/state.js";
+import { byId, setText } from "../../../_core/format.js";
 import { renderCallStage } from "./call-stage/index.js";
 import { renderDialerControls } from "./controls.js";
 import { renderOutcomeRow } from "./outcome.js";

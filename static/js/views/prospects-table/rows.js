@@ -1,7 +1,7 @@
-import { S, selectedLeadIds, state } from "../../store/state.js";
-import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, initials, statusDate } from "../../utils/format.js";
-import { formatPhoneNumber } from "../../utils/phone.js";
-import { openTranscript } from "../../utils/transcript.js";
+import { S, selectedLeadIds, state } from "../../../_core/state.js";
+import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, initials, statusDate } from "../../../_core/format.js";
+import { formatPhoneNumber } from "../../../_core/phone.js";
+import { openTranscript } from "../../../_core/transcript.js";
 
 export function appendLeadRows(body, leads, extras, onSelection) {
   for (const lead of leads) {

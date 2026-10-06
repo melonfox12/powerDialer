@@ -7,7 +7,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / "static"
-JS_ROOT = STATIC / "js"
 PARTIALS = (
     STATIC / "app-shell" / "chrome.html",
     STATIC / "app-shell" / "dialer.html",
@@ -74,7 +73,15 @@ def local_exports(text):
 
 def main():
     problems = []
-    js_files = sorted(JS_ROOT.rglob("*.js"))
+    js_files = []
+    for folder in (STATIC / "js", STATIC / "_core", STATIC / "features"):
+        if folder.is_dir():
+            js_files.extend(folder.rglob("*.js"))
+    for name in ("core.js", "main.js"):
+        candidate = STATIC / name
+        if candidate.is_file():
+            js_files.append(candidate)
+    js_files = sorted(set(js_files))
     texts = {path: path.read_text(encoding="utf-8") for path in js_files}
     export_cache = {}
 

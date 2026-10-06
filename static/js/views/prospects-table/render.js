@@ -1,5 +1,5 @@
-import { S, selectedLeadIds, state } from "../../store/state.js";
-import { byId, setText } from "../../utils/format.js";
+import { S, selectedLeadIds, state } from "../../../_core/state.js";
+import { byId, setText } from "../../../_core/format.js";
 import { appendLeadRows } from "./rows.js";
 import { crmTableSignature, filteredLeads, importedColumns } from "./query.js";
 

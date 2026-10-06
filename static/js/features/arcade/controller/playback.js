@@ -1,4 +1,4 @@
-import { setText } from "../../../utils/format.js";
+import { setText } from "../../../../_core/format.js";
 
 export const PlaybackMixin = (Base) => class extends Base {
   animateValue(target, element, animationId) {

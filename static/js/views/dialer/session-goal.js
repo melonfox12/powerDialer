@@ -1,7 +1,7 @@
 import { arcadeSensory } from "../../features/arcade/controller/index.js";
-import { S, state } from "../../store/state.js";
-import { byId, setText } from "../../utils/format.js";
-import { showToast } from "../../utils/notify.js";
+import { S, state } from "../../../_core/state.js";
+import { byId, setText } from "../../../_core/format.js";
+import { showToast } from "../../../_core/notify.js";
 
 export function renderSessionMomentum() {
   const stats = state.session_stats || {};

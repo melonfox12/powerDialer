@@ -1,4 +1,4 @@
-import { S, state } from "../../../store/state.js";
+import { S, state } from "../../../../_core/state.js";
 
 export function stopCallTimer() {
   clearInterval(S.callTimerId);

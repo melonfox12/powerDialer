@@ -1,6 +1,6 @@
-import { state } from "../../store/state.js";
-import { byId, initials } from "../../utils/format.js";
-import { formatPhoneNumber } from "../../utils/phone.js";
+import { state } from "../../../_core/state.js";
+import { byId, initials } from "../../../_core/format.js";
+import { formatPhoneNumber } from "../../../_core/phone.js";
 
 export function renderQueueStrip(active, pending, target) {
   const activeCall = byId("activeCall");
