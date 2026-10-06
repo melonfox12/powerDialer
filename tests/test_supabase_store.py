@@ -1,7 +1,7 @@
 import base64
 import unittest
 
-from supabase_store import SupabaseClient
+from shared.infra import SupabaseClient
 
 
 def jwt_with_role(role):

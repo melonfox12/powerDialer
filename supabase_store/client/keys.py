@@ -1,3 +1,0 @@
-from shared.vocabulary import METRIC_KEYS, REMOTE_SETTING_KEYS, SETTINGS_ROW_ID
-
-__all__ = ["METRIC_KEYS", "REMOTE_SETTING_KEYS", "SETTINGS_ROW_ID"]

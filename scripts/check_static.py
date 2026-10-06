@@ -123,7 +123,7 @@ def main():
 
     html = "".join(path.read_text(encoding="utf-8") for path in PARTIALS if path.is_file())
     html_ids = set(HTML_ID.findall(html))
-    html_ids.add("vocabulary")  # injected by routes.http.send_app_page before </head>
+    html_ids.add("vocabulary")  # injected by web.send_app_page before </head>
     for text in texts.values():
         html_ids.update(ASSIGNED_ID.findall(text))
     for path, text in texts.items():

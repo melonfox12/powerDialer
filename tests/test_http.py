@@ -260,3 +260,39 @@ class HttpContractTests(unittest.TestCase):
         status, payload, _type = self.json_request("DELETE", f"/api/leads/{lead_id}")
         self.assertEqual(status, 200)
         self.assert_keys(payload, STATE_KEYS)
+
+
+EXPECTED_ROUTES = {
+    ("GET", "/api/auth/config"),
+    ("GET", "/api/health"),
+    ("GET", "/api/auth/me"),
+    ("POST", "/api/debug"),
+    ("GET", "/api/settings"),
+    ("POST", "/api/settings"),
+    ("GET", "/api/metrics"),
+    ("POST", "/api/leads"),
+    ("POST", "/api/import"),
+    ("GET", "/api/export.csv"),
+    ("DELETE", "/api/leads/{id}"),
+    ("GET", "/api/state"),
+    ("GET", "/api/live"),
+    ("GET", "/api/voice-token"),
+    ("POST", "/api/timezone"),
+    ("POST", "/api/start"),
+    ("POST", "/api/pause"),
+    ("POST", "/api/stop"),
+    ("POST", "/api/hangup"),
+    ("POST", "/api/skip"),
+    ("POST", "/api/advance"),
+    ("POST", "/api/leads/{id}/dial"),
+    ("POST", "/api/leads/{id}/status"),
+}
+
+
+class RouteTableTests(unittest.TestCase):
+    def test_each_endpoint_is_registered_once(self):
+        from web import all_routes
+
+        found = [(method, path) for method, path, _handler, _profile in all_routes()]
+        self.assertEqual(len(found), len(set(found)))
+        self.assertEqual(set(found), EXPECTED_ROUTES)
