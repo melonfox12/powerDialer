@@ -5,9 +5,9 @@ import threading
 import urllib.error
 import urllib.request
 
-from routes.hooks import make_hook_handler
+from _web.hooks import make_hook_handler
 from features.accounts import AppRuntime
-from routes.ui import make_app_handler
+from web import make_app_handler
 from server import QuietThreadingHTTPServer
 
 _ISOLATED = (

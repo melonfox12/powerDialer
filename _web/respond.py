@@ -1,4 +1,4 @@
-"""Shared HTTP responses and static file serving."""
+"""Response helpers shared by the app server and the Twilio hook server."""
 
 import json
 import mimetypes
@@ -7,10 +7,9 @@ import time
 import traceback
 import urllib.parse
 
-from shared.infra import debug_event
 from shared.config import MAX_BODY, QUIET_HTTP, STATIC_DIR
+from shared.infra import debug_event
 from shared.vocabulary import vocabulary_json
-
 
 def log_server_fault(format, *args):
     detail = traceback.format_exc()
@@ -136,3 +135,4 @@ class HandlerMixin:
                 return False
             self.send_file(rel)
             return True
+

@@ -6,7 +6,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
 from shared.infra import debug_event
-from routes.http import HandlerMixin, log_server_fault
+from _web.respond import HandlerMixin, log_server_fault
 
 
 def make_hook_handler(runtime):
