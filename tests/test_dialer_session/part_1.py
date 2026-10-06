@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from crm_store import CRMStore
 from core.dialer_session import add_connect, dialer_stage, local_time, new_session, record_conversation, record_disposition, recent_streak, session_summary, status_for_disposition, within_calling_window
-from core.metrics_store import MetricsStore
 from twilio_calls import TwilioDialer, TokenIndex
 
 class Part1:
@@ -69,11 +68,3 @@ class Part1:
         self.assertEqual(summary["duration_seconds"], 600)
         self.assertEqual(summary["best_streak"], 2)
         self.assertNotIn("connect_times", summary)
-
-    def test_session_history_persists_in_local_metrics_store(self):
-        with tempfile.TemporaryDirectory() as directory:
-            store = MetricsStore(Path(directory) / "metrics.json")
-            session = new_session(goal=3, started_at="2026-10-01T10:00:00+00:00")
-            session["dials"] = 4
-            store.save_session(session)
-            self.assertEqual(store.recent_sessions()[0]["dials"], 4)

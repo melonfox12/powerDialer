@@ -4,7 +4,7 @@ import threading
 import time
 
 from crm_store import CRMStore
-from core.metrics_store import MetricsStore
+from features.metrics import MetricsStore, SupabaseMetricsStore
 from shared.config import (
     APP_HOST,
     APP_PORT,
@@ -89,7 +89,7 @@ class AppRuntime:
             existing.dialer.account_email = user.get("email") or existing.dialer.account_email
             return existing
         from features.settings import load_app_settings
-        from supabase_store import SupabaseCRMStore, SupabaseMetricsStore
+        from supabase_store import SupabaseCRMStore
 
         crm = SupabaseCRMStore(self.client, user_id=user_id)
         metrics = SupabaseMetricsStore(self.client, user_id=user_id)

@@ -29,7 +29,7 @@ class ReadMixin:
         if account is None:
             self.send_json(401, {"error": "Sign in with Google to continue."})
             return
-        crm, dialer, metrics = account.crm, account.dialer, account.metrics
+        crm, dialer = account.crm, account.dialer
         if path.startswith("/api/") and path not in ("/api/state", "/api/live", "/api/metrics", "/api/health"):
             dialer.record_activity(f"GET {path}", "web")
         if path == "/api/state":
@@ -43,10 +43,9 @@ class ReadMixin:
             except OSError as exc:
                 self.report_storage_error(exc)
         elif path == "/api/metrics":
-            try:
-                self.send_json(200, metrics.snapshot())
-            except OSError as exc:
-                self.report_storage_error(exc)
+            from features.metrics import get_metrics
+
+            get_metrics(self)
         elif path == "/api/settings":
             from features.settings import get_settings
 
