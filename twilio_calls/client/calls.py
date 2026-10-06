@@ -96,17 +96,6 @@ class ClientMixin:
                 self.last_event = "Call request failed"
             self.record_activity(f"Twilio call failed: {exc}", "error")
 
-    @staticmethod
-    def _transfer(self, call_uuid, answer_url):
-        try:
-            twilio_request(self.settings["TWILIO_ACCOUNT_SID"], self.settings["TWILIO_AUTH_TOKEN"], "POST",
-                           f"/Calls/{urllib.parse.quote(call_uuid, safe='')}.json", data={
-                               "Url": answer_url, "Method": "GET",
-                           })
-        except TwilioError as exc:
-            with self.lock:
-                self.last_error = str(exc)
-
     def _cancel_call(self, call):
         with self.lock:
             if call["cancelled"]:

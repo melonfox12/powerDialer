@@ -22,10 +22,6 @@ class DispatchMixin:
             call_status = params.get("CallStatus", "").lower()
             if call_status == "ringing":
                 action = "ring"
-            elif call_status == "answered" and call["kind"] == "prospect":
-                if not call.get("cancelled"):
-                    self._pickup(call)
-                return 200, "text/plain", "OK"
             elif call_status in ("completed", "busy", "failed", "no-answer", "canceled"):
                 action = "hangup"
             else:
@@ -66,7 +62,4 @@ class DispatchMixin:
         if action == "agent-ended" and call["kind"] == "agent":
             self._agent_call_ended()
             return 200, "application/xml", "<Response/>"
-        if action == "winner":
-            self.record_activity("Prospect joined the live line", "call")
-            return 200, "application/xml", str(self._live_twiml(call))
         return 404, "text/plain", "Unknown callback"

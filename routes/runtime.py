@@ -42,7 +42,7 @@ class AppRuntime:
         self._health_at = 0
         self._health = {"ok": True, "storage": self.storage_name}
 
-    def configure(self, migrate=False):
+    def configure(self):
         from supabase_store import SupabaseClient
         from twilio_calls import read_env
 

@@ -11,7 +11,7 @@ export function renderQueueStrip(active, pending, target) {
   const copy = document.createElement("div");
   copy.className = "active-copy";
   const primary = document.createElement("strong");
-  const queueLead = active || pending || (state.in_flight || []).find((call) => ["ringing", "connecting"].includes(call.state))?.lead;
+  const queueLead = active || pending || (state.in_flight || []).find((call) => call.state === "ringing")?.lead;
   const poolCount = state.pool?.length || 0;
   const firstUp = state.next_lead;
   const nextLabel = firstUp ? (firstUp.business || firstUp.name || formatPhoneNumber(firstUp.phone)) : "";

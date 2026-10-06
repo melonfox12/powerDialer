@@ -94,7 +94,7 @@ export function startProspectWaveform(call) {
 
 export function renderDialedProspect() {
   const dialingCallLead = (state.in_flight || []).find((call) =>
-    ["creating", "ringing", "listening", "live"].includes(call.state)
+    ["creating", "ringing", "live"].includes(call.state)
   )?.lead;
   const dialed = state.active_lead || dialingCallLead || state.pending_outcome || null;
   const dialedName = String(dialed?.name || "").trim();

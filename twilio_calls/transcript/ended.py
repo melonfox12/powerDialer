@@ -11,10 +11,6 @@ class EndedMixin:
             if call.get("end_processed"):
                 return
             call["end_processed"] = True
-            timer = call.get("answer_detection_timer")
-            if timer:
-                timer.cancel()
-                call["answer_detection_timer"] = None
             if call["cancelled"] and not call.get("picked_up"):
                 self.in_flight.pop(call["token"], None)
                 if self.active is call:

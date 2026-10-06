@@ -17,7 +17,7 @@ def serve():
     from core.debug_log import enable
 
     enable()
-    runtime = AppRuntime().configure(migrate=True)
+    runtime = AppRuntime().configure()
     app_server = QuietThreadingHTTPServer(
         (APP_HOST, APP_PORT),
         make_app_handler(runtime),

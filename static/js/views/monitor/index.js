@@ -34,21 +34,17 @@ export function renderCallMonitor() {
     merged.set(key, entry);
   }
   const entries = [...merged.values()];
-  const waitingCall = (state.in_flight || []).find((call) => call.state === "listening");
   const dialingCall = (state.in_flight || []).some((call) => ["creating", "ringing"].includes(call.state));
   const monitorActivity = byId("monitorActivity");
   const answeredBy = state.pickup_answered_by || liveTranscript.answered_by || "";
   const status = state.active_lead
     ? (answeredBy === "voicemail" ? "Voicemail" : "Live")
-    : waitingCall ? "Listening"
-      : dialingCall ? "Dialing"
-        : state.pending_outcome ? "Wrap-up"
-          : state.agent_ready ? "Waiting"
-            : state.running ? "Connecting" : "Idle";
+    : dialingCall ? "Dialing"
+      : state.pending_outcome ? "Wrap-up"
+        : state.agent_ready ? "Waiting"
+          : state.running ? "Connecting" : "Idle";
   const statusState = status.toLowerCase();
-  monitorActivity.dataset.state = ["dialing", "listening", "live", "voicemail"].includes(statusState) ? statusState : "idle";
-  byId("enterLiveButton").hidden = !waitingCall;
-  byId("enterLiveButton").disabled = S.enteringLiveLine;
+  monitorActivity.dataset.state = ["dialing", "live", "voicemail"].includes(statusState) ? statusState : "idle";
   const onLine = Boolean(state.active_lead);
   byId("keepLineButton").hidden = !onLine;
   byId("keepLineButton").disabled = S.keptLineId && S.keptLineId === state.active_lead?.id;

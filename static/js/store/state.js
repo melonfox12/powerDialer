@@ -20,7 +20,6 @@ export const S = {
   pollBusy: false,
   metricsFetchedAt: 0,
   outcomeSubmitting: false,
-  enteringLiveLine: false,
   dashboardTab: "dialer",
   performanceMode: "summary",
   observedActiveLeadId: null,

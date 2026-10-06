@@ -35,7 +35,7 @@ export function renderDialer() {
   setText("dialerMessage", state.last_error || "");
   byId("dialerMessage").classList.toggle("error", Boolean(state.last_error));
 
-  const target = active || pending || (state.in_flight?.find((call) => call.state === "connecting")?.lead);
+  const target = active || pending;
   const ringing = state.in_flight?.some((call) => call.state === "ringing");
   renderQueueStrip(active, pending, target);
   renderDialerControls(stage, active, ringing);

@@ -9,7 +9,7 @@ class StateMixin:
             active_call = self.active
             prospect_calls = [call for call in self.in_flight.values() if call["kind"] == "prospect"]
             transcript_call = active_call or next(
-                (call for call in prospect_calls if call.get("picked_up") or call["state"] in ("live", "listening")),
+                (call for call in prospect_calls if call.get("picked_up") or call["state"] == "live"),
                 None,
             )
             current_call = transcript_call or (prospect_calls[0] if prospect_calls else None)

@@ -12,10 +12,6 @@ class PickupMixin:
             call["picked_up"] = True
             call["state"] = "live"
             call["connected_at"] = datetime.now(timezone.utc).isoformat()
-            timer = call.get("answer_detection_timer")
-            if timer:
-                timer.cancel()
-                call["answer_detection_timer"] = None
             self.active = call
             if self.session and not call.get("connect_counted"):
                 add_connect(self.session)
@@ -64,11 +60,3 @@ class PickupMixin:
             "call",
         )
         return 200, "text/plain", "OK"
-
-    def _answer_detection_timeout(self, call):
-        """Older builds hung up when detection was slow. Any pickup now stays connected."""
-        with self.lock:
-            timer = call.get("answer_detection_timer")
-            if timer:
-                timer.cancel()
-            call["answer_detection_timer"] = None

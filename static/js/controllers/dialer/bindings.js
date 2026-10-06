@@ -47,19 +47,6 @@ export function bindDialer() {
       showToast(error.message, true);
     }
   });
-  byId("enterLiveButton").addEventListener("click", async () => {
-    S.enteringLiveLine = true;
-    renderCallMonitor();
-    try {
-      Object.assign(state, await postJson("/api/enter-live"));
-      render();
-    } catch (error) {
-      showToast(error.message, true);
-    } finally {
-      S.enteringLiveLine = false;
-      renderCallMonitor();
-    }
-  });
   for (const selector of [byId("dialerTimezoneFilter"), byId("poolTimezoneFilter")]) {
     selector.addEventListener("change", (event) => selectTimezone(event.target.value));
   }

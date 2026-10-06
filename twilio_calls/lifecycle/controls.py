@@ -35,7 +35,7 @@ class ControlsMixin:
             call = self.active or next(
                 (
                     item for item in self.in_flight.values()
-                    if item["kind"] == "prospect" and item["state"] in ("ringing", "creating", "listening")
+                    if item["kind"] == "prospect" and item["state"] in ("ringing", "creating")
                 ),
                 None,
             )

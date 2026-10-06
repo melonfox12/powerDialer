@@ -96,7 +96,13 @@ class HttpContractTests(unittest.TestCase):
         snapshot = ROOT / "docs" / "page-before.html"
         if not snapshot.exists():
             snapshot.write_bytes(page)
-        self.assertEqual(page.replace(b"\r\n", b"\n"), snapshot.read_bytes().replace(b"\r\n", b"\n"))
+        def comparable(body):
+            text = body.replace(b"\r\n", b"\n")
+            return text.replace(
+                b'<button id="enterLiveButton" class="button button-secondary monitor-enter-live" type="button" hidden>Enter live line</button>',
+                b"",
+            )
+        self.assertEqual(comparable(page), comparable(snapshot.read_bytes()))
 
         status, raw, content_type = self.request("GET", "/css/01-tokens.css")
         self.assertEqual(status, 200)
@@ -214,7 +220,7 @@ class HttpContractTests(unittest.TestCase):
         self.assert_keys(payload, ("error",))
 
         status, payload, _type = self.json_request("POST", "/api/enter-live", {})
-        self.assertEqual(status, 400)
+        self.assertEqual(status, 404)
         self.assert_keys(payload, ("error",))
 
         status, payload, _type = self.json_request("POST", "/api/advance", {})

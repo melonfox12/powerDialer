@@ -8,12 +8,10 @@
 .call-monitor-title { color: var(--ink-secondary); font-size: 14px; font-weight: 550; }
 .monitor-activity { display: inline-flex; align-items: center; gap: 7px; margin-left: auto; color: var(--muted); }
 .monitor-activity[data-state="dialing"] { color: var(--amber); }
-.monitor-activity[data-state="listening"] { color: #f2994a; }
 .monitor-activity[data-state="live"],
 .monitor-activity[data-state="voicemail"] { color: var(--success); }
 .monitor-spinner { width: 18px; height: 18px; flex: none; overflow: visible; }
-.monitor-activity[data-state="dialing"] .monitor-spinner,
-.monitor-activity[data-state="listening"] .monitor-spinner { animation: monitor-spin 1s linear infinite; }
+.monitor-activity[data-state="dialing"] .monitor-spinner { animation: monitor-spin 1s linear infinite; }
 .monitor-spinner circle { fill: currentColor; opacity: .2; }
 .monitor-spinner circle:nth-child(1) { opacity: 1; }
 .monitor-spinner circle:nth-child(2) { opacity: .9; }

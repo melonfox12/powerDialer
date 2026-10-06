@@ -91,7 +91,6 @@ class StartMixin:
             "transcribing": False,
             "transcript_partials": {},
             "transcription_started": False,
-            "answer_detection_timer": None,
             "caller_id": "",
             "answered_by": "",
             "picked_up": False,

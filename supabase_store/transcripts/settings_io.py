@@ -35,19 +35,3 @@ def save_app_settings(client, values, user_id=None):
         [payload],
         "resolution=merge-duplicates,return=minimal",
     )
-
-def hydrate_env_from_supabase(env_path, client):
-    from twilio_calls import read_env, write_env
-
-    remote = load_app_settings(client)
-    if not remote:
-        return False
-    local = read_env(env_path)
-    updates = {
-        key: value for key, value in remote.items()
-        if value and not str(local.get(key, "")).strip()
-    }
-    if updates:
-        write_env(env_path, updates)
-        return True
-    return False
