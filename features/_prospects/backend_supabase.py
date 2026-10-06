@@ -1,8 +1,13 @@
+"""Supabase prospect persistence. Rules live in features.prospects."""
+
 import threading
 from datetime import datetime
-from crm_store import csv_bytes_for, utc_now
 
-class RecordMixin:
+from features._prospects.csv_export import csv_bytes_for
+from features._prospects.csv_import import build_manual_lead, parse_csv
+from shared.infra import utc_now
+
+class SupabaseBackend:
     def __init__(self, client, user_id=None):
         self.client = client
         self.user_id = user_id
@@ -78,3 +83,68 @@ class RecordMixin:
 
     def csv_bytes(self):
         return csv_bytes_for(self.snapshot())
+    def add_lead(self, payload):
+        with self.lock:
+            leads = self._all()
+            self._expire(leads)
+            lead = build_manual_lead(payload, (item["phone"] for item in leads))
+            self.client.request(
+                "POST",
+                "prospects",
+                {"on_conflict": "id"},
+                [{"id": lead["id"], "user_id": self.user_id, "data": lead}],
+                "resolution=merge-duplicates,return=minimal",
+            )
+            leads.append(lead)
+            self._touch()
+            return dict(lead)
+
+    def add_csv(self, data):
+        with self.lock:
+            leads = self._all()
+            self._expire(leads)
+            additions, info = parse_csv(data, (lead["phone"] for lead in leads))
+            if additions:
+                rows = [
+                    {"id": lead["id"], "user_id": self.user_id, "data": lead}
+                    for lead in additions
+                ]
+                for start in range(0, len(rows), 500):
+                    self.client.request(
+                        "POST",
+                        "prospects",
+                        {"on_conflict": "id"},
+                        rows[start:start + 500],
+                        "resolution=merge-duplicates,return=minimal",
+                    )
+            leads.extend(additions)
+            info["added"] = len(additions)
+            info["total"] = len(leads) + len(additions)
+            if additions:
+                self._touch()
+            return info
+
+
+    def leads_locked(self):
+        return self._all()
+
+    def expire_locked(self, leads):
+        self._expire(leads)
+
+    def save_locked(self, lead):
+        self._write(lead)
+        self._touch()
+
+    def remove(self, lead_id):
+        with self.lock:
+            rows = self.client.request(
+                "DELETE",
+                "prospects",
+                self._scope({"id": f"eq.{lead_id}", "select": "id"}),
+                prefer="return=representation",
+            )
+            if not rows:
+                raise KeyError("Prospect not found")
+            if self._cache is not None:
+                self._cache = [lead for lead in self._cache if lead["id"] != lead_id]
+            self._touch()

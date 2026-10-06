@@ -29,7 +29,7 @@ class ReadMixin:
         if account is None:
             self.send_json(401, {"error": "Sign in with Google to continue."})
             return
-        crm, dialer = account.crm, account.dialer
+        dialer = account.dialer
         if path.startswith("/api/") and path not in ("/api/state", "/api/live", "/api/metrics", "/api/health"):
             dialer.record_activity(f"GET {path}", "web")
         if path == "/api/state":
@@ -57,12 +57,8 @@ class ReadMixin:
                 self._trace_error = str(exc)
                 self.send_json(400, {"error": str(exc)})
         elif path == "/api/export.csv":
-            try:
-                content = crm.csv_bytes()
-                self.send_bytes(200, content, "text/csv; charset=utf-8", {
-                    "Content-Disposition": "attachment; filename=crm-export.csv",
-                })
-            except OSError as exc:
-                self.report_storage_error(exc)
+            from features.prospects import get_export
+
+            get_export(self)
         else:
             self.send_json(404, {"error": "Not found"})

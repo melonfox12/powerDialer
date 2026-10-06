@@ -15,22 +15,19 @@ class WriteMixin:
         if account is None:
             self.send_json(401, {"error": "Sign in with Google to continue."})
             return
-        crm, dialer = account.crm, account.dialer
+        dialer = account.dialer
         if path.startswith("/api/"):
             dialer.record_activity(f"POST {path}", "web")
         try:
             body = self.read_body()
             if path == "/api/leads":
-                lead = crm.add_lead(self.read_json(body))
-                self.send_json(200, {"lead": lead, "state": dialer.public_state()})
+                from features.prospects import post_lead
+
+                post_lead(self, self.read_json(body))
             elif path == "/api/import":
-                result = crm.add_csv(body)
-                try:
-                    state = dialer.public_state()
-                except Exception as exc:
-                    dialer.record_activity(f"Imported CSV but could not refresh state: {exc}", "error")
-                    state = {"leads": crm.snapshot()}
-                self.send_json(200, {"import": result, "state": state})
+                from features.prospects import post_import
+
+                post_import(self, body)
             elif path == "/api/settings":
                 from features.settings import post_settings
 
@@ -89,17 +86,9 @@ class WriteMixin:
         if account is None:
             self.send_json(401, {"error": "Sign in with Google to continue."})
             return
-        crm, dialer = account.crm, account.dialer
         if path.startswith("/api/leads/"):
-            lead_id = urllib.parse.unquote(path.removeprefix("/api/leads/"))
-            try:
-                crm.remove(lead_id)
-                self.send_json(200, dialer.public_state())
-            except KeyError as exc:
-                self._trace_error = str(exc)
-                self.send_json(404, {"error": str(exc)})
-            except OSError as exc:
-                self._trace_error = str(exc)
-                self.send_json(500, {"error": f"Could not persist data: {exc}"})
+            from features.prospects import delete_lead
+
+            delete_lead(self)
         else:
             self.send_json(404, {"error": "Not found"})

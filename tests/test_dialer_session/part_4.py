@@ -1,12 +1,12 @@
 import tempfile
 from pathlib import Path
-from crm_store import CRMStore
+from features.prospects import ProspectStore
 from twilio_calls import TwilioDialer
 
 class Part4:
     def test_caller_ids_rotate_and_only_one_prospect_is_dialed(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             leads = []
             for index in range(4):
                 leads.append({
@@ -48,7 +48,7 @@ class Part4:
 
     def test_manual_dial_calls_the_chosen_prospect_and_can_wait_for_the_line(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             auto = {
                 "id": "auto", "name": "Auto", "business": "Shop",
                 "phone": "+12025550100", "timezone": "Eastern", "status": "new",
@@ -102,7 +102,7 @@ class Part4:
 
     def test_manual_dial_resumes_an_idle_paused_session(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             chosen = {
                 "id": "chosen", "name": "Chosen", "business": "Studio",
                 "phone": "+12025550199", "timezone": "Unknown", "status": "call",

@@ -1,13 +1,13 @@
 import tempfile
 from pathlib import Path
-from crm_store import CRMStore
+from features.prospects import ProspectStore
 from core.dialer_session import new_session
 from twilio_calls import TwilioDialer
 
 class Part2:
     def test_callback_is_persisted_and_do_not_call_leaves_the_auto_dial_pool(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             lead = {
                 "id": "prospect-1",
                 "name": "Onyx Garage Floors",
@@ -28,7 +28,7 @@ class Part2:
 
     def test_any_pickup_connects_and_a_long_live_call_counts_as_a_conversation(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             lead = {
                 "id": "prospect-1", "name": "Onyx", "business": "Onyx",
                 "phone": "+12025550123", "timezone": "Eastern", "status": "new",

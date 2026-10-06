@@ -3,8 +3,7 @@ import json
 import tempfile
 from pathlib import Path
 from io import StringIO
-from crm_store import CRMStore, parse_csv
-from supabase_store import SupabaseCRMStore
+from features.prospects import ProspectStore, parse_csv
 from twilio_calls import TwilioDialer
 from tests.test_transcript_storage.fixtures import FakeSupabaseClient
 from tests.test_transcript_storage.fixtures import prospect
@@ -12,7 +11,7 @@ from tests.test_transcript_storage.fixtures import prospect
 class Part1:
     def test_manual_prospect_is_saved_and_rejects_a_duplicate_phone(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             lead = crm.add_lead({
                 "name": "Ada Lovelace",
                 "business": "Analytical Engines",
@@ -24,7 +23,7 @@ class Part1:
             })
             self.assertEqual(lead["phone"], "+12025550142")
             self.assertEqual(lead["timezone"], "Pacific")
-            saved = CRMStore(Path(directory) / "crm.json").snapshot()[0]
+            saved = ProspectStore(Path(directory) / "crm.json").snapshot()[0]
             self.assertEqual(saved["name"], "Ada Lovelace")
             self.assertEqual(saved["business"], "Analytical Engines")
             self.assertEqual(saved["status"], "interested")
@@ -37,7 +36,7 @@ class Part1:
 
     def test_supabase_manual_prospect_is_stored(self):
         client = FakeSupabaseClient(prospect())
-        crm = SupabaseCRMStore(client, user_id="user-a")
+        crm = ProspectStore(client=client, user_id="user-a")
         lead = crm.add_lead({
             "name": "Grace Hopper",
             "business": "Navy",
@@ -53,7 +52,7 @@ class Part1:
     def test_local_transcript_is_persisted_and_exported_in_crm_csv(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "crm.json"
-            crm = CRMStore(path)
+            crm = ProspectStore(path)
             crm.leads = [prospect()]
             crm.save()
             crm.append_transcript("prospect-1", {
@@ -63,7 +62,7 @@ class Part1:
                 "text": "Please send the estimate.",
             })
 
-            reloaded = CRMStore(path)
+            reloaded = ProspectStore(path)
             self.assertEqual(reloaded.snapshot()[0]["transcript"][0]["text"], "Please send the estimate.")
             exported = csv.DictReader(StringIO(reloaded.csv_bytes().decode("utf-8-sig")))
             row = next(exported)
@@ -74,7 +73,7 @@ class Part1:
 
     def test_supabase_transcript_is_stored_with_prospect_data(self):
         client = FakeSupabaseClient(prospect())
-        crm = SupabaseCRMStore(client)
+        crm = ProspectStore(client=client)
         crm.append_transcript("prospect-1", {
             "id": "call-1:outbound:2",
             "timestamp": "2026-10-01T14:01:00+00:00",
@@ -89,7 +88,7 @@ class Part1:
 
     def test_final_call_transcription_events_are_saved_to_the_prospect(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             crm.leads = [prospect()]
             dialer = TwilioDialer(crm, str(Path(directory) / ".env"))
             call = dialer._new_call("prospect", prospect())
@@ -102,7 +101,7 @@ class Part1:
                 "Final": "true",
             })
 
-            saved = CRMStore(Path(directory) / "crm.json").snapshot()[0]["transcript"]
+            saved = ProspectStore(Path(directory) / "crm.json").snapshot()[0]["transcript"]
             self.assertEqual(len(saved), 1)
             self.assertEqual(saved[0]["speaker"], "Prospect")
             self.assertEqual(saved[0]["text"], "Can you send the estimate?")
@@ -118,16 +117,16 @@ class Part1:
 
     def test_local_csv_import_persists_prospects(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             info = crm.add_csv(b"Name,Business Name,Phone Number,Timezone\nAda,Co,(202) 555-0100,Pacific\n")
             self.assertEqual(info["added"], 1)
-            saved = CRMStore(Path(directory) / "crm.json").snapshot()[0]
+            saved = ProspectStore(Path(directory) / "crm.json").snapshot()[0]
             self.assertEqual(saved["phone"], "+12025550100")
             self.assertEqual(saved["timezone"], "Pacific")
 
     def test_supabase_csv_import_posts_prospect_rows(self):
         client = FakeSupabaseClient(prospect())
-        crm = SupabaseCRMStore(client)
+        crm = ProspectStore(client=client)
         info = crm.add_csv(b"Name,Phone\nSam,+1 202 555 0199\n")
         self.assertEqual(info["added"], 1)
         self.assertEqual(info["duplicates"], 0)
@@ -136,9 +135,9 @@ class Part1:
 
     def test_supabase_csv_import_is_scoped_to_the_signed_in_user(self):
         client = FakeSupabaseClient(prospect())
-        other = SupabaseCRMStore(client, user_id="user-b")
+        other = ProspectStore(client=client, user_id="user-b")
         other.add_csv(b"Name,Phone\nOther,+1 202 555 0101\n")
-        mine = SupabaseCRMStore(client, user_id="user-a")
+        mine = ProspectStore(client=client, user_id="user-a")
         info = mine.add_csv(b"Name,Phone\nMine,+1 202 555 0102\n")
         self.assertEqual(info["added"], 1)
         phones = [lead["phone"] for lead in mine.snapshot()]
@@ -147,14 +146,14 @@ class Part1:
     def test_a_directory_of_part_files_reloads_as_one_list(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "crm_data"
-            crm = CRMStore(path)
+            crm = ProspectStore(path)
             crm.leads = []
             for index in range(20):
                 lead = prospect()
                 lead["id"] = f"prospect-{index}"
                 crm.leads.append(lead)
             crm.save()
-            reloaded = CRMStore(path)
+            reloaded = ProspectStore(path)
             self.assertEqual([lead["id"] for lead in reloaded.leads], [f"prospect-{index}" for index in range(20)])
             parts = list(path.glob("*.json"))
             self.assertGreater(len(parts), 1)

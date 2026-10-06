@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from crm_store import CRMStore
+from features.prospects import ProspectStore
 from features.settings import load_app_settings, preferences, save_app_settings
 from shared.vocabulary import SETTING_DEFAULTS
 from twilio_calls import TwilioDialer
@@ -19,7 +19,7 @@ class SettingsTests(unittest.TestCase):
     def test_call_flow_settings_persist_and_validate(self):
         with tempfile.TemporaryDirectory() as directory:
             env_path = Path(directory) / ".env"
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             dialer = TwilioDialer(crm, str(env_path))
             settings = dialer.save_settings({
                 "session_goal": "25",
@@ -48,7 +48,7 @@ class SettingsTests(unittest.TestCase):
     def test_signed_in_settings_are_saved_to_the_account(self):
         with tempfile.TemporaryDirectory() as directory:
             env_path = Path(directory) / ".env"
-            crm = CRMStore(Path(directory) / "crm.json")
+            crm = ProspectStore(Path(directory) / "crm.json")
             dialer = TwilioDialer(crm, str(env_path))
             dialer.account_user_id = "user-1"
             saved = []

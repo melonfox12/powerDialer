@@ -3,7 +3,7 @@
 import threading
 import time
 
-from crm_store import CRMStore
+from features.prospects import ProspectStore
 from features.metrics import MetricsStore, SupabaseMetricsStore
 from shared.config import (
     APP_HOST,
@@ -54,7 +54,7 @@ class AppRuntime:
         else:
             self.client = None
             self.storage_name = "local JSON files"
-            crm = CRMStore(CRM_PATH)
+            crm = ProspectStore(CRM_PATH)
             metrics = MetricsStore(METRICS_PATH)
             dialer = TwilioDialer(crm, ENV_PATH, metrics=metrics)
             dialer.storage_name = self.storage_name
@@ -89,9 +89,8 @@ class AppRuntime:
             existing.dialer.account_email = user.get("email") or existing.dialer.account_email
             return existing
         from features.settings import load_app_settings
-        from supabase_store import SupabaseCRMStore
 
-        crm = SupabaseCRMStore(self.client, user_id=user_id)
+        crm = ProspectStore(client=self.client, user_id=user_id)
         metrics = SupabaseMetricsStore(self.client, user_id=user_id)
         dialer = TwilioDialer(crm, ENV_PATH, metrics=metrics)
         dialer.storage_name = "Supabase"

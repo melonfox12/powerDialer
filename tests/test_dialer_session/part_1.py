@@ -1,7 +1,7 @@
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from crm_store import CRMStore
+from features.prospects import ProspectStore
 from core.dialer_session import add_connect, dialer_stage, local_time, new_session, record_conversation, record_disposition, recent_streak, session_summary, status_for_disposition, within_calling_window
 from twilio_calls import TwilioDialer, TokenIndex
 
@@ -9,8 +9,8 @@ class Part1:
     def test_call_tokens_route_to_the_dialer_that_created_them(self):
         index = TokenIndex()
         with tempfile.TemporaryDirectory() as directory:
-            first = TwilioDialer(CRMStore(Path(directory) / "a.json"), str(Path(directory) / "a.env"))
-            second = TwilioDialer(CRMStore(Path(directory) / "b.json"), str(Path(directory) / "b.env"))
+            first = TwilioDialer(ProspectStore(Path(directory) / "a.json"), str(Path(directory) / "a.env"))
+            second = TwilioDialer(ProspectStore(Path(directory) / "b.json"), str(Path(directory) / "b.env"))
             first.token_index = index
             second.token_index = index
             first_token = first._new_call("agent", None)["token"]

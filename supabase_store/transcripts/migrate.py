@@ -1,9 +1,9 @@
 def migrate_local_data(client, crm_path, metrics_path):
     """Import local JSON data without overwriting different remote records."""
-    from crm_store import CRMStore
+    from features.prospects import ProspectStore
     from features.metrics import MetricsStore
 
-    prospects = CRMStore(crm_path).leads
+    prospects = ProspectStore(crm_path).leads
     metric_data = MetricsStore(metrics_path).data
     local_prospects = {lead["id"]: lead for lead in prospects}
     local_daily = {

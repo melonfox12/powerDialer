@@ -1,7 +1,6 @@
 import csv
 from io import StringIO
-from crm_store import csv_bytes_for
-from supabase_store import SupabaseCRMStore
+from features.prospects import ProspectStore, csv_bytes_for
 from tests.test_transcript_storage.fixtures import FakeSupabaseClient
 from tests.test_transcript_storage.fixtures import prospect
 
@@ -16,7 +15,7 @@ class Part2:
             return original(resource, params)
 
         client.select_all = counting
-        crm = SupabaseCRMStore(client, user_id="user-a")
+        crm = ProspectStore(client=client, user_id="user-a")
         crm.snapshot()
         crm.snapshot()
         self.assertEqual(client.loads, 1)
