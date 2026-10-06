@@ -1,6 +1,6 @@
 """Public and live snapshots."""
 
-from features._dialer._queue import calls
+from features._dialer import calls
 from features._dialer.session_stats import dialer_stage, new_session, recent_streak
 from features.settings import preferences as _preferences
 from features.settings import values as setting_values

@@ -1,6 +1,6 @@
 import tempfile
 from pathlib import Path
-from features._dialer._queue import calls
+from features._dialer import calls
 from features.dialer import Dialer
 from features.prospects import ProspectStore
 

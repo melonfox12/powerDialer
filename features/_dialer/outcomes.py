@@ -1,6 +1,6 @@
 """Disposition and prospect status changes during a call."""
 
-from features._dialer._queue import timing
+from features._dialer import timing
 from features._dialer import session_stats
 from features._dialer.session_stats import record_disposition, status_for_disposition
 from shared.vocabulary import DEFAULT_OUTCOME_METRIC, OUTCOME_METRIC

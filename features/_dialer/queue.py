@@ -5,7 +5,7 @@ import threading
 import time
 import urllib.parse
 
-from features._dialer._queue import calls, slots, timing
+from features._dialer import calls, slots, timing
 from features._dialer import projection, session_stats, twilio_api
 from features._dialer.session_stats import new_session, session_summary
 from features.settings import preferences as _preferences

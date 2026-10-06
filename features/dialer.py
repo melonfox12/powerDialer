@@ -1,6 +1,6 @@
 """Dialer entry. Part import order, low to high:
 
-twilio_api → state → session_stats → _queue/calls → projection → _queue/slots → _queue/timing → queue → _call_events → call_events → outcomes.
+twilio_api → state → session_stats → calls → projection → slots → timing → queue → _call_events → call_events → outcomes.
 
 slots imports calls. timing imports slots and projection. queue imports calls, then slots, then timing. call_events imports pickup, transcript, then ended. projection imports calls and does not import anything above it. Nothing in features/_dialer imports this module.
 """
@@ -10,7 +10,7 @@ import urllib.parse
 from features import settings as settings_feature
 from features._dialer import call_events, outcomes, projection, queue, twilio_api
 from features._dialer._call_events import ended, pickup, transcript
-from features._dialer._queue import calls, slots, timing
+from features._dialer import calls, slots, timing
 from features._dialer.state import DialerState
 from features._dialer.twilio_api import TokenIndex, TwilioError
 

@@ -3,7 +3,7 @@
 import random
 import threading
 
-from features._dialer._queue import calls
+from features._dialer import calls
 
 
 def fill_slots(state):

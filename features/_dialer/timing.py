@@ -3,7 +3,7 @@
 import threading
 import time
 
-from features._dialer._queue import slots
+from features._dialer import slots
 from features._dialer import projection
 
 

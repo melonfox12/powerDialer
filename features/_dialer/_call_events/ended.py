@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from features._dialer._queue import calls, timing
+from features._dialer import calls, timing
 from features._dialer import session_stats
 from features._dialer.session_stats import record_conversation
 

@@ -3,7 +3,7 @@
 import threading
 
 from features._dialer._call_events import ended, pickup, transcript
-from features._dialer._queue import slots
+from features._dialer import slots
 from features._dialer import projection, session_stats, twilio_api
 from features._dialer.twilio_api import escape_xml
 from shared.vocabulary import OUTCOME_METRIC
