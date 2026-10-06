@@ -5,7 +5,7 @@ import { bindDialer } from "./controllers/dialer/index.js";
 import { bindKeyboard } from "./controllers/keyboard.js";
 import { bindNavigation } from "./controllers/navigation.js";
 import { bindOutcomes } from "./controllers/outcomes.js";
-import { bindSettings } from "./controllers/settings.js";
+import { bindSettings } from "../features/settings.js";
 import { arcadeSensory, startArcade } from "../features/arcade.js";
 import { bindVoice } from "./features/voice/device/index.js";
 import { bindAddProspect } from "./controllers/add-prospect.js";

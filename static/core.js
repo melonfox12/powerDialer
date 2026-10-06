@@ -33,6 +33,22 @@ export {
   openTranscript,
   downloadTranscript,
 } from "./_core/transcript.js";
+let refreshAudioDevicesImpl = async () => {};
+let stopMicrophoneTestImpl = async () => {};
+
+export function registerAudioDevices(refresh, stop) {
+  refreshAudioDevicesImpl = refresh;
+  stopMicrophoneTestImpl = stop;
+}
+
+export function refreshAudioDevices() {
+  return refreshAudioDevicesImpl();
+}
+
+export function stopMicrophoneTest() {
+  return stopMicrophoneTestImpl();
+}
+
 export {
   state,
   S,

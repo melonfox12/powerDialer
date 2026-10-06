@@ -4,7 +4,7 @@ import { byId } from "../../../_core/format.js";
 import { showToast } from "../../../_core/notify.js";
 import { stopProspectWaveform } from "../../views/dialer/card.js";
 import { render } from "../../views/render.js";
-import { openSettings } from "../settings.js";
+import { openSettings } from "../../../features/settings.js";
 import { connectBrowserCall, prospectLabel } from "./connect.js";
 
 export async function dialLead(lead) {

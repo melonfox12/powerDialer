@@ -1,3 +1,9 @@
+import { registerAudioDevices } from "../../../../core.js";
+import { refreshAudioDevices } from "./devices.js";
+import { stopMicrophoneTest } from "../testing/index.js";
+
+registerAudioDevices(refreshAudioDevices, stopMicrophoneTest);
+
 export {
   applyVoiceAudioDevices,
   populateAudioSelect,

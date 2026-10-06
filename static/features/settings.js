@@ -1,11 +1,6 @@
-import { postJson, request } from "../../_core/api.js";
-import { arcadeSensory } from "../../features/arcade.js";
-import { refreshAudioDevices } from "../features/voice/device/index.js";
-import { stopMicrophoneTest } from "../features/voice/testing/index.js";
-import { S, state } from "../../_core/state.js";
-import { SECRET_INPUTS, byId, setText } from "../../_core/format.js";
-import { showToast } from "../../_core/notify.js";
-import { render } from "../views/render.js";
+import { arcadeSensory } from "./arcade.js";
+import { postJson, refreshAudioDevices, request, SECRET_INPUTS, S, byId, setText, showToast, state, stopMicrophoneTest } from "../core.js";
+import { render } from "../js/views/render.js";
 
 const SECRET_FIELDS = SECRET_INPUTS;
 

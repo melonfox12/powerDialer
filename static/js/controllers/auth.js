@@ -4,7 +4,7 @@ import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { drawProspectWaveform } from "../views/dialer/card.js";
 import { refreshState } from "./poller.js";
-import { applySavedSettings } from "./settings.js";
+import { applySavedSettings } from "../../features/settings.js";
 
 setUnauthorizedHandler(showLoginGate);
 
