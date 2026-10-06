@@ -3,14 +3,11 @@ import { arcadeSensory } from "../features/arcade/controller/index.js";
 import { refreshAudioDevices } from "../features/voice/device/index.js";
 import { stopMicrophoneTest } from "../features/voice/testing/index.js";
 import { S, state } from "../store/state.js";
-import { byId, setText } from "../utils/format.js";
+import { SECRET_INPUTS, byId, setText } from "../utils/format.js";
 import { showToast } from "../utils/notify.js";
 import { render } from "../views/render.js";
 
-const SECRET_FIELDS = [
-  ["authTokenInput", "auth token"],
-  ["apiSecretInput", "API key secret"],
-];
+const SECRET_FIELDS = SECRET_INPUTS;
 
 export function applySavedSettings(settings) {
   state.settings = settings;

@@ -1,4 +1,5 @@
 from core.dialer_session import record_disposition, status_for_disposition
+from shared.vocabulary import DEFAULT_OUTCOME_METRIC, OUTCOME_METRIC
 
 class OutcomeMixin:
     def live_outcome_lead_id(self):
@@ -21,11 +22,7 @@ class OutcomeMixin:
             if live_call:
                 live_call["outcome_chosen"] = True
         result = self.crm.set_status(lead_id, status, scheduled_until)
-        metric_key = {
-            "call": "call_later",
-            "interested": "interested",
-            "booked": "booked",
-        }.get(status, "disqualified")
+        metric_key = OUTCOME_METRIC.get(status, DEFAULT_OUTCOME_METRIC)
         self._bump(metric_key)
         with self.lock:
             if self.session:

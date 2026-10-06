@@ -1,6 +1,6 @@
 import { postJson } from "../api/client.js";
 import { state } from "../store/state.js";
-import { STATUS_LABELS, byId } from "../utils/format.js";
+import { STATUS_KEYS, STATUS_LABELS, byId } from "../utils/format.js";
 import { showToast } from "../utils/notify.js";
 import { importedColumns } from "../views/prospects-table/index.js";
 import { render } from "../views/render.js";
@@ -78,7 +78,7 @@ function statusField() {
   const select = document.createElement("select");
   select.name = "status";
   select.dataset.prospectField = "status";
-  for (const value of ["new", "call", "booked", "interested", "disqualified", "do_not_call"]) {
+  for (const value of STATUS_KEYS) {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = STATUS_LABELS[value];

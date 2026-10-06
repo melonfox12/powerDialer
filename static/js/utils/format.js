@@ -1,13 +1,14 @@
-export const STATUS_STYLES = {
-  new: { label: "New", color: "--muted", className: "neutral" },
-  call: { label: "Callback", color: "--amber", className: "callback" },
-  disqualified: { label: "Not interested", color: "--red", className: "negative" },
-  booked: { label: "Booked", color: "--success", className: "positive" },
-  interested: { label: "Interested", color: "--success", className: "positive" },
-  do_not_call: { label: "Do not call", color: "--red", className: "negative" },
-};
+const vocabulary = JSON.parse(document.getElementById("vocabulary").textContent);
+export const STATUS_STYLES = Object.fromEntries(vocabulary.statuses.map((status) => [status.key, {
+  label: status.label,
+  color: status.color,
+  className: status.className,
+}]));
 export const STATUS_LABELS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.label]));
 export const STATUS_COLOR_VARS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.color]));
+export const STATUS_KEYS = vocabulary.statuses.map((status) => status.key);
+export const TIMEZONE_NAMES = vocabulary.timezones;
+export const SECRET_INPUTS = vocabulary.secretInputs.map((item) => [item.id, item.label]);
 
 export const byId = (id) => document.getElementById(id);
 export function setText(id, value) {

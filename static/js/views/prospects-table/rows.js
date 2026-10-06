@@ -1,5 +1,5 @@
 import { S, selectedLeadIds, state } from "../../store/state.js";
-import { STATUS_LABELS, STATUS_STYLES, initials, statusDate } from "../../utils/format.js";
+import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, initials, statusDate } from "../../utils/format.js";
 import { formatPhoneNumber } from "../../utils/phone.js";
 import { openTranscript } from "../../utils/transcript.js";
 
@@ -76,7 +76,7 @@ export function appendLeadRows(body, leads, extras, onSelection) {
     const select = document.createElement("select");
     select.className = `status-select status-${STATUS_STYLES[lead.status]?.className || "neutral"}`;
     select.setAttribute("aria-label", `Call status for ${lead.name || lead.phone}`);
-    for (const value of ["new", "call", "booked", "interested", "disqualified", "do_not_call"]) {
+    for (const value of STATUS_KEYS) {
       const option = document.createElement("option");
       option.value = value;
       option.textContent = value === "call" && statusDate(lead) ? `Callback (${statusDate(lead)})` : STATUS_LABELS[value];

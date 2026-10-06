@@ -9,6 +9,7 @@ import urllib.parse
 
 from core.debug_log import debug_event
 from routes.runtime import MAX_BODY, QUIET_HTTP, STATIC_DIR
+from shared.vocabulary import vocabulary_json
 
 
 def log_server_fault(format, *args):
@@ -68,6 +69,12 @@ class HandlerMixin:
                     with open(part, "rb") as source:
                         chunks.append(source.read())
                 body = b"".join(chunks)
+                script = (
+                    b'<script type="application/json" id="vocabulary">'
+                    + vocabulary_json().encode("utf-8")
+                    + b"</script>"
+                )
+                body = body.replace(b"</head>", script + b"</head>", 1)
             except OSError:
                 self.send_json(404, {"error": "File not found"})
                 return

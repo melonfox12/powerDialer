@@ -1,29 +1,26 @@
 """Account sessions for the local app server."""
 
-import os
 import threading
 import time
 
 from crm_store import CRMStore
 from core.metrics_store import MetricsStore
+from shared.config import (
+    APP_HOST,
+    APP_PORT,
+    CRM_PATH,
+    ENV_PATH,
+    HOOK_HOST,
+    HOOK_PORT,
+    MAX_BODY,
+    METRICS_PATH,
+    PUBLIC_API_PATHS,
+    QUIET_HTTP,
+    STATIC_DIR,
+)
 from twilio_calls import TokenIndex, TwilioDialer
 
-APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATIC_DIR = os.path.join(APP_DIR, "static")
-CRM_PATH = os.path.join(APP_DIR, "crm_data")
-METRICS_PATH = os.path.join(APP_DIR, "metrics.json")
-ENV_PATH = os.path.join(APP_DIR, ".env")
-APP_HOST = "127.0.0.1"
-APP_PORT = 8000
-HOOK_HOST = "127.0.0.1"
-HOOK_PORT = 8765
-MAX_BODY = 12 * 1024 * 1024
-PUBLIC_API_PATHS = {"/api/health", "/api/auth/config", "/api/debug"}
-QUIET_HTTP = {
-    "/", "/index.html", "/static/", "/static/index.html",
-    "/app.css", "/app.js", "/static/app.css", "/static/app.js",
-    "/api/live", "/api/state", "/api/metrics", "/api/health", "/api/debug",
-}
+
 class Account:
     def __init__(self, crm, metrics, dialer):
         self.crm = crm

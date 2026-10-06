@@ -1,4 +1,4 @@
-import { STATUS_COLOR_VARS, STATUS_LABELS, byId, dayLabel } from "../../utils/format.js";
+import { STATUS_COLOR_VARS, STATUS_KEYS, STATUS_LABELS, byId, dayLabel } from "../../utils/format.js";
 
 export function buildMetricsLineChart(series) {
   const container = byId("metricsLineChart");
@@ -59,7 +59,7 @@ export function pieSlicePath(cx, cy, radius, startAngle, endAngle) {
 export function buildStatusPieChart(leads) {
   const chart = byId("statusPieChart");
   const legend = byId("statusPieLegend");
-  const statuses = ["new", "call", "booked", "interested", "disqualified", "do_not_call"];
+  const statuses = STATUS_KEYS;
   const counts = Object.fromEntries(statuses.map((status) => [status, 0]));
   for (const lead of leads) {
     if (Object.hasOwn(counts, lead.status)) counts[lead.status] += 1;

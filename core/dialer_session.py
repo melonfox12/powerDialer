@@ -3,22 +3,7 @@
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-STAGES = ("idle", "dialing", "ringing", "connected", "wrapup", "paused")
-DISPOSITION_TO_STATUS = {
-    "booked": "booked",
-    "callback": "call",
-    "not_interested": "disqualified",
-    "no_answer": "call",
-    "do_not_call": "do_not_call",
-}
-TIMEZONE_NAMES = {
-    "Eastern": "America/New_York",
-    "Central": "America/Chicago",
-    "Mountain": "America/Denver",
-    "Pacific": "America/Los_Angeles",
-    "Alaska": "America/Anchorage",
-    "Hawaii": "Pacific/Honolulu",
-}
+from shared.vocabulary import DISPOSITION_TO_STATUS, STAGES, TIMEZONE_NAMES
 
 
 def dialer_stage(running, paused, active, pending_outcome, in_flight):

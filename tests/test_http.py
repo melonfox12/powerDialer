@@ -98,10 +98,15 @@ class HttpContractTests(unittest.TestCase):
             snapshot.write_bytes(page)
         def comparable(body):
             text = body.replace(b"\r\n", b"\n")
-            return text.replace(
+            text = text.replace(
                 b'<button id="enterLiveButton" class="button button-secondary monitor-enter-live" type="button" hidden>Enter live line</button>',
                 b"",
             )
+            start = text.find(b'<script type="application/json" id="vocabulary">')
+            if start != -1:
+                end = text.find(b"</script>", start)
+                text = text[:start] + text[end + len(b"</script>"):]
+            return text
         self.assertEqual(comparable(page), comparable(snapshot.read_bytes()))
 
         status, raw, content_type = self.request("GET", "/css/01-tokens.css")

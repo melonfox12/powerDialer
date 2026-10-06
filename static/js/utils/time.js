@@ -1,3 +1,5 @@
+import { TIMEZONE_NAMES } from "./format.js";
+
 export function localDateTimeParts(date, timezoneName) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezoneName,
@@ -22,12 +24,7 @@ export function nextBusinessCallback(lead) {
 }
 
 export function timezoneFor(name) {
-  const zones = {
-    Eastern: "America/New_York", Central: "America/Chicago",
-    Mountain: "America/Denver", Pacific: "America/Los_Angeles",
-    Alaska: "America/Anchorage", Hawaii: "Pacific/Honolulu",
-  };
-  return zones[name] || name || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return TIMEZONE_NAMES[name] || name || Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
 export function localDateTimeToUtc(value, timezoneName) {

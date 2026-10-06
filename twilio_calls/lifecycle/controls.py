@@ -1,6 +1,7 @@
 import threading
 import time
 from core.dialer_session import session_summary
+from shared.vocabulary import OUTCOME_METRIC
 
 class ControlsMixin:
     def pause(self):
@@ -80,7 +81,7 @@ class ControlsMixin:
                 self.last_event = "Prospect skipped; choose a disposition" if self.running else "Prospect skipped"
         if not self.running:
             self.crm.set_status(call["lead_id"], "call")
-            self._bump("call_later")
+            self._bump(OUTCOME_METRIC["call"])
         self.record_activity("Prospect skipped; choose a disposition", "call")
         if call_uuid:
             threading.Thread(target=self._hangup_call, args=(call_uuid,), daemon=True).start()

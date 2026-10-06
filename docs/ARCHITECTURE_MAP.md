@@ -106,6 +106,13 @@ verbatim-body rule force.
 13. Arcade's mixin tower (`ParticlesMixin(ReelsMixin(AudioMixin(PlaybackMixin(ArcadeCore))))`)
     is the same composition rewrite as `TwilioDialer`: one state object in
     `static/features/arcade.js`, parts in `static/features/_arcade/`.
+14. Setting default values live in `shared/vocabulary.py` as `SETTING_DEFAULTS`.
+    `shared/config.py` `write_env` resets blank preferences from that dict. If
+    the values lived in `features/settings.py`, config would import a feature
+    and the dependency chain would point the wrong way. `twilio_calls/settings/defaults.py`
+    aliases `DIALER_DEFAULTS = SETTING_DEFAULTS` until phase 5 deletes the
+    alias. Validation (`_preferences`) stays with settings. Secret form fields
+    are `SECRET_INPUTS` (DOM id + label), not env keys.
 
 ## (b) Target tree and estimated lines
 
@@ -353,12 +360,12 @@ Home: `shared/vocabulary.py`. The browser receives `json.dumps` of the public di
 | Call states | `CALL_STATES` | Produced today: `creating`, `calling agent`, `ringing`, `live`, `cancelled`, `ended`, `skipped`. `listening` and `connecting` are not in the tuple; phase 3 deletes the checks that mention them. |
 | Timezone names | `TIMEZONE_NAMES` | `core/dialer_session.py` `TIMEZONE_NAMES`. `static/js/utils/time.js` `timezoneFor` map. |
 | Timezone aliases | `TIMEZONE_ALIASES`, `UTC_OFFSET_ZONES` | `crm_store/statuses.py`. Used by CSV import. |
-| Setting keys | `SETTING_KEYS`, `SECRET_SETTING_KEYS` | `DIALER_DEFAULTS` keys in `twilio_calls/settings/defaults.py` (values and validation stay in `features/settings.py`). `REMOTE_SETTING_KEYS` in `supabase_store/client/keys.py`. `SECRET_FIELDS` in `static/js/controllers/settings.js`. |
+| Setting keys | `SETTING_KEYS`, `SETTING_DEFAULTS`, `SECRET_INPUTS` | `DIALER_DEFAULTS` in `twilio_calls/settings/defaults.py` (values live here so `write_env` does not import settings; validation stays in settings). `REMOTE_SETTING_KEYS` in `supabase_store/client/keys.py`. `SECRET_FIELDS` in `static/js/controllers/settings.js`. |
 | `SETTINGS_ROW_ID = "app"` | `shared/vocabulary.py` | `supabase_store/client/keys.py`. It is the legacy row id, not a user id. |
 
 CSV header heuristics (`PHONE_HEADER_WORDS`, `BUSINESS_HEADER_WORDS`, `TIMEZONE_HEADER_WORDS`, `REVIEW_HEADER_WORDS`, `JUNK_HEADER`, `SCIENTIFIC_NUMBER`, `TIMEZONE_ABBREVIATION`) are import behavior, not shared vocabulary. They move only to `features/_prospects/csv_import.py`.
 
-Phase 4 breaks the storage→dialer import: `supabase_store/client/keys.py` currently imports `twilio_calls.settings.DIALER_DEFAULTS`. After phase 4 that module imports `SETTING_KEYS` and `METRIC_KEYS` from `shared.vocabulary` and does not import `twilio_calls`. `DIALER_DEFAULTS` values stay in `twilio_calls/settings/defaults.py` until phase 5 moves them to `features/settings.py`, and that file imports the key tuple from vocabulary so the keys are not restated.
+Phase 4 breaks the storage→dialer import: `supabase_store/client/keys.py` currently imports `twilio_calls.settings.DIALER_DEFAULTS`. After phase 4 that module imports `METRIC_KEYS`, `REMOTE_SETTING_KEYS`, and `SETTINGS_ROW_ID` from `shared.vocabulary` and does not import `twilio_calls`. Default values live in `SETTING_DEFAULTS` (deviation 14). Phase 5 deletes the `DIALER_DEFAULTS` alias; it does not move the values back into settings.
 
 ## (a) Current file → target
 

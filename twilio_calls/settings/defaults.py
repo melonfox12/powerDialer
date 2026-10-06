@@ -1,19 +1,9 @@
-import json
-import os
+from shared.config import read_env, write_env
+from shared.vocabulary import SETTING_DEFAULTS
 
 TWILIO_API = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}"
 
-DIALER_DEFAULTS = {
-    "SESSION_GOAL": "20",
-    "CONVERSATION_THRESHOLD_SECONDS": "30",
-    "AUTO_ADVANCE_DELAY_SECONDS": "3",
-    "SOUNDS_ENABLED": "true",
-    "SOUND_VOLUME": "35",
-    "BREAK_NUDGE_MINUTES": "90",
-    "CALLING_START_HOUR": "8",
-    "CALLING_END_HOUR": "21",
-    "OPENING_SCRIPT": "",
-}
+DIALER_DEFAULTS = SETTING_DEFAULTS
 
 def _preferences(values):
     result = dict(DIALER_DEFAULTS)
@@ -46,54 +36,3 @@ def _preferences(values):
     if len(result["OPENING_SCRIPT"]) > 2000:
         raise ValueError("Opening script must be 2,000 characters or fewer.")
     return result
-
-def read_env(path):
-    values = {}
-    if os.path.exists(path):
-        with open(path, encoding="utf-8") as env_file:
-            for line in env_file:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip()
-                    if key == "OPENING_SCRIPT":
-                        try:
-                            value = json.loads(value)
-                        except json.JSONDecodeError:
-                            pass
-                    else:
-                        value = value.strip('"').strip("'")
-                    values[key] = value
-    for key in (
-        "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_API_KEY",
-        "TWILIO_API_SECRET", "TWILIO_TWIML_APP_SID", "PUBLIC_BASE_URL",
-        "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY",
-        "SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY",
-        *DIALER_DEFAULTS.keys(),
-    ):
-        values.setdefault(key, os.environ.get(key, ""))
-    return values
-
-def write_env(path, updates):
-    values = read_env(path)
-    for key, value in updates.items():
-        stripped = str(value).strip()
-        if key == "OPENING_SCRIPT":
-            values[key] = json.dumps(stripped, ensure_ascii=False)
-        elif stripped:
-            values[key] = stripped
-        elif key in DIALER_DEFAULTS:
-            values[key] = DIALER_DEFAULTS[key]
-        else:
-            values[key] = ""
-    lines = [f"{key}={value}" for key, value in values.items() if value]
-    temp = path + ".tmp"
-    with open(temp, "w", encoding="utf-8") as env_file:
-        env_file.write("\n".join(lines) + "\n")
-    os.replace(temp, path)
-    try:
-        os.chmod(path, 0o600)
-    except OSError:
-        pass
-    return values
