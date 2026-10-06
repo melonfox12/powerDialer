@@ -93,13 +93,13 @@ class AppRuntime:
         return account
 
     def persist_settings(self, dialer):
-        from features.settings import merged_values
+        from features.settings import values
 
         user_id = getattr(dialer, "account_user_id", None)
         if not self.client or not user_id:
             return
         try:
-            save_app_settings(self.client, merged_values(dialer.env_path, dialer.account_values), user_id)
+            save_app_settings(self.client, values(dialer.env_path, dialer.account_values), user_id)
         except OSError as exc:
             message = str(exc)
             if "HTTP 404" in message or "PGRST205" in message or "does not exist" in message.lower():

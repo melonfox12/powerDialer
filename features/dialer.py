@@ -85,10 +85,25 @@ class Dialer(DialerState):
         return twilio_api.voice_access_token(self)
 
     def settings_state(self):
-        return settings_feature.settings_state(self)
+        return settings_feature.settings_state(
+            self.env_path,
+            self.account_values,
+            getattr(self, "storage_name", "local JSON files"),
+            getattr(self, "account_email", ""),
+        )
 
     def save_settings(self, data):
-        return settings_feature.save_settings(self, data)
+        save_remote = None
+        saver = getattr(self, "settings_saver", None)
+        if saver:
+            def save_remote(_stored, saver=saver):
+                saver(self)
+        parsed = settings_feature.save_settings(
+            self.env_path, self.account_values, self.account_user_id, data, save_remote,
+        )
+        with self.lock:
+            self.settings.update(parsed)
+        return self.settings_state()
 
 
 def get_state(request):

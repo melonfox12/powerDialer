@@ -37,16 +37,12 @@ def preferences(values):
     return result
 
 
-def merged_values(env_path, account_values):
+def values(env_path, account_values):
     return {**read_env(env_path), **account_values}
 
 
-def values(dialer):
-    return merged_values(dialer.env_path, dialer.account_values)
-
-
-def settings_state(dialer):
-    current = values(dialer)
+def settings_state(env_path, account_values, storage_name="local JSON files", account_email=""):
+    current = values(env_path, account_values)
     parsed = preferences(current)
     return {
         "account_sid": current.get("TWILIO_ACCOUNT_SID", ""),
@@ -57,8 +53,8 @@ def settings_state(dialer):
         "public_base_url": current.get("PUBLIC_BASE_URL", ""),
         "has_auth_token": bool(current.get("TWILIO_AUTH_TOKEN")),
         "has_api_secret": bool(current.get("TWILIO_API_SECRET")),
-        "storage": getattr(dialer, "storage_name", "local JSON files"),
-        "account_email": getattr(dialer, "account_email", ""),
+        "storage": storage_name or "local JSON files",
+        "account_email": account_email or "",
         "session_goal": int(parsed["SESSION_GOAL"]),
         "conversation_threshold": int(parsed["CONVERSATION_THRESHOLD_SECONDS"]),
         "auto_advance_delay": int(parsed["AUTO_ADVANCE_DELAY_SECONDS"]),
@@ -71,9 +67,9 @@ def settings_state(dialer):
     }
 
 
-def save_settings(dialer, data):
+def save_settings(env_path, account_values, account_user_id, data, save_remote=None):
     parsed = preferences({
-        **values(dialer),
+        **values(env_path, account_values),
         "SESSION_GOAL": data.get("session_goal", SETTING_DEFAULTS["SESSION_GOAL"]),
         "CONVERSATION_THRESHOLD_SECONDS": data.get("conversation_threshold", SETTING_DEFAULTS["CONVERSATION_THRESHOLD_SECONDS"]),
         "AUTO_ADVANCE_DELAY_SECONDS": data.get("auto_advance_delay", SETTING_DEFAULTS["AUTO_ADVANCE_DELAY_SECONDS"]),
@@ -84,7 +80,7 @@ def save_settings(dialer, data):
         "CALLING_END_HOUR": data.get("calling_end_hour", SETTING_DEFAULTS["CALLING_END_HOUR"]),
         "OPENING_SCRIPT": data.get("opening_script", ""),
     })
-    current = values(dialer)
+    current = values(env_path, account_values)
     updates = {
         "TWILIO_ACCOUNT_SID": str(data.get("account_sid", "")),
         "TWILIO_AUTH_TOKEN": str(data.get("auth_token", "")),
@@ -98,16 +94,13 @@ def save_settings(dialer, data):
         updates["TWILIO_AUTH_TOKEN"] = current.get("TWILIO_AUTH_TOKEN", "")
     if not updates["TWILIO_API_SECRET"]:
         updates["TWILIO_API_SECRET"] = current.get("TWILIO_API_SECRET", "")
-    if dialer.account_user_id:
-        dialer.account_values.update(updates)
-        saver = getattr(dialer, "settings_saver", None)
-        if saver:
-            saver(dialer)
+    if account_user_id:
+        account_values.update(updates)
+        if save_remote:
+            save_remote(values(env_path, account_values))
     else:
-        write_env(dialer.env_path, updates)
-    with dialer.lock:
-        dialer.settings.update(parsed)
-    return settings_state(dialer)
+        write_env(env_path, updates)
+    return parsed
 
 
 def load_app_settings(client, user_id=None):
@@ -149,16 +142,13 @@ def save_app_settings(client, stored_values, user_id=None):
 
 
 def get_settings(request):
-    dialer = request.account.dialer
-    request.runtime.reload_settings(dialer)
-    request.send_json(200, dialer.settings_state())
+    request.ctx.reload_settings()
+    request.send_json(200, request.ctx.settings_view())
 
 
 def post_settings(request, data):
-    dialer = request.account.dialer
-    dialer.save_settings(data)
-    request.runtime.persist_settings(dialer)
-    request.send_json(200, dialer.settings_state())
+    request.ctx.save_posted_settings(data)
+    request.send_json(200, request.ctx.settings_view())
 
 
 ROUTES = [

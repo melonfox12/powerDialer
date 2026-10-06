@@ -109,6 +109,7 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
             self.send_json(401, error)
             return False
         self.account = account
+        self.ctx = FeatureContext(self)
         return True
 
     def report_storage_error(self, exc):
@@ -219,6 +220,28 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
             prospects.delete_lead(self)
         else:
             self.send_json(404, {"error": "Not found"})
+
+
+class FeatureContext:
+    def __init__(self, request):
+        self.request = request
+
+    def state(self):
+        return self.request.account.dialer.public_state()
+
+    def log(self, message, source):
+        self.request.account.dialer.record_activity(message, source)
+
+    def reload_settings(self):
+        self.request.runtime.reload_settings(self.request.account.dialer)
+
+    def save_posted_settings(self, data):
+        session = self.request.account.dialer
+        session.save_settings(data)
+        self.request.runtime.persist_settings(session)
+
+    def settings_view(self):
+        return self.request.account.dialer.settings_state()
 
 
 def make_app_handler(runtime):

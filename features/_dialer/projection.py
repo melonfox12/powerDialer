@@ -62,7 +62,7 @@ def public_state(state):
     view["leads_version"] = getattr(state.crm, "revision", 0)
     view["selected_timezone"] = state.selected_timezone
     view["pool"] = calls._pool_leads(state, leads)
-    preferences = _preferences(setting_values(state))
+    preferences = _preferences(setting_values(state.env_path, state.account_values))
     view["settings"] = {
         "session_goal": int(preferences["SESSION_GOAL"]),
         "conversation_threshold": int(preferences["CONVERSATION_THRESHOLD_SECONDS"]),

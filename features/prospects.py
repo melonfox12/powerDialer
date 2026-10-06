@@ -126,18 +126,16 @@ class ProspectStore:
 
 
 def post_lead(request, data):
-    dialer = request.account.dialer
     lead = request.account.crm.add_lead(data)
-    request.send_json(200, {"lead": lead, "state": dialer.public_state()})
+    request.send_json(200, {"lead": lead, "state": request.ctx.state()})
 
 
 def post_import(request, data):
-    dialer = request.account.dialer
     result = request.account.crm.add_csv(data)
     try:
-        state = dialer.public_state()
+        state = request.ctx.state()
     except Exception as exc:
-        dialer.record_activity(f"Imported CSV but could not refresh state: {exc}", "error")
+        request.ctx.log(f"Imported CSV but could not refresh state: {exc}", "error")
         state = {"leads": request.account.crm.snapshot()}
     request.send_json(200, {"import": result, "state": state})
 
@@ -153,11 +151,10 @@ def get_export(request):
 
 
 def delete_lead(request):
-    dialer = request.account.dialer
     lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/"))
     try:
         request.account.crm.remove(lead_id)
-        request.send_json(200, dialer.public_state())
+        request.send_json(200, request.ctx.state())
     except KeyError as exc:
         request._trace_error = str(exc)
         request.send_json(404, {"error": str(exc)})

@@ -32,7 +32,7 @@ def start(state, priority_lead_id=None):
         state.activity_log.clear()
         state.activity_sequence = 0
     state.record_activity("Start dialing request received", "web")
-    values = setting_values(state)
+    values = setting_values(state.env_path, state.account_values)
     required = (
         "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_API_KEY",
         "TWILIO_API_SECRET", "TWILIO_TWIML_APP_SID", "PUBLIC_BASE_URL",
