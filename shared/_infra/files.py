@@ -9,8 +9,11 @@ LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.
 _lock = threading.Lock()
 _enabled = False
 _SECRET = re.compile(
-    r"(?i)\b(authorization|bearer|api[_ ]?secret|auth[_ ]?token|password)\b\s*[:=]\s*\S+"
+    r"(?i)(authorization|api[_ ]?secret|auth[_ ]?token|secret[_ ]?key|password)"
+    r"['\"]?\s*[:=]\s*['\"]?(?:(?:bearer|basic)\s+)?[^\s'\",;]+"
 )
+_BEARER = re.compile(r"(?i)\bbearer\s+[^\s'\",;]+")
+_SUPABASE_KEY = re.compile(r"\bsb_secret_[^\s'\",;]*")
 
 
 def utc_now():
@@ -43,6 +46,8 @@ def debug_event(kind, message, detail=""):
 
 def _redact(value):
     text = _SECRET.sub(lambda match: f"{match.group(1)}=[redacted]", str(value or ""))
+    text = _BEARER.sub("Bearer [redacted]", text)
+    text = _SUPABASE_KEY.sub("[redacted]", text)
     return " ".join(text.split())[:500]
 
 

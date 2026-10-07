@@ -363,6 +363,30 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(json.loads(raw.decode("utf-8"))["import"]["added"], 1)
 
 
+class DebugRedactionTests(unittest.TestCase):
+    def test_secrets_are_fully_redacted(self):
+        from shared._infra.files import _redact
+
+        for text, secret in (
+            ("TWILIO_AUTH_TOKEN=abc", "abc"),
+            ("TWILIO_API_SECRET=zz", "zz"),
+            ("auth_token: abc", "abc"),
+            ("Authorization: Bearer eyJabc", "eyJabc"),
+            ("sb_secret_xxx", "sb_secret_xxx"),
+            ("SUPABASE_SECRET_KEY=sb_secret_live123", "live123"),
+            ("headers {'Authorization': 'Bearer eyJtoken'}", "eyJtoken"),
+        ):
+            redacted = _redact(f"before {text} after")
+            self.assertNotIn(secret, redacted, text)
+            self.assertIn("[redacted]", redacted, text)
+            self.assertTrue(redacted.startswith("before "), redacted)
+
+    def test_plain_text_is_untouched(self):
+        from shared._infra.files import _redact
+
+        self.assertEqual(_redact("POST /api/settings 200 12ms"), "POST /api/settings 200 12ms")
+
+
 EXPECTED_ROUTES = {
     ("GET", "/api/auth/config"),
     ("GET", "/api/health"),
