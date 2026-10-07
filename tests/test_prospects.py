@@ -68,5 +68,50 @@ class ManualProspectTests(unittest.TestCase):
         self.assertEqual(added["fields"]["Rank"], "Rear admiral")
 
 
+class FailingPatchClient(FakeSupabaseClient):
+    def request(self, method, resource, params=None, payload=None, prefer=None):
+        if method == "PATCH":
+            raise OSError("Supabase HTTP 503")
+        return super().request(method, resource, params, payload, prefer)
+
+
+class SupabaseCacheTests(unittest.TestCase):
+    def test_failed_write_leaves_the_cached_lead_unchanged(self):
+        crm = ProspectStore(client=FailingPatchClient(prospect()))
+        self.assertEqual(crm.snapshot()[0]["status"], "new")
+        with self.assertRaises(OSError):
+            crm.set_status("prospect-1", "do_not_call")
+        with self.assertRaises(OSError):
+            crm.append_transcript("prospect-1", {"id": "s1", "speaker": "Agent", "text": "Hello"})
+        with self.assertRaises(OSError):
+            crm.append_call_log("prospect-1", {"id": "c1", "duration_seconds": 5})
+        cached = crm.snapshot()[0]
+        self.assertEqual(cached["status"], "new")
+        self.assertEqual(cached["transcript"], [])
+        self.assertNotIn("call_log", cached)
+
+    def test_successful_write_updates_the_cache(self):
+        client = FakeSupabaseClient(prospect())
+        crm = ProspectStore(client=client)
+        crm.set_status("prospect-1", "do_not_call")
+        crm.append_transcript("prospect-1", {"id": "s1", "speaker": "Agent", "text": "Hello"})
+        cached = crm.snapshot()[0]
+        self.assertEqual(cached["status"], "do_not_call")
+        self.assertEqual(cached["transcript"][0]["text"], "Hello")
+        self.assertEqual(client.leads["prospect-1"]["status"], "do_not_call")
+
+    def test_csv_import_totals_match_between_backends(self):
+        csv_body = b"Name,Phone\nBea,2025550112\nCy,2025550113\n"
+        supabase = ProspectStore(client=FakeSupabaseClient(prospect()))
+        with tempfile.TemporaryDirectory() as directory:
+            local = ProspectStore(Path(directory) / "crm.json")
+            local.leads = [prospect()]
+            local.save()
+            local_info = local.add_csv(csv_body)
+        supabase_info = supabase.add_csv(csv_body)
+        self.assertEqual(local_info["total"], 3)
+        self.assertEqual(supabase_info, local_info)
+
+
 if __name__ == "__main__":
     unittest.main()

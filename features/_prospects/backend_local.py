@@ -154,6 +154,9 @@ class LocalBackend:
         self.expire_due(save=False)
 
     def save_locked(self, lead):
+        for index, item in enumerate(self.leads):
+            if item["id"] == lead["id"]:
+                self.leads[index] = lead
         self.save()
 
     def remove(self, lead_id):

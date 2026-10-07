@@ -1,6 +1,7 @@
 """Prospect rules shared by the local and Supabase backends."""
 
 import urllib.parse
+from copy import deepcopy
 from datetime import datetime, timedelta
 
 from features._prospects.backend_local import LocalBackend
@@ -61,9 +62,7 @@ class ProspectStore:
         with self.lock:
             leads = self.backend.leads_locked()
             self.backend.expire_locked(leads)
-            lead = next((item for item in leads if item["id"] == lead_id), None)
-            if lead is None:
-                raise KeyError("Prospect not found")
+            lead = _copy_of(leads, lead_id)
             lead["status"] = status
             if scheduled_until:
                 try:
@@ -91,9 +90,7 @@ class ProspectStore:
             raise ValueError("A transcript segment needs text and a known speaker.")
         with self.lock:
             leads = self.backend.leads_locked()
-            lead = next((item for item in leads if item["id"] == lead_id), None)
-            if lead is None:
-                raise KeyError("Prospect not found")
+            lead = _copy_of(leads, lead_id)
             transcript = lead.setdefault("transcript", [])
             if entry["id"] and any(item.get("id") == entry["id"] for item in transcript):
                 return dict(lead)
@@ -114,15 +111,20 @@ class ProspectStore:
         }
         with self.lock:
             leads = self.backend.leads_locked()
-            lead = next((item for item in leads if item["id"] == lead_id), None)
-            if lead is None:
-                raise KeyError("Prospect not found")
+            lead = _copy_of(leads, lead_id)
             log = lead.setdefault("call_log", [])
             if record["id"] and any(item.get("id") == record["id"] for item in log):
                 return dict(lead)
             log.append(record)
             self.backend.save_locked(lead)
             return dict(lead)
+
+
+def _copy_of(leads, lead_id):
+    lead = next((item for item in leads if item["id"] == lead_id), None)
+    if lead is None:
+        raise KeyError("Prospect not found")
+    return deepcopy(lead)
 
 
 def post_lead(request, data):

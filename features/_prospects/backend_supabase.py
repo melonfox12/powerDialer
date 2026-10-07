@@ -119,7 +119,7 @@ class SupabaseBackend:
                     )
             leads.extend(additions)
             info["added"] = len(additions)
-            info["total"] = len(leads) + len(additions)
+            info["total"] = len(leads)
             if additions:
                 self._touch()
             return info
@@ -133,6 +133,10 @@ class SupabaseBackend:
 
     def save_locked(self, lead):
         self._write(lead)
+        leads = self._all()
+        for index, item in enumerate(leads):
+            if item["id"] == lead["id"]:
+                leads[index] = lead
         self._touch()
 
     def remove(self, lead_id):
