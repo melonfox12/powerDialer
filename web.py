@@ -102,7 +102,37 @@ def _match_pattern(pattern, path):
     return params
 
 
+UPLOAD_CONTENT_TYPES = ("application/octet-stream", "text/csv")
+
+
+def request_refusal(method, path, headers, port):
+    hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+    if str(headers.get("Host") or "").strip().lower() not in hosts:
+        return 403, "Unexpected Host header."
+    if method not in ("POST", "DELETE"):
+        return None
+    origin = headers.get("Origin")
+    if origin is not None and origin.strip().lower() not in {f"http://{host}" for host in hosts}:
+        return 403, "Cross-origin request refused."
+    if method == "POST":
+        found = match_route("POST", path)
+        upload = found is not None and found[0] is prospects.post_import
+        allowed = UPLOAD_CONTENT_TYPES if upload else ("application/json",)
+        if not str(headers.get("Content-Type") or "").strip().lower().startswith(allowed):
+            return 415, f"Content-Type must be {' or '.join(allowed)}."
+    return None
+
+
 class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
+    def refuse_untrusted(self):
+        refusal = request_refusal(self.command, self._trace_path, self.headers, self.server.server_address[1])
+        if refusal is None:
+            return False
+        status, message = refusal
+        self._trace_error = message
+        self.send_json(status, {"error": message})
+        return True
+
     def open_account(self, path):
         account, error = resolve_account(self.runtime, path, self.headers.get("Authorization", ""))
         if error:
@@ -122,6 +152,8 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
     def do_GET(self):
         self.begin_trace()
         path = self._trace_path
+        if self.refuse_untrusted():
+            return
         if path == "/api/auth/config":
             get_auth_config(self)
             return
@@ -165,6 +197,8 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
     def do_POST(self):
         self.begin_trace()
         path = self._trace_path
+        if self.refuse_untrusted():
+            return
         if path == "/api/debug":
             ingest_client_debug(self)
             return
@@ -210,6 +244,8 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
     def do_DELETE(self):
         self.begin_trace()
         path = self._trace_path
+        if self.refuse_untrusted():
+            return
         if not self.open_account(path):
             return
         account = self.account

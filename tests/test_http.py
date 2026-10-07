@@ -320,6 +320,48 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(stored["TWILIO_AUTH_TOKEN"], "keep-me")
         self.assertEqual(stored["TWILIO_API_SECRET"], "keep-too")
 
+    def test_cross_site_text_plain_post_is_rejected(self):
+        body = json.dumps({"account_sid": "ACevil", "public_base_url": "https://evil.example"})
+        status, _raw, _type = self.request("POST", "/api/settings", body, {"Content-Type": "text/plain"})
+        self.assertEqual(status, 415)
+        status, payload, _type = self.json_request("GET", "/api/settings")
+        self.assertEqual(payload["account_sid"], "")
+        self.assertEqual(payload["public_base_url"], "")
+
+    def test_foreign_origin_is_rejected(self):
+        for method, path in (("POST", "/api/settings"), ("POST", "/api/debug"), ("DELETE", "/api/leads/x")):
+            status, _raw, _type = self.request(method, path, b"{}", {
+                "Content-Type": "application/json",
+                "Origin": "https://evil.example",
+            })
+            self.assertEqual(status, 403, path)
+
+    def test_foreign_host_is_rejected(self):
+        port = self.servers.app_base.rsplit(":", 1)[1]
+        for method, path in (("GET", "/api/settings"), ("GET", "/"), ("POST", "/api/debug")):
+            status, _raw, _type = self.request(method, path, b"{}" if method == "POST" else None, {
+                "Content-Type": "application/json",
+                "Host": f"rebind.example:{port}",
+            })
+            self.assertEqual(status, 403, path)
+
+    def test_same_origin_json_post_and_csv_import_pass(self):
+        port = self.servers.app_base.rsplit(":", 1)[1]
+        for origin in (f"http://127.0.0.1:{port}", f"http://localhost:{port}"):
+            status, _raw, _type = self.request("POST", "/api/timezone", json.dumps({"timezone": "Eastern"}), {
+                "Content-Type": "application/json",
+                "Origin": origin,
+            })
+            self.assertEqual(status, 200, origin)
+        status, raw, _type = self.request(
+            "POST", "/api/import", b"Name,Phone\nCy,2025550113\n", {
+                "Content-Type": "application/octet-stream",
+                "Origin": f"http://127.0.0.1:{port}",
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw.decode("utf-8"))["import"]["added"], 1)
+
 
 EXPECTED_ROUTES = {
     ("GET", "/api/auth/config"),
