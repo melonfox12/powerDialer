@@ -276,6 +276,50 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assert_keys(payload, STATE_KEYS)
 
+    def test_settings_never_return_stored_secrets(self):
+        credentials = {
+            "account_sid": "ACstored",
+            "auth_token": "stored-auth-token",
+            "api_key": "SKstored",
+            "api_secret": "stored-api-secret",
+            "twiml_app_sid": "APstored",
+            "public_base_url": "https://example.ngrok.dev",
+        }
+        status, raw, _type = self.request(
+            "POST", "/api/settings", json.dumps(credentials), {"Content-Type": "application/json"},
+        )
+        self.assertEqual(status, 200)
+        self.assertNotIn(b"stored-auth-token", raw)
+        self.assertNotIn(b"stored-api-secret", raw)
+
+        status, raw, _type = self.request("GET", "/api/settings")
+        self.assertEqual(status, 200)
+        self.assertNotIn(b"stored-auth-token", raw)
+        self.assertNotIn(b"stored-api-secret", raw)
+        payload = json.loads(raw.decode("utf-8"))
+        self.assert_keys(payload, SETTINGS_KEYS)
+        self.assertEqual(payload["auth_token"], "")
+        self.assertEqual(payload["api_secret"], "")
+        self.assertTrue(payload["has_auth_token"])
+        self.assertTrue(payload["has_api_secret"])
+
+    def test_blank_secret_post_keeps_the_stored_secret(self):
+        from shared.config import read_env
+
+        base = {
+            "account_sid": "ACstored",
+            "api_key": "SKstored",
+            "twiml_app_sid": "APstored",
+            "public_base_url": "https://example.ngrok.dev",
+        }
+        self.json_request("POST", "/api/settings", {**base, "auth_token": "keep-me", "api_secret": "keep-too"})
+        status, payload, _type = self.json_request("POST", "/api/settings", {**base, "auth_token": "", "api_secret": ""})
+        self.assertEqual(status, 200)
+        self.assertTrue(payload["has_auth_token"])
+        stored = read_env(str(Path(self._tmp.name) / ".env"))
+        self.assertEqual(stored["TWILIO_AUTH_TOKEN"], "keep-me")
+        self.assertEqual(stored["TWILIO_API_SECRET"], "keep-too")
+
 
 EXPECTED_ROUTES = {
     ("GET", "/api/auth/config"),

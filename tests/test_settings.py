@@ -66,8 +66,10 @@ class SettingsTests(unittest.TestCase):
             self.assertEqual(saved[0].account_values["PUBLIC_BASE_URL"], "https://example.ngrok.dev")
             self.assertEqual(saved[0].account_values["SESSION_GOAL"], "12")
             shown = dialer.settings_state()
-            self.assertEqual(shown["auth_token"], "token")
-            self.assertEqual(shown["api_secret"], "secret")
+            self.assertEqual(shown["auth_token"], "")
+            self.assertEqual(shown["api_secret"], "")
+            self.assertTrue(shown["has_auth_token"])
+            self.assertTrue(shown["has_api_secret"])
             dialer.save_settings({
                 "account_sid": "ACexample",
                 "auth_token": "",
@@ -76,13 +78,11 @@ class SettingsTests(unittest.TestCase):
                 "twiml_app_sid": "APexample",
                 "public_base_url": "https://example.ngrok.dev",
             })
-            kept = dialer.settings_state()
-            self.assertEqual(kept["auth_token"], "token")
-            self.assertEqual(kept["api_secret"], "secret")
+            self.assertEqual(dialer.account_values["TWILIO_AUTH_TOKEN"], "token")
+            self.assertEqual(dialer.account_values["TWILIO_API_SECRET"], "secret")
             dialer.save_settings({"auth_token": "replaced-token", "api_secret": "replaced-secret", "account_sid": "ACexample", "api_key": "SKexample", "twiml_app_sid": "APexample", "public_base_url": "https://example.ngrok.dev"})
-            replaced = dialer.settings_state()
-            self.assertEqual(replaced["auth_token"], "replaced-token")
-            self.assertEqual(replaced["api_secret"], "replaced-secret")
+            self.assertEqual(dialer.account_values["TWILIO_AUTH_TOKEN"], "replaced-token")
+            self.assertEqual(dialer.account_values["TWILIO_API_SECRET"], "replaced-secret")
             self.assertNotIn("ACexample", env_path.read_text(encoding="utf-8") if env_path.exists() else "")
 
     def test_settings_round_trip_uses_dialer_settings_table(self):

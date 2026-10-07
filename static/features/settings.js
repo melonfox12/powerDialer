@@ -2,13 +2,16 @@ import { arcadeSensory } from "./arcade.js";
 import { postJson, refreshAudioDevices, render, request, SECRET_INPUTS, S, byId, setText, showToast, state, stopMicrophoneTest } from "../core.js";
 
 const SECRET_FIELDS = SECRET_INPUTS;
+const SAVED_SECRET_PLACEHOLDER = "Saved — leave blank to keep";
 
 export function applySavedSettings(settings) {
   state.settings = settings;
   byId("accountSidInput").value = settings.account_sid || "";
-  byId("authTokenInput").value = settings.auth_token || "";
+  byId("authTokenInput").value = "";
+  byId("authTokenInput").placeholder = settings.has_auth_token ? SAVED_SECRET_PLACEHOLDER : "";
   byId("apiKeyInput").value = settings.api_key || "";
-  byId("apiSecretInput").value = settings.api_secret || "";
+  byId("apiSecretInput").value = "";
+  byId("apiSecretInput").placeholder = settings.has_api_secret ? SAVED_SECRET_PLACEHOLDER : "";
   byId("twimlAppSidInput").value = settings.twiml_app_sid || "";
   byId("publicUrlInput").value = settings.public_base_url || "";
   byId("sessionGoalInput").value = settings.session_goal;
