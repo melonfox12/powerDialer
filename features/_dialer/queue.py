@@ -8,8 +8,6 @@ import urllib.parse
 from features._dialer import calls, slots, timing
 from features._dialer import projection, session_stats, twilio_api
 from features._dialer.session_stats import new_session, session_summary
-from features.settings import preferences as _preferences
-from features.settings import values as setting_values
 
 def set_timezone_filter(state, timezone):
     timezone = str(timezone or "").strip() or None
@@ -32,20 +30,20 @@ def start(state, priority_lead_id=None):
         state.activity_log.clear()
         state.activity_sequence = 0
     state.record_activity("Start dialing request received", "web")
-    values = setting_values(state.env_path, state.account_values)
+    raw = state.read_values()
     required = (
         "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_API_KEY",
         "TWILIO_API_SECRET", "TWILIO_TWIML_APP_SID", "PUBLIC_BASE_URL",
     )
-    missing = [key for key in required if not values.get(key)]
+    missing = [key for key in required if not raw.get(key)]
     if missing:
         raise ValueError("Complete Twilio account credentials, API key, TwiML App, and public HTTPS URL in Settings.")
-    public_url = values["PUBLIC_BASE_URL"].rstrip("/")
+    public_url = raw["PUBLIC_BASE_URL"].rstrip("/")
     parsed = urllib.parse.urlsplit(public_url)
     if parsed.scheme != "https" or not parsed.netloc:
         raise ValueError("Public webhook URL must start with https://")
-    preferences = _preferences(values)
-    state.settings = {**values, **preferences}
+    values = state.read_settings()
+    state.settings = values
     state.public_base_url = public_url
     state.record_activity("Checking Twilio account for voice-capable caller IDs", "api")
     numbers = twilio_api.twilio_request(values["TWILIO_ACCOUNT_SID"], values["TWILIO_AUTH_TOKEN"],
@@ -77,7 +75,7 @@ def start(state, priority_lead_id=None):
         state.callers = callers
         state.caller_index = 0
         state.conference = "crm-" + secrets.token_hex(8)
-        state.session = new_session(goal=int(preferences["SESSION_GOAL"]))
+        state.session = new_session(goal=int(values["SESSION_GOAL"]))
         state.manual_lead_id = priority["id"] if priority else None
         pinned_extra = 1 if priority and all(item["id"] != priority["id"] for item in eligible) else 0
         state.queue_total = len(eligible) + pinned_extra
@@ -201,5 +199,5 @@ def stop(state):
             result["previous_session"] = next(
                 (item for item in state.metrics.recent_sessions(5) if item.get("id") != summary["id"]),
                 None,
-                ) if hasattr(state.metrics, "recent_sessions") else None
+            )
     return result

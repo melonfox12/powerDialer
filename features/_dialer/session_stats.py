@@ -125,7 +125,7 @@ def session_summary(session, ended_at=None):
     return result
 
 def _save_session(state):
-    if state.metrics and state.session and hasattr(state.metrics, "save_session"):
+    if state.metrics and state.session:
         state.metrics.save_session(state.session)
 
 def _bump(state, key, amount=1):

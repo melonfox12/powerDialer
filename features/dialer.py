@@ -2,7 +2,7 @@
 
 twilio_api → state → session_stats → calls → projection → slots → timing → queue → _call_events → call_events → outcomes.
 
-slots imports calls. timing imports slots and projection. queue imports calls, then slots, then timing. call_events imports pickup, transcript, then ended. projection imports calls and does not import anything above it. Nothing in features/_dialer imports this module.
+slots imports calls. timing imports slots and projection. queue imports calls, then slots, then timing. call_events imports pickup, transcript, then ended. projection imports calls and does not import anything above it. Nothing in features/_dialer imports this module. Parts read credentials and preferences through read_values and read_settings.
 """
 
 import urllib.parse
@@ -18,6 +18,13 @@ __all__ = ["Dialer", "ROUTES", "TokenIndex", "TwilioError"]
 
 
 class Dialer(DialerState):
+    def read_values(self):
+        return settings_feature.values(self.env_path, self.account_values)
+
+    def read_settings(self):
+        current = self.read_values()
+        return {**current, **settings_feature.preferences(current)}
+
     def public_state(self):
         return projection.public_state(self)
 

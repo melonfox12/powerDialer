@@ -1,6 +1,5 @@
 """Twilio REST, TwiML helpers, webhook signature, and the call-token index."""
 
-from features.settings import values as _values
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VoiceGrant
 
@@ -78,8 +77,8 @@ class TokenIndex:
             return self._tokens.get(token)
 
 def validate_webhook(state, url, signature, params):
-    values = state.settings or _values(state.env_path, state.account_values)
-    auth_token = values.get("TWILIO_AUTH_TOKEN", "")
+    stored = state.settings or state.read_values()
+    auth_token = stored.get("TWILIO_AUTH_TOKEN", "")
     if not auth_token or not signature:
         return False
     signed = url
@@ -105,7 +104,7 @@ def _hangup_call(state, call_uuid):
 
 def voice_access_token(state):
     state.record_activity("Requesting browser Voice access token", "api")
-    values = _values(state.env_path, state.account_values)
+    values = state.read_values()
     required = (
         "TWILIO_ACCOUNT_SID", "TWILIO_API_KEY", "TWILIO_API_SECRET",
         "TWILIO_TWIML_APP_SID",

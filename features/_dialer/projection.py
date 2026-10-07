@@ -2,8 +2,6 @@
 
 from features._dialer import calls
 from features._dialer.session_stats import dialer_stage, new_session, recent_streak
-from features.settings import preferences as _preferences
-from features.settings import values as setting_values
 
 def public_state(state):
     leads = state.crm.snapshot()
@@ -62,7 +60,7 @@ def public_state(state):
     view["leads_version"] = getattr(state.crm, "revision", 0)
     view["selected_timezone"] = state.selected_timezone
     view["pool"] = calls._pool_leads(state, leads)
-    preferences = _preferences(setting_values(state.env_path, state.account_values))
+    preferences = state.read_settings()
     view["settings"] = {
         "session_goal": int(preferences["SESSION_GOAL"]),
         "conversation_threshold": int(preferences["CONVERSATION_THRESHOLD_SECONDS"]),
