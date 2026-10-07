@@ -1,6 +1,5 @@
 """Debug log, UTC clock, and atomic JSON writes."""
 
-import json
 import os
 import re
 import threading
@@ -52,7 +51,3 @@ def write_json_atomic(path, text):
     temp_path = path.with_suffix(path.suffix + ".tmp")
     temp_path.write_text(text, encoding="utf-8")
     temp_path.replace(path)
-
-
-def dumps_json(value, **kwargs):
-    return json.dumps(value, **kwargs)

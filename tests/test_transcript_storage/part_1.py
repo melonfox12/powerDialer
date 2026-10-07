@@ -107,7 +107,7 @@ class Part1:
             self.assertEqual(saved[0]["text"], "Can you send the estimate?")
 
     def test_example_leads_csv_imports_phone_name_and_timezone(self):
-        path = Path(__file__).resolve().parents[2] / "Claude outputs" / "example_leads.csv"
+        path = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "example_leads.csv"
         leads, info = parse_csv(path.read_bytes())
         self.assertGreaterEqual(len(leads), 1)
         self.assertEqual(info["skipped"], 0)

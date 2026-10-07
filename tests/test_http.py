@@ -95,8 +95,7 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("text/html", content_type)
         snapshot = ROOT / "docs" / "page-before.html"
-        if not snapshot.exists():
-            snapshot.write_bytes(page)
+        self.assertTrue(snapshot.exists(), f"Missing page snapshot {snapshot}")
         def comparable(body):
             text = body.replace(b"\r\n", b"\n").decode("utf-8")
             text = text.replace(
