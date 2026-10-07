@@ -8,8 +8,8 @@
 .performance-tab-panel > .section-heading,
 .performance-tab-panel > .metrics-stats,
 .performance-tab-panel > .performance-chart-grid {
-  width: min(440px, 100%);
-  max-width: 440px;
+  width: min(760px, 100%);
+  max-width: 760px;
   flex: none;
 }
 .performance-tab-panel .section-heading h2,
@@ -19,7 +19,7 @@
   font-weight: 590;
   letter-spacing: -0.02em;
 }
-.performance-tab-panel .section-heading h2 { font-size: 15px; }
+.performance-tab-panel .section-heading h2 { font-size: 22px; }
 .pool-table-summary { margin-top: 6px; font-size: 13px; }
 .metrics-stats,
 .performance-tab-panel[data-mode="summary"] .metrics-stats {
@@ -37,23 +37,23 @@
 }
 .performance-tab-panel[data-mode="summary"] .stat-tile strong {
   font-family: inherit;
-  font-size: 16px;
+  font-size: 22px;
   font-weight: 590;
 }
 .stat-label {
   font-family: inherit;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 450;
   letter-spacing: 0;
   text-transform: none;
 }
 .stat-tile strong {
   font-family: inherit;
-  font-size: 16px;
+  font-size: 22px;
   font-weight: 590;
   letter-spacing: -0.02em;
 }
-.stat-sub { font-size: 11px; }
+.stat-sub { font-size: 14px; }
 .performance-tab-panel .performance-chart-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -82,14 +82,22 @@
   margin-top: 8px;
 }
 .performance-tab-panel .line-chart-legend { margin: 6px 0 0; justify-content: flex-start; gap: 12px; }
+.performance-tab-panel .eyebrow,
+.performance-tab-panel .legend-item,
+.performance-tab-panel .status-pie-legend li,
+.performance-tab-panel .status-pie-legend strong { font-size: 15px; }
+.performance-tab-panel .line-chart-axis-label,
+.performance-tab-panel .line-chart-day-label { font-size: 12px; }
+.performance-tab-panel .pie-empty-label { font-size: 11px; }
+.performance-tab-panel .performance-chart-panel.has-no-data .line-chart { font-size: 15px; }
 .performance-tab-panel .status-chart-layout {
   flex: none;
   grid-template-columns: 72px minmax(0, 1fr);
   margin-top: 8px;
 }
 .performance-tab-panel .status-pie-chart { width: 72px; max-width: 72px; }
-.chart-panel-heading h3 { margin: 0; font-size: 13px; font-weight: 590; }
-.performance-mode-button { min-height: 24px; font-size: 12px; }
+.chart-panel-heading h3 { margin: 0; font-size: 16px; font-weight: 590; }
+.performance-mode-button { min-height: 24px; font-size: 14px; }
 
 .table-toolbar { min-height: 52px; border-bottom-color: #23252a; }
 .search-box,
