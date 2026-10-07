@@ -22,6 +22,10 @@ The anon key is only used for Google sign-in. The Python server still uses the s
 
 Dialer Twilio credentials and session preferences are saved per Google account in `dialer_settings`. Each prospect keeps a timezone for display and filtering. Calls are not blocked by local time or a missing timezone.
 
+## Upgrade
+
+After pulling a new version, re-run [`schema.sql`](./schema.sql) in the Supabase SQL editor before restarting `server.py`. It is safe to run on an existing project. The dialer now records metrics through the `increment_metric` function defined there; until it exists, every metric update fails.
+
 ## Move existing local data
 
 After running the SQL and configuring `.env`, you can run:

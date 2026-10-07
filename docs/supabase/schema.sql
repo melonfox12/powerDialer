@@ -114,15 +114,15 @@ grant select, insert, update, delete on public.dialer_settings to authenticated;
 
 drop function if exists public.increment_dialer_metric(text, integer);
 drop function if exists public.increment_dialer_metric(text, integer, uuid);
-create or replace function public.increment_dialer_metric(p_metric_key text, p_increment_by integer, p_for_user uuid)
+create or replace function public.increment_metric(p_user_id uuid, p_day date, p_metric_key text, p_amount bigint)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-    if p_for_user is null then
-        raise exception 'A user is required to increment dialer metrics';
+    if p_user_id is null or p_day is null then
+        raise exception 'A user and day are required to increment dialer metrics';
     end if;
     if p_metric_key not in (
         'booked', 'call_later', 'connected', 'disqualified', 'interested',
@@ -130,21 +130,21 @@ begin
     ) then
         raise exception 'Unknown dialer metric';
     end if;
-    if p_increment_by <= 0 then
+    if p_amount is null or p_amount <= 0 then
         raise exception 'Metric increment must be positive';
     end if;
 
     insert into public.dialer_metric_daily as daily (user_id, day, metric_key, value)
-    values (p_for_user, timezone('utc', now())::date, p_metric_key, p_increment_by)
+    values (p_user_id, p_day, p_metric_key, p_amount)
     on conflict (user_id, day, metric_key)
     do update set value = daily.value + excluded.value;
 
     insert into public.dialer_metric_totals as totals (user_id, metric_key, value)
-    values (p_for_user, p_metric_key, p_increment_by)
+    values (p_user_id, p_metric_key, p_amount)
     on conflict (user_id, metric_key)
     do update set value = totals.value + excluded.value;
 end;
 $$;
 
-revoke all on function public.increment_dialer_metric(text, integer, uuid) from public, anon, authenticated;
-grant execute on function public.increment_dialer_metric(text, integer, uuid) to service_role;
+revoke all on function public.increment_metric(uuid, date, text, bigint) from public, anon, authenticated;
+grant execute on function public.increment_metric(uuid, date, text, bigint) to service_role;
