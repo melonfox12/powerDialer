@@ -1,6 +1,9 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 from features.prospects import ProspectStore
 from features.settings import load_app_settings, preferences, save_app_settings
@@ -103,3 +106,66 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(loaded["SESSION_GOAL"], "40")
         self.assertEqual(loaded["TWILIO_ACCOUNT_SID"], "ACtest")
         self.assertEqual(stored["row"]["id"], "app")
+
+    def test_posted_settings_are_upserted_once(self):
+        from features.accounts import AppRuntime
+        from web import FeatureContext
+
+        calls = []
+
+        class RecordingClient:
+            anon_key = "anon"
+
+            def request(self, method, resource, params=None, payload=None, prefer=None):
+                calls.append((method, resource))
+                return [] if method == "GET" else None
+
+        runtime = AppRuntime()
+        runtime.client = RecordingClient()
+        account = runtime.session_for({"id": "user-1", "email": "rep@example.com"})
+        context = FeatureContext(SimpleNamespace(account=account, runtime=runtime))
+        context.save_posted_settings({"session_goal": "12"})
+        self.assertEqual(calls.count(("POST", "dialer_settings")), 1)
+
+    def test_signed_in_account_ignores_server_twilio_credentials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_path = Path(directory) / ".env"
+            env_path.write_text(
+                "TWILIO_ACCOUNT_SID=ACserver\nTWILIO_AUTH_TOKEN=server-token\n"
+                "TWILIO_API_SECRET=server-secret\nTWILIO_TWIML_APP_SID=APserver\n"
+                "PUBLIC_BASE_URL=https://server.example\nSESSION_GOAL=33\n",
+                encoding="utf-8",
+            )
+            crm = ProspectStore(Path(directory) / "crm.json")
+            with mock.patch.dict(os.environ, {"TWILIO_API_KEY": "SKenvironment"}):
+                local = Dialer(crm, str(env_path))
+                self.assertEqual(local.settings_state()["account_sid"], "ACserver")
+                self.assertEqual(local.settings_state()["api_key"], "SKenvironment")
+
+                dialer = Dialer(crm, str(env_path))
+                dialer.account_user_id = "user-1"
+                shown = dialer.settings_state()
+                values = dialer.read_values()
+            self.assertEqual(shown["account_sid"], "")
+            self.assertEqual(shown["auth_token"], "")
+            self.assertFalse(shown["has_auth_token"])
+            self.assertFalse(shown["has_api_secret"])
+            self.assertEqual(shown["api_key"], "")
+            self.assertEqual(shown["twiml_app_sid"], "")
+            self.assertEqual(shown["public_base_url"], "")
+            self.assertEqual(shown["session_goal"], 33)
+            self.assertEqual(values["TWILIO_AUTH_TOKEN"], "")
+
+    def test_supabase_without_anon_key_fails_at_startup(self):
+        import features.accounts as accounts
+
+        with tempfile.TemporaryDirectory() as directory:
+            env_path = Path(directory) / ".env"
+            env_path.write_text(
+                "SUPABASE_URL=https://project.supabase.co\nSUPABASE_SECRET_KEY=sb_secret_test\n",
+                encoding="utf-8",
+            )
+            cleared = {key: "" for key in ("SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY")}
+            with mock.patch.object(accounts, "ENV_PATH", str(env_path)), mock.patch.dict(os.environ, cleared):
+                with self.assertRaisesRegex(ValueError, "SUPABASE_ANON_KEY is required when Supabase storage is configured"):
+                    accounts.AppRuntime().configure()

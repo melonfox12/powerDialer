@@ -19,7 +19,7 @@ __all__ = ["Dialer", "ROUTES", "TokenIndex", "TwilioError"]
 
 class Dialer(DialerState):
     def read_values(self):
-        return settings_feature.values(self.env_path, self.account_values)
+        return settings_feature.values(self.env_path, self.account_values, signed_in=bool(self.account_user_id))
 
     def read_settings(self):
         current = self.read_values()
@@ -99,6 +99,7 @@ class Dialer(DialerState):
             self.account_values,
             getattr(self, "storage_name", "local JSON files"),
             getattr(self, "account_email", ""),
+            signed_in=bool(self.account_user_id),
         )
 
     def save_settings(self, data):

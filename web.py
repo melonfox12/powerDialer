@@ -274,7 +274,6 @@ class FeatureContext:
     def save_posted_settings(self, data):
         session = self.request.account.dialer
         session.save_settings(data)
-        self.request.runtime.persist_settings(session)
 
     def settings_view(self):
         return self.request.account.dialer.settings_state()

@@ -31,7 +31,7 @@ After pulling a new version, re-run [`schema.sql`](./schema.sql) in the Supabase
 After running the SQL and configuring `.env`, you can run:
 
 ```powershell
-python .\scripts\migrate_to_supabase.py
+python -m scripts.migrate_to_supabase --user-id YOUR-USER-UUID
 ```
 
-Imported rows are not attached to a Gmail user until you sign in and import CSV (or update `user_id` in the database). Prefer importing CSV after you sign in so the rows belong to that Google account.
+`--user-id` is required. Sign in with Google once first, then copy your user id from **Authentication → Users** in Supabase. Every imported prospect, metric, and session row is attached to that account.

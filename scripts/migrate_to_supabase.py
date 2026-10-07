@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Import existing local JSON data into Supabase without overwriting other records."""
 
+import argparse
 import os
+import uuid
 
 from shared.config import read_env
 from shared.infra import SupabaseClient
@@ -9,7 +11,7 @@ from shared.infra import SupabaseClient
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def migrate_local_data(client, crm_path, metrics_path):
+def migrate_local_data(client, crm_path, metrics_path, user_id):
     """Import local JSON data without overwriting different remote records."""
     from features.prospects import ProspectStore
     from features.metrics import MetricsStore
@@ -62,17 +64,17 @@ def migrate_local_data(client, crm_path, metrics_path):
             "POST",
             "prospects",
             {"on_conflict": "id"},
-            [{"id": lead["id"], "data": lead} for lead in batch],
+            [{"id": lead["id"], "user_id": user_id, "data": lead} for lead in batch],
             "resolution=merge-duplicates,return=minimal",
         )
     daily_rows = [
-        {"day": day, "metric_key": key, "value": value}
+        {"user_id": user_id, "day": day, "metric_key": key, "value": value}
         for day, values in metric_data.get("daily", {}).items()
         for key, value in values.items()
         if value
     ]
     total_rows = [
-        {"metric_key": key, "value": value}
+        {"user_id": user_id, "metric_key": key, "value": value}
         for key, value in metric_data.get("all_time", {}).items()
         if value
     ]
@@ -92,6 +94,7 @@ def migrate_local_data(client, crm_path, metrics_path):
             "dialer_sessions",
             payload=[{
                 "id": session["id"],
+                "user_id": user_id,
                 "started_at": session["started_at"],
                 "ended_at": session.get("ended_at"),
                 "data": session,
@@ -100,7 +103,20 @@ def migrate_local_data(client, crm_path, metrics_path):
         )
     return {"prospects": len(prospects), "daily_metrics": len(daily_rows), "totals": len(total_rows)}
 
-def main():
+def _user_id(value):
+    try:
+        return str(uuid.UUID(value))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("--user-id must be the Supabase auth user UUID.") from exc
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--user-id", required=True, type=_user_id,
+        help="Supabase auth user id (Authentication > Users) that will own the imported rows.",
+    )
+    args = parser.parse_args(argv)
     values = read_env(os.path.join(APP_DIR, ".env"))
     client = SupabaseClient.from_env(values)
     if not client:
@@ -112,6 +128,7 @@ def main():
         client,
         os.path.join(APP_DIR, "crm_data"),
         os.path.join(APP_DIR, "metrics.json"),
+        args.user_id,
     )
     print(
         "Imported "

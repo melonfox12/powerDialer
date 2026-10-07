@@ -1,7 +1,7 @@
 """Preference validation, settings view, and env or account persistence."""
 
 from shared.config import read_env, write_env
-from shared.vocabulary import REMOTE_SETTING_KEYS, SETTING_DEFAULTS, SETTINGS_ROW_ID
+from shared.vocabulary import REMOTE_SETTING_KEYS, SETTING_DEFAULTS, SETTINGS_ROW_ID, TWILIO_ACCOUNT_KEYS
 
 
 def preferences(values):
@@ -37,12 +37,15 @@ def preferences(values):
     return result
 
 
-def values(env_path, account_values):
-    return {**read_env(env_path), **account_values}
+def values(env_path, account_values, *, signed_in):
+    server = read_env(env_path)
+    if signed_in:
+        server = {key: "" if key in TWILIO_ACCOUNT_KEYS else value for key, value in server.items()}
+    return {**server, **account_values}
 
 
-def settings_state(env_path, account_values, storage_name="local JSON files", account_email=""):
-    current = values(env_path, account_values)
+def settings_state(env_path, account_values, storage_name="local JSON files", account_email="", *, signed_in):
+    current = values(env_path, account_values, signed_in=signed_in)
     parsed = preferences(current)
     return {
         "account_sid": current.get("TWILIO_ACCOUNT_SID", ""),
@@ -68,8 +71,9 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
 
 
 def save_settings(env_path, account_values, account_user_id, data, save_remote=None):
+    signed_in = bool(account_user_id)
     parsed = preferences({
-        **values(env_path, account_values),
+        **values(env_path, account_values, signed_in=signed_in),
         "SESSION_GOAL": data.get("session_goal", SETTING_DEFAULTS["SESSION_GOAL"]),
         "CONVERSATION_THRESHOLD_SECONDS": data.get("conversation_threshold", SETTING_DEFAULTS["CONVERSATION_THRESHOLD_SECONDS"]),
         "AUTO_ADVANCE_DELAY_SECONDS": data.get("auto_advance_delay", SETTING_DEFAULTS["AUTO_ADVANCE_DELAY_SECONDS"]),
@@ -80,7 +84,7 @@ def save_settings(env_path, account_values, account_user_id, data, save_remote=N
         "CALLING_END_HOUR": data.get("calling_end_hour", SETTING_DEFAULTS["CALLING_END_HOUR"]),
         "OPENING_SCRIPT": data.get("opening_script", ""),
     })
-    current = values(env_path, account_values)
+    current = values(env_path, account_values, signed_in=signed_in)
     updates = {
         "TWILIO_ACCOUNT_SID": str(data.get("account_sid", "")),
         "TWILIO_AUTH_TOKEN": str(data.get("auth_token", "")),
@@ -94,10 +98,10 @@ def save_settings(env_path, account_values, account_user_id, data, save_remote=N
         updates["TWILIO_AUTH_TOKEN"] = current.get("TWILIO_AUTH_TOKEN", "")
     if not updates["TWILIO_API_SECRET"]:
         updates["TWILIO_API_SECRET"] = current.get("TWILIO_API_SECRET", "")
-    if account_user_id:
+    if signed_in:
         account_values.update(updates)
         if save_remote:
-            save_remote(values(env_path, account_values))
+            save_remote(values(env_path, account_values, signed_in=True))
     else:
         write_env(env_path, updates)
     return parsed

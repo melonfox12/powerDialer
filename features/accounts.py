@@ -33,6 +33,8 @@ class AppRuntime:
         values = read_env(ENV_PATH)
         client = SupabaseClient.from_env(values)
         self.tokens = TokenIndex()
+        if client and not client.anon_key:
+            raise ValueError("SUPABASE_ANON_KEY is required when Supabase storage is configured.")
         if client:
             self.client = client
             self.storage_name = "Supabase"
@@ -99,7 +101,7 @@ class AppRuntime:
         if not self.client or not user_id:
             return
         try:
-            save_app_settings(self.client, values(dialer.env_path, dialer.account_values), user_id)
+            save_app_settings(self.client, values(dialer.env_path, dialer.account_values, signed_in=True), user_id)
         except OSError as exc:
             message = str(exc)
             if "HTTP 404" in message or "PGRST205" in message or "does not exist" in message.lower():
