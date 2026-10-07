@@ -24,6 +24,11 @@ class DialerState:
         self.account_email = ""
         self.token_index = None
         self.lock = threading.RLock()
+        self.metrics_lock = threading.Lock()
+        self.pending_bumps = []
+        self.session_save_pending = False
+        self.session_version = 0
+        self.saved_session_version = 0
         self.running = False
         self.paused = False
         self.agent_ready = False

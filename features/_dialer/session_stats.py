@@ -1,5 +1,6 @@
 """Stage, session accounting, local time, and metric bumps."""
 
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -125,9 +126,29 @@ def session_summary(session, ended_at=None):
     return result
 
 def _save_session(state):
+    """Record a session save. _flush_metrics performs it once state.lock is released."""
     if state.metrics and state.session:
-        state.metrics.save_session(state.session)
+        state.session_save_pending = True
 
 def _bump(state, key, amount=1):
+    """Record a metric bump. _flush_metrics performs it once state.lock is released."""
     if state.metrics:
-        state.metrics.bump(key, amount)
+        state.pending_bumps.append((key, amount))
+
+def _flush_metrics(state):
+    """Run recorded bumps and session saves. Never call while holding state.lock."""
+    with state.lock:
+        bumps, state.pending_bumps = state.pending_bumps, []
+        session = None
+        if state.session_save_pending and state.session:
+            state.session_version += 1
+            session = (state.session_version, deepcopy(state.session))
+        state.session_save_pending = False
+    if not state.metrics or (not bumps and session is None):
+        return
+    with state.metrics_lock:
+        for key, amount in bumps:
+            state.metrics.bump(key, amount)
+        if session and session[0] > state.saved_session_version:
+            state.metrics.save_session(session[1])
+            state.saved_session_version = session[0]

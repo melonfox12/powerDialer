@@ -62,6 +62,7 @@ def _call_ended(state, call, params):
             state.last_event = "No answer"
             should_schedule_advance = True
         others = list(state.in_flight.values()) if state.running else []
+    session_stats._flush_metrics(state)
     for other in others:
         calls._cancel_call(state, other)
     if log_entry and call.get("lead_id"):

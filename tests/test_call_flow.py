@@ -3,8 +3,11 @@ import hashlib
 import hmac
 import json
 import tempfile
+import threading
+import time
 import unittest
 import urllib.parse
+from pathlib import Path
 
 from tests.local_server import LocalServers
 
@@ -217,3 +220,64 @@ class CallFlowTests(unittest.TestCase):
         self.assertEqual(summary["dials"], 1)
         self.assertIn("duration_seconds", summary)
         self.assertNotIn("connect_times", summary)
+
+
+class SlowMetrics:
+    def __init__(self):
+        self.started = threading.Event()
+        self.bumps = []
+        self.sessions = []
+
+    def bump(self, key, amount=1):
+        self.started.set()
+        time.sleep(0.5)
+        self.bumps.append((key, amount))
+
+    def save_session(self, session):
+        self.started.set()
+        time.sleep(0.5)
+        self.sessions.append(dict(session))
+
+    def recent_sessions(self, limit=5):
+        return []
+
+
+class LockedIoTests(unittest.TestCase):
+    def test_public_state_does_not_wait_for_metric_io(self):
+        from features._dialer import calls
+        from features._dialer.session_stats import new_session
+        from features.dialer import Dialer
+        from features.prospects import ProspectStore
+
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = [{
+                "id": "prospect-1", "name": "Onyx", "business": "Onyx",
+                "phone": "+12025550123", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }]
+            metrics = SlowMetrics()
+            dialer = Dialer(crm, str(Path(directory) / ".env"), metrics=metrics)
+            dialer.running = True
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001"]
+            dialer.session = new_session(goal=5)
+            launched = []
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append(destination)
+            try:
+                worker = threading.Thread(target=dialer.fill_slots)
+                worker.start()
+                self.assertTrue(metrics.started.wait(2))
+                began = time.perf_counter()
+                dialer.public_state()
+                elapsed = time.perf_counter() - began
+                worker.join(5)
+            finally:
+                calls._launch_call = original_launch
+                if dialer.calling_window_timer:
+                    dialer.calling_window_timer.cancel()
+            self.assertLess(elapsed, 0.1)
+            self.assertEqual(launched, ["+12025550123"])
+            self.assertEqual(metrics.bumps, [("dials", 1)])
+            self.assertEqual([session["dials"] for session in metrics.sessions], [1])

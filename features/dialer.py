@@ -2,7 +2,7 @@
 
 twilio_api → state → session_stats → calls → projection → slots → timing → queue → _call_events → call_events → outcomes.
 
-slots imports calls. timing imports slots and projection. queue imports calls, then slots, then timing. call_events imports pickup, transcript, then ended. projection imports calls and does not import anything above it. Nothing in features/_dialer imports this module. Parts read credentials and preferences through read_values and read_settings.
+slots imports calls and session_stats. timing imports slots and projection. queue imports calls, then slots, then timing. call_events imports pickup, transcript, then ended. projection imports calls and does not import anything above it. Nothing in features/_dialer imports this module. Parts read credentials and preferences through read_values and read_settings.
 """
 
 import urllib.parse
@@ -10,7 +10,7 @@ import urllib.parse
 from features import settings as settings_feature
 from features._dialer import call_events, outcomes, projection, queue, twilio_api
 from features._dialer._call_events import ended, pickup, transcript
-from features._dialer import calls, slots, timing
+from features._dialer import calls, session_stats, slots, timing
 from features._dialer.state import DialerState
 from features._dialer.twilio_api import TokenIndex, TwilioError
 
@@ -38,7 +38,9 @@ class Dialer(DialerState):
         return queue.start(self, priority_lead_id)
 
     def _new_call(self, kind, lead):
-        return calls._new_call(self, kind, lead)
+        call = calls._new_call(self, kind, lead)
+        session_stats._flush_metrics(self)
+        return call
 
     def dial_lead(self, lead_id):
         return queue.dial_lead(self, lead_id)

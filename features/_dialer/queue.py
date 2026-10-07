@@ -87,6 +87,7 @@ def start(state, priority_lead_id=None):
         agent_call = calls._new_call(state, "agent", None)
         state.agent_call_token = agent_call["token"]
         slots._schedule_calling_window_check(state)
+    session_stats._flush_metrics(state)
     view = projection.public_state(state)
     view["client_call_token"] = agent_call["token"]
     return view
@@ -188,6 +189,7 @@ def stop(state):
         if summary:
             state.session.update(summary)
             session_stats._save_session(state)
+    session_stats._flush_metrics(state)
     state.record_activity("Dialer stopped", "call")
     for call in calls:
         if call.get("call_uuid"):

@@ -3,7 +3,7 @@
 import random
 import threading
 
-from features._dialer import calls
+from features._dialer import calls, session_stats
 
 
 def fill_slots(state):
@@ -27,6 +27,7 @@ def fill_slots(state):
             call = calls._new_call(state, "prospect", lead)
             call["caller_id"] = calls._next_caller(state)
             launches.append((call, lead["phone"]))
+    session_stats._flush_metrics(state)
     for call, destination in launches:
         calls._launch_call(state, call, destination)
     _schedule_calling_window_check(state)

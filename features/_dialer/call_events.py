@@ -141,6 +141,7 @@ def skip_active(state):
     if not state.running:
         state.crm.set_status(call["lead_id"], "call")
         session_stats._bump(state, OUTCOME_METRIC["call"])
+        session_stats._flush_metrics(state)
     state.record_activity("Prospect skipped; choose a disposition", "call")
     if call_uuid:
         threading.Thread(target=twilio_api._hangup_call, args=(state, call_uuid), daemon=True).start()

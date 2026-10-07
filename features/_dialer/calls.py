@@ -78,6 +78,7 @@ def _create_call(state, call, destination):
             state.paused = True
             state.last_error = str(exc)
             state.last_event = "Call request failed"
+        session_stats._flush_metrics(state)
         state.record_activity(f"Twilio call failed: {exc}", "error")
 
 def _cancel_call(state, call):

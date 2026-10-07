@@ -27,6 +27,7 @@ def choose_outcome(state, lead_id, status, scheduled_until=None):
     result = state.crm.set_status(lead_id, status, scheduled_until)
     metric_key = OUTCOME_METRIC.get(status, DEFAULT_OUTCOME_METRIC)
     session_stats._bump(state, metric_key)
+    session_stats._flush_metrics(state)
     with state.lock:
         if state.session:
             record_disposition(state.session, status)
@@ -35,6 +36,7 @@ def choose_outcome(state, lead_id, status, scheduled_until=None):
             state.pending_outcome = None
         state.last_event = f"{result['name'] or result['phone']} marked {status}"
         can_continue = state.running and not state.paused and not live_call
+    session_stats._flush_metrics(state)
     if can_continue:
         timing._schedule_advance(state)
     return result

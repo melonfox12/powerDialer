@@ -25,6 +25,7 @@ def _pickup(state, call):
         caller = call.get("caller_id") or ""
         state.last_event = f"Picked up {name}" + (f" from {caller}" if caller else "")
         others = [item for item in state.in_flight.values() if item is not call]
+    session_stats._flush_metrics(state)
     for other in others:
             calls._cancel_call(state, other)
     state.record_activity(f"Pickup on the line: {name}. Stay on it or skip.", "call")
@@ -55,6 +56,7 @@ def _machine_result(state, call, params):
             state.last_event = f"Live voice: {name}"
         else:
             state.last_event = f"On the line: {name}"
+    session_stats._flush_metrics(state)
     if not call.get("picked_up"):
         _pickup(state, call)
     state.record_activity(
