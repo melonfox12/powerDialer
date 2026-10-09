@@ -218,7 +218,7 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
                 self.send_json(404, {"error": "Not found"})
                 return
             handler, _profile, _params = found
-            if handler in (prospects.post_lead, settings.post_settings, dialer.post_timezone, dialer.post_status):
+            if handler in (prospects.post_lead, prospects.post_fields, settings.post_settings, dialer.post_timezone, dialer.post_status):
                 handler(self, self.read_json(body))
             elif handler is prospects.post_import:
                 handler(self, body)

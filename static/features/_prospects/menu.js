@@ -38,6 +38,8 @@ export function bindProspectMenu() {
     button.setAttribute("aria-label", blocked ? "Do not call" : missing ? "No number to dial" : `Dial ${formatPhoneNumber(nextLead.phone)}`);
     document.querySelectorAll(".prospect-menu-target").forEach((item) => item.classList.remove("prospect-menu-target"));
     row.classList.add("prospect-menu-target");
+    const sortMenu = document.getElementById("columnSortMenu");
+    if (sortMenu) sortMenu.hidden = true;
     menu.hidden = false;
     menu.style.left = "0px";
     menu.style.top = "0px";
@@ -48,6 +50,10 @@ export function bindProspectMenu() {
   }
 
   document.addEventListener("contextmenu", (event) => {
+    if (event.target instanceof Element && event.target.closest("input, textarea, select")) {
+      if (!menu.hidden) closeMenu();
+      return;
+    }
     const row = event.target instanceof Element
       ? event.target.closest("#tableBody tr[data-lead-id], #poolTableBody tr[data-lead-id]")
       : null;

@@ -10,6 +10,9 @@ export function bindProspects() {
     const { lead, status, select } = event.detail;
     changeLeadStatus(lead, status, select);
   });
+  document.addEventListener("prospect-field", (event) => {
+    saveLeadField(event.detail);
+  });
 }
 
 export async function changeLeadStatus(lead, status, select) {
@@ -24,6 +27,26 @@ export async function changeLeadStatus(lead, status, select) {
   } catch (error) {
     select.value = lead.status;
     select.disabled = false;
+    byId("saveState").textContent = "Save failed";
+    showToast(error.message, true);
+  }
+}
+
+async function saveLeadField({ lead, field, value, previous, extra, input }) {
+  const payload = extra ? { fields: { [extra]: value } } : { [field]: value };
+  input.disabled = true;
+  byId("saveState").textContent = "Saving…";
+  try {
+    const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/fields`, payload);
+    Object.assign(state, result.state);
+    byId("saveState").textContent = "All changes saved";
+    input.blur();
+    render();
+  } catch (error) {
+    if (input.isConnected) {
+      input.value = previous;
+      input.disabled = false;
+    }
     byId("saveState").textContent = "Save failed";
     showToast(error.message, true);
   }

@@ -1,6 +1,6 @@
 import { postJson } from "../../_core/api.js";
 import { state } from "../../_core/state.js";
-import { STATUS_KEYS, STATUS_LABELS, byId } from "../../_core/format.js";
+import { STATUS_KEYS, STATUS_LABELS, byId, fillTimezoneSelect } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { importedColumns } from "./query.js";
 import { render } from "../../core.js";
@@ -8,8 +8,10 @@ import { render } from "../../core.js";
 const STANDARD_FIELDS = [
   ["name", "Prospect", "text", ""],
   ["business", "Company", "text", ""],
+  ["state", "State", "text", ""],
+  ["city", "City", "text", ""],
   ["phone", "Phone Number", "tel", ""],
-  ["timezone", "Timezone", "text", "Eastern, Central, Pacific…"],
+  ["timezone", "Timezone", "timezone", ""],
 ];
 
 export function bindAddProspect() {
@@ -29,7 +31,7 @@ function openAddProspectDialog() {
   const fields = byId("addProspectFields");
   fields.replaceChildren();
   for (const [name, label, type, placeholder] of STANDARD_FIELDS) {
-    fields.append(textField(name, label, { type, placeholder, required: name === "phone" }));
+    fields.append(type === "timezone" ? timezoneField() : textField(name, label, { type, placeholder, required: name === "phone" }));
   }
   for (const column of importedColumns()) {
     fields.append(textField(`extra:${column}`, column, { extra: column }));
@@ -70,6 +72,19 @@ function textField(name, label, options = {}) {
   return wrap;
 }
 
+function timezoneField() {
+  const wrap = document.createElement("label");
+  wrap.className = "form-field";
+  const title = document.createElement("span");
+  title.textContent = "Timezone";
+  const select = document.createElement("select");
+  select.name = "timezone";
+  select.dataset.prospectField = "timezone";
+  fillTimezoneSelect(select, "Unknown");
+  wrap.append(title, select);
+  return wrap;
+}
+
 function statusField() {
   const wrap = document.createElement("label");
   wrap.className = "form-field";
@@ -107,6 +122,8 @@ async function saveProspect() {
     const result = await postJson("/api/leads", {
       name: fieldValue("name"),
       business: fieldValue("business"),
+      state: fieldValue("state"),
+      city: fieldValue("city"),
       phone: fieldValue("phone"),
       timezone: fieldValue("timezone"),
       status: fieldValue("status") || "new",

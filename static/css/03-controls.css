@@ -5,6 +5,8 @@
 table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; }
 thead { position: sticky; z-index: 2; top: 0; background: var(--canvas); }
 th { height: 39px; padding: 0 13px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: .025em; white-space: nowrap; }
+th.sortable-column { cursor: context-menu; }
+.column-sort-mark { margin-left: 6px; color: var(--ink-secondary); font-size: 9px; letter-spacing: 0; }
 td { height: 56px; max-width: 240px; overflow: hidden; padding: 7px 13px; border-bottom: 1px solid var(--line); color: var(--ink-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 tbody tr { transition: background .12s; }
 tbody tr:hover { background: rgba(255, 255, 255, .03); }
@@ -20,6 +22,12 @@ tbody tr:last-child td { border-bottom: 0; }
 .contact-copy strong { overflow: hidden; color: var(--ink); font-size: 12px; font-weight: 590; text-overflow: ellipsis; }
 .contact-copy span { overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; }
 .phone-cell { color: var(--ink-secondary); font-family: var(--mono); font-size: 11px; }
+.cell-editor { width: 100%; min-width: 0; height: 28px; margin: 0; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: inherit; font: inherit; }
+.cell-editor:hover { border-color: var(--line-strong); }
+.cell-editor:focus { border-color: var(--primary); outline: none; background: var(--canvas); box-shadow: var(--focus-ring); }
+.contact-copy .cell-editor { color: var(--ink); font-weight: 590; }
+.phone-cell .cell-editor { font-family: var(--mono); font-size: 11px; }
+td:has(.cell-editor) { overflow: visible; }
 .status-cell { position: relative; overflow: visible; }
 .status-cell:focus-within { z-index: 3; }
 .status-select { max-width: 156px; min-width: 115px; height: 27px; padding: 0 25px 0 9px; border: 1px solid transparent; border-radius: var(--radius-full); appearance: auto; font-size: 11px; font-weight: 510; cursor: pointer; }

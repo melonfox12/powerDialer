@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from features._prospects.backend_local import LocalBackend
 from features._prospects.backend_supabase import SupabaseBackend
 from features._prospects.csv_export import csv_bytes_for
-from features._prospects.csv_import import parse_csv
+from features._prospects.csv_import import parse_csv, update_lead_fields
 from shared.infra import utc_now
 from shared.vocabulary import STATUS_KEYS
 
@@ -46,6 +46,16 @@ class ProspectStore:
 
     def add_lead(self, payload):
         return self.backend.add_lead(payload)
+
+    def update_fields(self, lead_id, payload):
+        with self.lock:
+            leads = self.backend.leads_locked()
+            self.backend.expire_locked(leads)
+            lead = _copy_of(leads, lead_id)
+            others = (item.get("phone") for item in leads if item["id"] != lead_id)
+            update_lead_fields(lead, payload, others)
+            self.backend.save_locked(lead)
+            return dict(lead)
 
     def add_csv(self, data):
         return self.backend.add_csv(data)
@@ -132,6 +142,12 @@ def post_lead(request, data):
     request.send_json(200, {"lead": lead, "state": request.ctx.state()})
 
 
+def post_fields(request, data):
+    lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/").removesuffix("/fields"))
+    lead = request.account.crm.update_fields(lead_id, data)
+    request.send_json(200, {"lead": lead, "state": request.ctx.state()})
+
+
 def post_import(request, data):
     result = request.account.crm.add_csv(data)
     try:
@@ -167,6 +183,7 @@ def delete_lead(request):
 
 ROUTES = [
     ("POST", "/api/leads", post_lead, "POST"),
+    ("POST", "/api/leads/{id}/fields", post_fields, "POST"),
     ("POST", "/api/import", post_import, "POST"),
     ("GET", "/api/export.csv", get_export, "GET reads"),
     ("DELETE", "/api/leads/{id}", delete_lead, "DELETE"),

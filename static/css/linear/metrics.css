@@ -122,7 +122,7 @@ td {
   border-bottom-color: #23252a;
   font-size: 13px;
 }
-.contact-copy strong { font-size: 13px; }
+.contact-copy strong, .contact-copy .cell-editor { font-size: 13px; }
 .contact-copy span,
 .phone-cell { font-size: 12px; }
 .table-footer { border-top-color: #23252a; font-size: 12px; }
@@ -175,6 +175,8 @@ td {
   background: #28282c;
   outline: none;
 }
+.prospect-menu button[aria-checked="true"] { color: #f7f8f8; }
+.prospect-menu button[aria-checked="true"]::after { content: "✓"; color: #8a8f98; }
 .prospect-menu button:disabled { color: #8a8f98; cursor: default; }
 .prospect-menu-phone { color: #8a8f98; font-family: var(--mono); font-size: 12px; }
 tbody tr.prospect-menu-target,

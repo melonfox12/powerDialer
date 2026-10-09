@@ -396,6 +396,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/settings"),
     ("GET", "/api/metrics"),
     ("POST", "/api/leads"),
+    ("POST", "/api/leads/{id}/fields"),
     ("POST", "/api/import"),
     ("GET", "/api/export.csv"),
     ("DELETE", "/api/leads/{id}"),

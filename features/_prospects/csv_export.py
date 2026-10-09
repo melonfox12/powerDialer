@@ -1,16 +1,20 @@
 import csv
 from io import StringIO
 
+from features._prospects.csv_import import location_text
+
+_STANDARD_EXPORT_FIELDS = {
+    "name", "business", "state", "city", "phone", "call_status", "scheduled_until", "call transcript",
+}
+
 def csv_bytes_for(leads):
     field_names = []
     for lead in leads:
         for key in lead.get("fields", {}):
-            if key not in field_names and key.strip().lower() not in {
-                "name", "business", "phone", "call_status", "scheduled_until", "call transcript"
-            }:
+            if key not in field_names and key.strip().lower() not in _STANDARD_EXPORT_FIELDS:
                 field_names.append(key)
     output = StringIO(newline="")
-    headers = field_names + ["Name", "Business", "Phone", "call_status", "scheduled_until", "Call transcript"]
+    headers = field_names + ["Name", "Business", "State", "City", "Phone", "call_status", "scheduled_until", "Call transcript"]
     writer = csv.DictWriter(output, fieldnames=headers, extrasaction="ignore")
     writer.writeheader()
     for lead in leads:
@@ -18,6 +22,8 @@ def csv_bytes_for(leads):
         row.update({
             "Name": lead.get("name", ""),
             "Business": lead.get("business", ""),
+            "State": location_text(lead, "state"),
+            "City": location_text(lead, "city"),
             "Phone": lead.get("phone", ""),
             "call_status": lead.get("status", "new"),
             "scheduled_until": lead.get("scheduled_until") or "",

@@ -17,6 +17,8 @@ TIMEZONE_HEADER_WORDS = ("timezone", "time zone", "tz")
 REVIEW_HEADER_WORDS = ("review", "rating count", "num reviews", "num_reviews")
 
 TIMEZONE_ABBREVIATION = re.compile(r"\b(e[sd]t|c[sd]t|m[sd]t|p[sd]t|akst|akdt|hst)\b", re.I)
+STATE_HEADER = re.compile(r"\bstate\b", re.I)
+CITY_HEADER = re.compile(r"\bcity\b", re.I)
 JUNK_HEADER = re.compile(r"\b(e-?mail|address|street|city|state|zip|postal|country|url|website|linkedin|notes?|status|id|title|industry|revenue|source|date|fax)\b", re.I)
 SCIENTIFIC_NUMBER = re.compile(r"^(\d)(?:\.(\d+))?[eE]\+?(\d+)$")
 
@@ -165,6 +167,12 @@ def parse_csv(data, known_phones=()):
         used.add(name_column)
     if business_column is not None:
         used.add(business_column)
+    state_column = _header_column(header, used, STATE_HEADER)
+    if state_column is not None:
+        used.add(state_column)
+    city_column = _header_column(header, used, CITY_HEADER)
+    if city_column is not None:
+        used.add(city_column)
     timezone_column = next((i for i, value in enumerate(header or [])
                             if i not in used and any(word in value.lower() for word in TIMEZONE_HEADER_WORDS)), None)
     if timezone_column is not None:
@@ -199,13 +207,16 @@ def parse_csv(data, known_phones=()):
             name = f"{row[first_name]} {row[last_name]}".strip()
         else:
             name = row[name_column].strip() if name_column is not None else ""
-        fields = {headers[index]: value for index, value in enumerate(row) if value}
+        located = {index for index in (state_column, city_column) if index is not None}
+        fields = {headers[index]: value for index, value in enumerate(row) if value and index not in located}
         timezone = _timezone(row[timezone_column]) if timezone_column is not None else None
         review_count = _review_count(row[review_column]) if review_column is not None else None
         leads.append({
             "id": str(uuid.uuid4()),
             "name": name,
             "business": row[business_column].strip() if business_column is not None else "",
+            "state": row[state_column].strip() if state_column is not None else "",
+            "city": row[city_column].strip() if city_column is not None else "",
             "phone": phone,
             "timezone": timezone or "Unknown",
             "review_count": review_count,
@@ -220,6 +231,8 @@ def parse_csv(data, known_phones=()):
 _LIMITS = {
     "name": 200,
     "business": 200,
+    "state": 80,
+    "city": 120,
     "timezone": 80,
     "transcript": 4000,
 }
@@ -230,6 +243,8 @@ def build_manual_lead(payload, known_phones=()):
         raise ValueError("Prospect details must be an object.")
     name = _text(payload.get("name"), "name")
     business = _text(payload.get("business"), "business")
+    state = _text(payload.get("state"), "state")
+    city = _text(payload.get("city"), "city")
     phone = _phone(payload.get("phone"))
     if not phone:
         raise ValueError("Enter a valid phone number.")
@@ -246,6 +261,8 @@ def build_manual_lead(payload, known_phones=()):
         "id": str(uuid.uuid4()),
         "name": name,
         "business": business,
+        "state": state,
+        "city": city,
         "phone": phone,
         "timezone": timezone,
         "review_count": None,
@@ -255,6 +272,66 @@ def build_manual_lead(payload, known_phones=()):
         "fields": fields,
         "created_at": utc_now().isoformat(),
     }
+
+
+def update_lead_fields(lead, payload, known_phones=()):
+    if not isinstance(payload, dict):
+        raise ValueError("Prospect details must be an object.")
+    changed = False
+    if "name" in payload:
+        lead["name"] = _text(payload.get("name"), "name")
+        changed = True
+    if "business" in payload:
+        lead["business"] = _text(payload.get("business"), "business")
+        changed = True
+    if "state" in payload:
+        lead["state"] = _text(payload.get("state"), "state")
+        _forget_location_alias(lead, "state")
+        changed = True
+    if "city" in payload:
+        lead["city"] = _text(payload.get("city"), "city")
+        _forget_location_alias(lead, "city")
+        changed = True
+    if "phone" in payload:
+        phone = _phone(payload.get("phone"))
+        if not phone:
+            raise ValueError("Enter a valid phone number.")
+        if phone in set(known_phones):
+            raise ValueError("A prospect with that phone number already exists.")
+        lead["phone"] = phone
+        changed = True
+    if "timezone" in payload:
+        lead["timezone"] = _timezone(_text(payload.get("timezone"), "timezone")) or "Unknown"
+        changed = True
+    if "fields" in payload:
+        lead["fields"] = _merged_fields(lead.get("fields"), payload.get("fields"))
+        changed = True
+    if not changed:
+        raise ValueError("No prospect fields to update.")
+    return lead
+
+
+def _header_column(header, used, pattern):
+    if not header:
+        return None
+    return next((index for index, value in enumerate(header) if index not in used and pattern.search(value)), None)
+
+
+def location_text(lead, key):
+    direct = str((lead or {}).get(key) or "").strip()
+    if direct:
+        return direct
+    for name, value in ((lead or {}).get("fields") or {}).items():
+        if str(name).strip().lower() == key:
+            return str(value or "").strip()
+    return ""
+
+
+def _forget_location_alias(lead, key):
+    fields = lead.get("fields") or {}
+    cleaned = {name: value for name, value in fields.items() if str(name).strip().lower() != key}
+    if cleaned != fields:
+        lead["fields"] = cleaned
 
 
 def _text(value, key):
@@ -270,17 +347,26 @@ def _extra_fields(raw):
         return {}
     if not isinstance(raw, dict):
         raise ValueError("Extra fields must be an object.")
-    if len(raw) > 40:
-        raise ValueError("A prospect can have at most 40 extra fields.")
-    fields = {}
+    return _merged_fields({}, raw)
+
+
+def _merged_fields(current, raw):
+    if not isinstance(raw, dict):
+        raise ValueError("Extra fields must be an object.")
+    fields = dict(current or {})
     for key, value in raw.items():
         label = str(key or "").strip()
         text = str(value or "").strip()
-        if not label or not text:
+        if not label:
+            continue
+        if not text:
+            fields.pop(label, None)
             continue
         if len(label) > 120 or len(text) > 500:
             raise ValueError("Each extra field name must be 120 characters or fewer, and each value 500 or fewer.")
         fields[label] = text
+    if len(fields) > 40:
+        raise ValueError("A prospect can have at most 40 extra fields.")
     return fields
 
 

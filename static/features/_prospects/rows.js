@@ -1,7 +1,7 @@
 import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
-import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, initials, statusDate } from "../../_core/format.js";
-import { formatPhoneNumber } from "../../_core/phone.js";
+import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, fillTimezoneSelect, initials, statusDate } from "../../_core/format.js";
+import { locationText } from "./query.js";
 import { openTranscript } from "./transcript.js";
 
 export function appendLeadRows(body, leads, extras, onSelection) {
@@ -46,8 +46,7 @@ export function appendLeadRows(body, leads, extras, onSelection) {
     avatar.textContent = initials(lead.name || lead.business);
     const copy = document.createElement("span");
     copy.className = "contact-copy";
-    const name = document.createElement("strong");
-    name.textContent = lead.name || "Unnamed prospect";
+    const name = fieldInput(lead, "name", lead.name || "", "Prospect name");
     const subline = document.createElement("span");
     subline.textContent = lead.business || "Prospect";
     copy.append(name, subline);
@@ -55,21 +54,19 @@ export function appendLeadRows(body, leads, extras, onSelection) {
     contact.append(contactWrap);
     row.append(contact);
 
-    for (const value of [lead.business, lead.phone, lead.timezone || "Unknown"]) {
-      const cell = document.createElement("td");
-      cell.textContent = value === lead.phone ? formatPhoneNumber(lead.phone) : value || "—";
-      if (value === lead.phone) {
-        cell.className = "phone-cell";
-        cell.title = lead.phone || "";
-      }
-      row.append(cell);
-    }
+    row.append(dataCell(fieldInput(lead, "business", lead.business || "", "Company")));
+    row.append(dataCell(fieldInput(lead, "state", locationText(lead, "state"), "State")));
+    row.append(dataCell(fieldInput(lead, "city", locationText(lead, "city"), "City")));
+    const phone = fieldInput(lead, "phone", lead.phone || "", "Phone number");
+    phone.type = "tel";
+    const phoneCell = dataCell(phone);
+    phoneCell.className = "phone-cell";
+    phoneCell.title = lead.phone || "";
+    row.append(phoneCell);
+    row.append(dataCell(timezoneInput(lead)));
 
     for (const column of extras) {
-      const cell = document.createElement("td");
-      cell.title = lead.fields?.[column] || "";
-      cell.textContent = lead.fields?.[column] || "—";
-      row.append(cell);
+      row.append(dataCell(fieldInput(lead, "fields", lead.fields?.[column] || "", column, column)));
     }
 
     const statusCell = document.createElement("td");
@@ -106,4 +103,60 @@ export function appendLeadRows(body, leads, extras, onSelection) {
     row.append(transcriptCell);
     body.append(row);
   }
+}
+
+function dataCell(control) {
+  const cell = document.createElement("td");
+  cell.append(control);
+  return cell;
+}
+
+function fieldInput(lead, field, value, label, extra = "") {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "cell-editor";
+  input.value = value;
+  input.placeholder = "—";
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", `${label} for ${lead.name || lead.business || lead.phone || "prospect"}`);
+  bindFieldEditor(input, { lead, field, extra });
+  return input;
+}
+
+function timezoneInput(lead) {
+  const select = document.createElement("select");
+  select.className = "cell-editor";
+  select.setAttribute("aria-label", `Timezone for ${lead.name || lead.business || lead.phone || "prospect"}`);
+  fillTimezoneSelect(select, lead.timezone || "Unknown");
+  bindFieldEditor(select, { lead, field: "timezone" });
+  return select;
+}
+
+function bindFieldEditor(input, detail) {
+  input.dataset.savedValue = input.value;
+  if (input.tagName !== "SELECT") {
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        input.value = input.dataset.savedValue;
+        event.preventDefault();
+        input.blur();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        input.blur();
+      }
+    });
+  }
+  input.addEventListener("change", () => {
+    const value = input.value.trim();
+    if (value === input.dataset.savedValue) {
+      input.value = input.dataset.savedValue;
+      return;
+    }
+    document.dispatchEvent(new CustomEvent("prospect-field", {
+      detail: { ...detail, value, previous: input.dataset.savedValue, input },
+    }));
+  });
+  input.addEventListener("blur", () => {
+    document.dispatchEvent(new CustomEvent("prospect-field-blur"));
+  });
 }

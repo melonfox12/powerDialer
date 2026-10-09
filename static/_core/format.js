@@ -8,6 +8,20 @@ export const STATUS_LABELS = Object.fromEntries(Object.entries(STATUS_STYLES).ma
 export const STATUS_COLOR_VARS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.color]));
 export const STATUS_KEYS = vocabulary.statuses.map((status) => status.key);
 export const TIMEZONE_NAMES = vocabulary.timezones;
+
+export function fillTimezoneSelect(select, selected = "Unknown") {
+  const current = String(selected || "Unknown");
+  const names = ["Unknown", ...Object.keys(TIMEZONE_NAMES)];
+  if (!names.includes(current)) names.push(current);
+  select.replaceChildren();
+  for (const name of names) {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.append(option);
+  }
+  select.value = current;
+}
 export const SECRET_INPUTS = vocabulary.secretInputs.map((item) => [item.id, item.label]);
 
 export const byId = (id) => document.getElementById(id);
