@@ -1,0 +1,49 @@
+---
+description: Where pages, layout, styles, and dialer/metrics state live
+alwaysApply: true
+---
+
+# Project map
+
+Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `static/shell.html`, `static/features/dialer.html`, `static/features/performance.html`, `static/features/prospects.html`, `static/features/settings.html`, `static/shell-end.html`. Tabs switch in `static/_core/navigation.js` (`setDashboardTab`). There is no router.
+
+## Folders
+
+- `server.py`, `web.py`, `dialer.py` — process entry; `dialer.py` only calls `serve()`
+- `features/` — routes and rules (`dialer.py`, `metrics.py`, `prospects.py`, `settings.py`, `accounts.py`)
+- `features/_dialer/` — server session, queue, Twilio, outcomes, projection
+- `features/_prospects/` — CSV import/export and local/Supabase storage
+- `shared/` — `config.py`, `vocabulary.py`, `infra.py`; `shared/_infra/` is Supabase and file helpers
+- `_web/` — `respond.py` (page, static, JSON) and `hooks.py` (Twilio webhook)
+- `static/` — `main.js` boot, `core.js` re-exports, shell partials
+- `static/_core/` — browser `state`, API client, navigation, format helpers
+- `static/features/` — page partials and feature entry scripts
+- `static/features/_dialer/`, `_prospects/`, `_performance/`, `_arcade/` — feature parts
+- `static/css/` — base styles `01`–`09`; `static/css/linear/` loads after and overrides
+- `tests/`, `scripts/`, `docs/` — tests, checks, design notes (`docs/` describes an older target tree)
+
+## Pages
+
+- Dialer: `static/features/dialer.html` `#dialerTabPanel`; JS `static/features/dialer.js` and `static/features/_dialer/`
+- Prospects: `static/features/prospects.html` `#prospectsTabPanel`; JS `static/features/prospects.js` and `static/features/_prospects/`
+- Caller pool: `#poolTabPanel` is in `static/features/prospects.html`; render `static/features/_dialer/pool-view.js`; timezone `static/features/_dialer/pool.js`
+- Performance and Live metrics are one panel: `static/features/performance.html` `#metricsPanel` (heading "Live metrics") wraps `#performanceTabPanel`. JS `static/features/performance.js`. `setDashboardTab` hides `#metricsPanel` on the Dialer tab.
+
+## Layout, tokens, charts
+
+- Chrome: `static/shell.html` (`.app-shell`, `.side-nav`, `#loginGate`). Page frame (`main`, `#crmView`, `.page-heading`, `.dashboard-stack`) opens in `static/features/dialer.html` and closes in `static/features/prospects.html`.
+- Layout CSS: `static/css/02-layout.css`, `static/css/09-shell.css`. Overrides: `static/css/linear/shell.css`, `static/css/linear/document.css`.
+- Tokens: `static/css/01-tokens.css` `:root` (`--ink`, `--canvas`, `--primary`, radii). That file also has shell rules; do not add more there.
+- Charts: `static/features/_performance/charts.js` (`buildMetricsLineChart`, `buildStatusPieChart`, `buildConnectionPieChart`). Markup in `static/features/performance.html`. Styles `static/css/05-charts.css`, then `static/css/linear/metrics.css`.
+
+## Styling
+
+Plain CSS. Link order in `static/shell.html` is the cascade: `01-tokens.css` through `09-shell.css`, then `css/linear/*`. Numbered files use `var(--*)`. `linear/` repeats those colors as hex and wins on equal specificity. Edit the rule that currently wins, and use a token from `01-tokens.css` instead of a new hex. Reuse classes already on the nodes (`side-link`, `dialer-document`, `stat-tile`, `button-primary`).
+
+## Dialer and metrics state
+
+- Snapshot: `static/_core/state.js` `state` (`leads`, `pool`, `metrics`, dialer flags) and `S` (poll clock, tab, voice, session UI).
+- Fetch: `static/features/_dialer/poller.js` `refreshState` every 1.5s — `GET /api/live`, `GET /api/state` when `leads_version` changes, `GET /api/metrics` every 15s into `state.metrics`. Then `render()` in `static/_core/render.js`.
+- Dialer paint: `static/features/_dialer/render-dialer.js`, registered from `static/features/dialer.js`.
+- Metrics paint: `static/features/performance.js` `renderMetrics`.
+- Server: `features/dialer.py` `GET /api/state`, `GET /api/live`. `features/metrics.py` `GET /api/metrics`.
