@@ -47,9 +47,31 @@ export async function importCsv(file) {
   }
 }
 
+export async function exportCsv() {
+  const button = byId("exportButton");
+  button.disabled = true;
+  try {
+    const csv = await request("/api/export.csv");
+    const blobUrl = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = blobUrl;
+    anchor.download = "crm-export.csv";
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch (error) {
+    console.error("CSV export failed:", error);
+    showToast(error?.message || "Export failed.", true);
+  } finally {
+    button.disabled = false;
+  }
+}
+
 export function bindCsv() {
   byId("importButton").addEventListener("click", () => byId("csvInput").click());
   byId("headingImportButton").addEventListener("click", () => byId("csvInput").click());
+  byId("exportButton").addEventListener("click", exportCsv);
   byId("deleteSelectedButton").addEventListener("click", deleteSelectedProspects);
   byId("csvInput").addEventListener("change", (event) => {
     const file = event.target.files[0];
