@@ -1,7 +1,7 @@
 """Public and live snapshots."""
 
 from features._dialer import calls
-from features._dialer.session_stats import dialer_stage, new_session, recent_streak
+from features._dialer.rules import dialer_stage, new_session, recent_streak
 
 def public_state(state):
     leads = state.crm.snapshot()

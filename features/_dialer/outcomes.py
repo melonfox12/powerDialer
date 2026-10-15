@@ -1,8 +1,8 @@
 """Disposition and prospect status changes during a call."""
 
 from features._dialer import timing
-from features._dialer import session_stats
-from features._dialer.session_stats import record_disposition, status_for_disposition
+from features._dialer import rules
+from features._dialer.rules import record_disposition, status_for_disposition
 from shared.vocabulary import DEFAULT_OUTCOME_METRIC, OUTCOME_METRIC
 
 def live_outcome_lead_id(state):
@@ -26,17 +26,17 @@ def choose_outcome(state, lead_id, status, scheduled_until=None):
             live_call["outcome_chosen"] = True
     result = state.crm.set_status(lead_id, status, scheduled_until)
     metric_key = OUTCOME_METRIC.get(status, DEFAULT_OUTCOME_METRIC)
-    session_stats._bump(state, metric_key)
-    session_stats._flush_metrics(state)
+    rules._bump(state, metric_key)
+    rules._flush_metrics(state)
     with state.lock:
         if state.session:
             record_disposition(state.session, status)
-            session_stats._save_session(state)
+            rules._save_session(state)
         if state.pending_outcome == lead_id:
             state.pending_outcome = None
         state.last_event = f"{result['name'] or result['phone']} marked {status}"
         can_continue = state.running and not state.paused and not live_call
-    session_stats._flush_metrics(state)
+    rules._flush_metrics(state)
     if can_continue:
         timing._schedule_advance(state)
     return result

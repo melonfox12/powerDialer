@@ -6,8 +6,8 @@ import time
 import urllib.parse
 
 from features._dialer import calls, slots, timing
-from features._dialer import projection, session_stats, twilio_api
-from features._dialer.session_stats import new_session, session_summary
+from features._dialer import projection, rules, twilio
+from features._dialer.rules import new_session, session_summary
 
 def set_timezone_filter(state, timezone):
     timezone = str(timezone or "").strip() or None
@@ -46,13 +46,13 @@ def start(state, priority_lead_id=None):
     state.settings = values
     state.public_base_url = public_url
     state.record_activity("Checking Twilio account for voice-capable caller IDs", "api")
-    numbers = twilio_api.twilio_request(values["TWILIO_ACCOUNT_SID"], values["TWILIO_AUTH_TOKEN"],
+    numbers = twilio.twilio_request(values["TWILIO_ACCOUNT_SID"], values["TWILIO_AUTH_TOKEN"],
                              "GET", "/IncomingPhoneNumbers.json", params={"PageSize": 1000})
     callers = []
     for item in numbers.get("incoming_phone_numbers", []):
         if not item.get("capabilities", {}).get("voice", False):
             continue
-        caller = twilio_api.normalize_phone(item.get("phone_number", ""))
+        caller = twilio.normalize_phone(item.get("phone_number", ""))
         if caller and caller not in callers:
             callers.append(caller)
     if not callers:
@@ -81,13 +81,13 @@ def start(state, priority_lead_id=None):
         state.queue_total = len(eligible) + pinned_extra
         state.advance_at = None
         state.advance_remaining = None
-        session_stats._save_session(state)
+        rules._save_session(state)
         state.last_error = ""
         state.last_event = "Connecting computer audio"
         agent_call = calls._new_call(state, "agent", None)
         state.agent_call_token = agent_call["token"]
         slots._schedule_calling_window_check(state)
-    session_stats._flush_metrics(state)
+    rules._flush_metrics(state)
     view = projection.public_state(state)
     view["client_call_token"] = agent_call["token"]
     return view
@@ -188,12 +188,12 @@ def stop(state):
         summary = session_summary(state.session) if state.session else None
         if summary:
             state.session.update(summary)
-            session_stats._save_session(state)
-    session_stats._flush_metrics(state)
+            rules._save_session(state)
+    rules._flush_metrics(state)
     state.record_activity("Dialer stopped", "call")
     for call in calls:
         if call.get("call_uuid"):
-            threading.Thread(target=twilio_api._hangup_call, args=(state, call["call_uuid"]), daemon=True).start()
+            threading.Thread(target=twilio._hangup_call, args=(state, call["call_uuid"]), daemon=True).start()
     result = projection.public_state(state)
     if summary:
         result["session_summary"] = summary

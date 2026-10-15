@@ -1,7 +1,7 @@
 import tempfile
 from pathlib import Path
 from features.prospects import ProspectStore
-from features._dialer.session_stats import new_session
+from features._dialer.rules import new_session
 from features.dialer import Dialer
 
 class Part3:

@@ -90,24 +90,24 @@ class CallFlowTests(unittest.TestCase):
         import features._dialer.timing as timing
         import features._dialer.call_events as call_events
         import features._dialer.queue as queue
-        import features._dialer.twilio_api as twilio_api
+        import features._dialer.twilio as twilio
 
         self._modules = (call_events, queue, timing, calls, slots)
         self._saved_threading = [module.threading for module in self._modules]
         for module in self._modules:
             module.threading = _ThreadNamespace(module.threading)
-        self._saved_twilio = twilio_api.twilio_request
+        self._saved_twilio = twilio.twilio_request
         fake_twilio.calls = 0
-        twilio_api.twilio_request = fake_twilio
+        twilio.twilio_request = fake_twilio
         self._tmp = tempfile.TemporaryDirectory()
         self.servers = LocalServers(self._tmp.name).start()
 
     def tearDown(self):
         self.servers.stop()
         self._tmp.cleanup()
-        import features._dialer.twilio_api as twilio_api
+        import features._dialer.twilio as twilio
 
-        twilio_api.twilio_request = self._saved_twilio
+        twilio.twilio_request = self._saved_twilio
         for module, saved in zip(self._modules, self._saved_threading):
             module.threading = saved
 
@@ -245,7 +245,7 @@ class SlowMetrics:
 class LockedIoTests(unittest.TestCase):
     def test_public_state_does_not_wait_for_metric_io(self):
         from features._dialer import calls
-        from features._dialer.session_stats import new_session
+        from features._dialer.rules import new_session
         from features.dialer import Dialer
         from features.prospects import ProspectStore
 

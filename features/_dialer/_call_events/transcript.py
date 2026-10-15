@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from twilio.twiml.voice_response import VoiceResponse
 
-from features._dialer import twilio_api
+from features._dialer import twilio
 
 def _live_twiml(state, call):
     response = VoiceResponse()
@@ -24,7 +24,7 @@ def _live_twiml(state, call):
 
 def _start_transcription(state, response, call):
     response.start().transcription(
-            status_callback_url=twilio_api._url(state, call, "transcript"),
+            status_callback_url=twilio._url(state, call, "transcript"),
         name=f"crm-{call['token']}",
         track="both_tracks",
         inbound_track_label="prospect",

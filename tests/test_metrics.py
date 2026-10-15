@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from features._dialer.session_stats import new_session
+from features._dialer.rules import new_session
 from features.metrics import MetricsStore, SupabaseMetricsStore
 from shared.infra import utc_now
 

@@ -3,7 +3,7 @@
 import secrets
 import threading
 
-from features._dialer import session_stats, twilio_api
+from features._dialer import rules, twilio
 
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
@@ -15,7 +15,7 @@ def _pool_leads(state, leads=None):
 def _next_caller(state):
     with state.lock:
         if not state.callers:
-            raise twilio_api.TwilioError("No voice-enabled Twilio numbers are available.")
+            raise twilio.TwilioError("No voice-enabled Twilio numbers are available.")
         caller = state.callers[state.caller_index % len(state.callers)]
         state.caller_index += 1
         return caller
@@ -31,9 +31,9 @@ def _create_call(state, call, destination):
     data = {
         "To": destination,
         "From": caller,
-        "Url": twilio_api._url(state, call, "answer"),
+        "Url": twilio._url(state, call, "answer"),
         "Method": "GET",
-        "StatusCallback": twilio_api._url(state, call, "status"),
+        "StatusCallback": twilio._url(state, call, "status"),
         "StatusCallbackMethod": "POST",
         "StatusCallbackEvent": ["initiated", "ringing", "answered", "completed"],
         "Timeout": "25",
@@ -45,17 +45,17 @@ def _create_call(state, call, destination):
             "AsyncAmd": "true",
             "MachineDetectionTimeout": "12",
             "MachineDetectionSpeechEndThreshold": "800",
-            "AsyncAmdStatusCallback": twilio_api._url(state, call, "machine"),
+            "AsyncAmdStatusCallback": twilio._url(state, call, "machine"),
             "AsyncAmdStatusCallbackMethod": "POST",
         })
     lead_name = (call.get("lead") or {}).get("name") or "prospect"
     state.record_activity(f"Requesting Twilio call for {lead_name}", "api")
     try:
-        result = twilio_api.twilio_request(state.settings["TWILIO_ACCOUNT_SID"], state.settings["TWILIO_AUTH_TOKEN"],
+        result = twilio.twilio_request(state.settings["TWILIO_ACCOUNT_SID"], state.settings["TWILIO_AUTH_TOKEN"],
                                 "POST", "/Calls.json", data=data)
         call_uuid = result.get("sid")
         if not call_uuid:
-            raise twilio_api.TwilioError("Twilio did not return a call SID.")
+            raise twilio.TwilioError("Twilio did not return a call SID.")
         with state.lock:
             call["call_uuid"] = call_uuid
             if call["kind"] == "agent":
@@ -64,21 +64,21 @@ def _create_call(state, call, destination):
             if not cancelled:
                 state.last_event = "Ringing agent" if call["kind"] == "agent" else "Calling prospects"
         if cancelled:
-            twilio_api._hangup_call(state, call_uuid)
+            twilio._hangup_call(state, call_uuid)
         else:
             state.record_activity(f"Twilio call accepted for {lead_name}", "call")
-    except twilio_api.TwilioError as exc:
+    except twilio.TwilioError as exc:
         with state.lock:
             if call["kind"] == "agent":
                 state.running = False
             else:
                 state.in_flight.pop(call["token"], None)
                 call["handled"] = True
-                session_stats._bump(state, "failed")
+                rules._bump(state, "failed")
             state.paused = True
             state.last_error = str(exc)
             state.last_event = "Call request failed"
-        session_stats._flush_metrics(state)
+        rules._flush_metrics(state)
         state.record_activity(f"Twilio call failed: {exc}", "error")
 
 def _cancel_call(state, call):
@@ -90,7 +90,7 @@ def _cancel_call(state, call):
         state.in_flight.pop(call["token"], None)
         call_uuid = call.get("call_uuid")
     if call_uuid:
-        threading.Thread(target=twilio_api._hangup_call, args=(state, call_uuid), daemon=True).start()
+        threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
 
 def _new_call(state, kind, lead):
     token = secrets.token_urlsafe(24)
@@ -118,10 +118,10 @@ def _new_call(state, kind, lead):
     _watch_token(state, token)
     if kind == "prospect":
         state.in_flight[token] = call
-        session_stats._bump(state, "dials")
+        rules._bump(state, "dials")
         if state.session:
             state.session["dials"] += 1
-            session_stats._save_session(state)
+            rules._save_session(state)
     return call
 
 def _watch_token(state, token):

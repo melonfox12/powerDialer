@@ -3,8 +3,8 @@
 from datetime import datetime, timezone
 
 from features._dialer import calls, timing
-from features._dialer import session_stats
-from features._dialer.session_stats import record_conversation
+from features._dialer import rules
+from features._dialer.rules import record_conversation
 
 def _call_ended(state, call, params):
     log_entry = None
@@ -34,13 +34,13 @@ def _call_ended(state, call, params):
                 duration = int(float(params.get("CallDuration") or params.get("Duration") or params.get("BillDuration") or 0))
             except (TypeError, ValueError):
                 duration = 0
-            session_stats._bump(state, "connected")
+            rules._bump(state, "connected")
             if duration:
-                session_stats._bump(state, "talk_seconds", duration)
+                rules._bump(state, "talk_seconds", duration)
                 threshold = int(state.settings.get("CONVERSATION_THRESHOLD_SECONDS", "30"))
                 if state.session and call.get("answered_by") != "voicemail":
                     record_conversation(state.session, duration, threshold)
-            session_stats._save_session(state)
+            rules._save_session(state)
             log_entry = {
                 "id": call.get("call_uuid") or call["token"],
                 "started_at": call.get("connected_at") or "",
@@ -62,7 +62,7 @@ def _call_ended(state, call, params):
             state.last_event = "No answer"
             should_schedule_advance = True
         others = list(state.in_flight.values()) if state.running else []
-    session_stats._flush_metrics(state)
+    rules._flush_metrics(state)
     for other in others:
         calls._cancel_call(state, other)
     if log_entry and call.get("lead_id"):

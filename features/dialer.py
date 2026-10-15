@@ -1,18 +1,18 @@
 """Dialer entry. Part import order, low to high:
 
-twilio_api → state → session_stats → calls → projection → slots → timing → queue → _call_events → call_events → outcomes.
+twilio → state → rules → calls → projection → slots → timing → queue → _call_events → call_events → outcomes.
 
-slots imports calls and session_stats. timing imports slots and projection. queue imports calls, then slots, then timing. call_events imports pickup, transcript, then ended. projection imports calls and does not import anything above it. Nothing in features/_dialer imports this module. Parts read credentials and preferences through read_values and read_settings.
+slots imports calls and rules. timing imports slots and projection. queue imports calls, then slots, then timing. call_events imports pickup, transcript, then ended. projection imports calls and does not import anything above it. Nothing in features/_dialer imports this module. Parts read credentials and preferences through read_values and read_settings.
 """
 
 import urllib.parse
 
 from features import settings as settings_feature
-from features._dialer import call_events, outcomes, projection, queue, twilio_api
+from features._dialer import call_events, outcomes, projection, queue, twilio
 from features._dialer._call_events import ended, pickup, transcript
-from features._dialer import calls, session_stats, slots, timing
+from features._dialer import calls, rules, slots, timing
 from features._dialer.state import DialerState
-from features._dialer.twilio_api import TokenIndex, TwilioError
+from features._dialer.twilio import TokenIndex, TwilioError
 
 __all__ = ["Dialer", "ROUTES", "TokenIndex", "TwilioError"]
 
@@ -39,7 +39,7 @@ class Dialer(DialerState):
 
     def _new_call(self, kind, lead):
         call = calls._new_call(self, kind, lead)
-        session_stats._flush_metrics(self)
+        rules._flush_metrics(self)
         return call
 
     def dial_lead(self, lead_id):
@@ -88,10 +88,10 @@ class Dialer(DialerState):
         return outcomes.update_status(self, lead_id, status, scheduled_until, disposition)
 
     def validate_webhook(self, url, signature, params):
-        return twilio_api.validate_webhook(self, url, signature, params)
+        return twilio.validate_webhook(self, url, signature, params)
 
     def voice_access_token(self):
-        return twilio_api.voice_access_token(self)
+        return twilio.voice_access_token(self)
 
     def settings_state(self):
         return settings_feature.settings_state(

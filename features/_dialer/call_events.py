@@ -4,8 +4,8 @@ import threading
 
 from features._dialer._call_events import ended, pickup, transcript
 from features._dialer import slots
-from features._dialer import projection, session_stats, twilio_api
-from features._dialer.twilio_api import escape_xml
+from features._dialer import projection, rules, twilio
+from features._dialer.twilio import escape_xml
 from shared.vocabulary import OUTCOME_METRIC
 
 def _uuid(params):
@@ -41,7 +41,7 @@ def handle_webhook(state, token, action, params):
             ):
                 call["state"] = "ringing"
         if call.get("cancelled") and call_uuid:
-            twilio_api._hangup_call(state, call_uuid)
+            twilio._hangup_call(state, call_uuid)
         return 200, "text/plain", "OK"
     if action == "answer" and call["kind"] == "agent":
         with state.lock:
@@ -84,7 +84,7 @@ def handle_client_voice(state, params):
     state.record_activity("Browser audio joined the conference", "call")
     threading.Thread(target=slots.fill_slots, args=(state,), daemon=True).start()
     xml = (
-        f'<Response><Dial action="{escape_xml(twilio_api._url(state, call, "agent-ended"))}" method="POST">'
+        f'<Response><Dial action="{escape_xml(twilio._url(state, call, "agent-ended"))}" method="POST">'
         '<Conference beep="false" startConferenceOnEnter="true" endConferenceOnExit="true">'
         f'{escape_xml(state.conference)}</Conference></Dial></Response>'
     )
@@ -113,7 +113,7 @@ def hangup_active(state):
                 state.pending_outcome = call["lead_id"]
                 state.last_event = "Call ended; choose a disposition"
     if call_uuid:
-        threading.Thread(target=twilio_api._hangup_call, args=(state, call_uuid), daemon=True).start()
+        threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
     return projection.public_state(state)
 
 def skip_active(state):
@@ -140,9 +140,9 @@ def skip_active(state):
             state.last_event = "Prospect skipped; choose a disposition" if state.running else "Prospect skipped"
     if not state.running:
         state.crm.set_status(call["lead_id"], "call")
-        session_stats._bump(state, OUTCOME_METRIC["call"])
-        session_stats._flush_metrics(state)
+        rules._bump(state, OUTCOME_METRIC["call"])
+        rules._flush_metrics(state)
     state.record_activity("Prospect skipped; choose a disposition", "call")
     if call_uuid:
-        threading.Thread(target=twilio_api._hangup_call, args=(state, call_uuid), daemon=True).start()
+        threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
     return projection.public_state(state)
