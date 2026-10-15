@@ -65,6 +65,53 @@ class ManualProspectTests(unittest.TestCase):
             self.assertEqual(original["phone"], "+12025550123")
             self.assertEqual(original["name"], "Onyx")
 
+    def test_scraper_csv_maps_columns_and_keeps_blank_numbers_null(self):
+        sample = """Fit,Prospect,Company,State,City,Phone Number,Timezone,Total Reviews,Reviews (Last 30 Days),Days Since Last Review,30-Day %,Recency Source
+Ideal,Mike,Mike's Pest Control,CA,San Francisco,(415) 555-1234,Pacific,142,5,3,3.5,exact
+Size fit – recency unknown,,Bay Area Exterminators,CA,Oakland,(510) 555-9876,Pacific,88,,,,
+Too large,,Orkin,CA,San Jose,(408) 555-0000,Pacific,1495,12,1,0.8,exact
+"""
+        leads, info = parse_csv(sample)
+        self.assertEqual(len(leads), 3)
+        self.assertEqual(info["skipped"], 0)
+        mike, bay, orkin = leads
+        self.assertEqual(mike["name"], "Mike")
+        self.assertEqual(mike["business"], "Mike's Pest Control")
+        self.assertEqual(mike["state"], "CA")
+        self.assertEqual(mike["city"], "San Francisco")
+        self.assertEqual(mike["phone"], "+14155551234")
+        self.assertEqual(mike["timezone"], "Pacific")
+        self.assertEqual(mike["review_count"], 142)
+        self.assertEqual(mike["reviews_last_30_days"], 5)
+        self.assertEqual(mike["days_since_last_review"], 3)
+        self.assertEqual(mike["review_pct_30_days"], 3.5)
+        self.assertEqual(mike["recency_source"], "exact")
+        self.assertNotIn("Fit", mike["fields"])
+        self.assertNotIn("Total Reviews", mike["fields"])
+        self.assertEqual(bay["name"], "")
+        self.assertEqual(bay["business"], "Bay Area Exterminators")
+        self.assertEqual(bay["review_count"], 88)
+        self.assertIsNone(bay["reviews_last_30_days"])
+        self.assertIsNone(bay["days_since_last_review"])
+        self.assertIsNone(bay["review_pct_30_days"])
+        self.assertIsNone(bay["recency_source"])
+        self.assertEqual(orkin["name"], "")
+        self.assertEqual(orkin["review_count"], 1495)
+        self.assertEqual(orkin["reviews_last_30_days"], 12)
+        self.assertEqual(orkin["days_since_last_review"], 1)
+        self.assertEqual(orkin["review_pct_30_days"], 0.8)
+        self.assertEqual(orkin["recency_source"], "exact")
+        messy, _info = parse_csv(
+            " FIT , prospect ,Company, phone number ,Total Reviews,Reviews (Last 30 Days),Notes\n"
+            "Ideal,Ann,Ann Co,(716) 555-1212,10,,VIP\n"
+        )
+        self.assertEqual(messy[0]["name"], "Ann")
+        self.assertEqual(messy[0]["review_count"], 10)
+        self.assertIsNone(messy[0]["reviews_last_30_days"])
+        self.assertEqual(messy[0]["fields"].get("Notes"), "VIP")
+        self.assertNotIn("FIT", messy[0]["fields"])
+        self.assertNotIn("Fit", messy[0]["fields"])
+
     def test_csv_state_and_city_become_their_own_columns(self):
         leads, _info = parse_csv(
             b"Name,Company,State,City,Phone,Notes\nAda,Engines,Virginia,Arlington,2025550199,VIP\n"

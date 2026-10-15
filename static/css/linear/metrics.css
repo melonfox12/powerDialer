@@ -101,13 +101,15 @@
 
 .table-toolbar { min-height: 52px; border-bottom-color: #23252a; }
 .search-box,
-.filter-select {
+.filter-select,
+.metric-input {
   height: 28px;
   border-color: #2a2e33;
   border-radius: 6px;
   background: #08090a;
   font-size: 13px;
 }
+.metric-filter { color: #8a8f98; font-size: 13px; }
 th {
   height: 32px;
   background: #0f1011;

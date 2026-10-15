@@ -246,12 +246,17 @@
                         <option value="interested">Interested</option>
                         <option value="do_not_call">Do not call</option>
                       </select>
+                      <select id="stateFilter" class="filter-select" aria-label="Filter by state">
+                        <option value="">All states</option>
+                      </select>
+                      <label class="metric-filter"><span>Total reviews</span><input id="minTotalReviews" class="metric-input" type="number" min="0" step="1" placeholder="Min" aria-label="Minimum total reviews"><input id="maxTotalReviews" class="metric-input" type="number" min="0" step="1" placeholder="Max" aria-label="Maximum total reviews"></label>
+                      <label class="metric-filter"><span>Last 30 days</span><input id="minRecentReviews" class="metric-input" type="number" min="0" step="1" placeholder="Min" aria-label="Minimum reviews in the last 30 days"></label>
                     </div>
                     <div class="toolbar-actions">
                       <input id="csvInput" type="file" accept=".csv,.tsv,.txt,text/csv" hidden>
                       <button id="addProspectButton" class="button button-light" type="button">Add prospect</button>
                       <button id="importButton" class="button button-secondary" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
-                      <a id="exportButton" class="button button-quiet" href="/api/export.csv"><span class="button-symbol" aria-hidden="true">↓</span>Export</a>
+                      <button id="exportButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↓</span>Export</button>
                     </div>
                   </div>
                   <div class="table-scroll" role="region" aria-label="Prospects table" tabindex="0">

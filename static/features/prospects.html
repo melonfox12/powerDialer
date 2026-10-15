@@ -15,6 +15,11 @@
                         <option value="interested">Interested</option>
                         <option value="do_not_call">Do not call</option>
                       </select>
+                      <select id="stateFilter" class="filter-select" aria-label="Filter by state">
+                        <option value="">All states</option>
+                      </select>
+                      <label class="metric-filter"><span>Total reviews</span><input id="minTotalReviews" class="metric-input" type="number" min="0" step="1" placeholder="Min" aria-label="Minimum total reviews"><input id="maxTotalReviews" class="metric-input" type="number" min="0" step="1" placeholder="Max" aria-label="Maximum total reviews"></label>
+                      <label class="metric-filter"><span>Last 30 days</span><input id="minRecentReviews" class="metric-input" type="number" min="0" step="1" placeholder="Min" aria-label="Minimum reviews in the last 30 days"></label>
                     </div>
                     <div class="toolbar-actions">
                       <input id="csvInput" type="file" accept=".csv,.tsv,.txt,text/csv" hidden>

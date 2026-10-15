@@ -19,6 +19,10 @@ bindSettings();
 bindCsv();
 byId("searchInput").addEventListener("input", renderTable);
 byId("statusFilter").addEventListener("change", renderTable);
+byId("stateFilter").addEventListener("change", renderTable);
+for (const id of ["minTotalReviews", "maxTotalReviews", "minRecentReviews"]) {
+  byId(id).addEventListener("input", renderTable);
+}
 bindCallMonitor();
 bindSessionGoal();
 bindDialer();

@@ -148,3 +148,6 @@ $$;
 
 revoke all on function public.increment_metric(uuid, date, text, bigint) from public, anon, authenticated;
 grant execute on function public.increment_metric(uuid, date, text, bigint) to service_role;
+
+comment on column public.prospects.data is
+'Prospect JSON. Reused keys: name (Prospect), business (Company), state, city, phone (Phone Number, text), timezone, review_count (Total Reviews). Review keys: reviews_last_30_days, days_since_last_review, review_pct_30_days (percent points, 3.5 = 3.5%), recency_source. Missing review numbers are JSON null, not 0.';

@@ -22,6 +22,32 @@ CITY_HEADER = re.compile(r"\bcity\b", re.I)
 JUNK_HEADER = re.compile(r"\b(e-?mail|address|street|city|state|zip|postal|country|url|website|linkedin|notes?|status|id|title|industry|revenue|source|date|fax)\b", re.I)
 SCIENTIFIC_NUMBER = re.compile(r"^(\d)(?:\.(\d+))?[eE]\+?(\d+)$")
 
+# Scraper headers map onto existing lead keys where the CRM already stores that fact.
+# name = Prospect, business = Company, phone = Phone Number, review_count = Total Reviews.
+EXACT_HEADERS = {
+    "prospect": "name",
+    "company": "business",
+    "state": "state",
+    "city": "city",
+    "phone number": "phone",
+    "timezone": "timezone",
+    "time zone": "timezone",
+    "total reviews": "review_count",
+    "reviews (last 30 days)": "reviews_last_30_days",
+    "days since last review": "days_since_last_review",
+    "30-day %": "review_pct_30_days",
+    "30-day%": "review_pct_30_days",
+    "recency source": "recency_source",
+}
+IGNORED_HEADERS = {"fit"}
+METRIC_FIELDS = (
+    "review_count",
+    "reviews_last_30_days",
+    "days_since_last_review",
+    "review_pct_30_days",
+    "recency_source",
+)
+
 
 def _phone(value):
     text = str(value or "").strip()
@@ -77,7 +103,7 @@ def _timezone(value):
     return text
 
 def _review_count(value):
-    text = str(value or "").strip()
+    text = str(value if value is not None else "").strip()
     if not text:
         return None
     match = re.search(r"-?\d+", text.replace(",", ""))
@@ -87,6 +113,48 @@ def _review_count(value):
         return int(match.group())
     except ValueError:
         return None
+
+
+def _optional_decimal(value):
+    text = str(value if value is not None else "").strip().replace(",", "")
+    if text.endswith("%"):
+        text = text[:-1].strip()
+    if not text:
+        return None
+    try:
+        number = Decimal(text)
+    except InvalidOperation:
+        return None
+    if not number.is_finite():
+        return None
+    rendered = format(number, "f")
+    if "." in rendered:
+        rendered = rendered.rstrip("0").rstrip(".")
+    if rendered in ("", "-", ".", "-."):
+        return None
+    if "." not in rendered:
+        return int(rendered)
+    return float(rendered)
+
+
+def _header_key(value):
+    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def _exact_columns(header):
+    exact = {}
+    ignored = set()
+    if not header:
+        return exact, ignored
+    for index, value in enumerate(header):
+        key = _header_key(value)
+        if key in IGNORED_HEADERS:
+            ignored.add(index)
+            continue
+        field = EXACT_HEADERS.get(key)
+        if field and field not in exact:
+            exact[field] = index
+    return exact, ignored
 
 def _choose_dialect(text):
     sample = text[:8192]
@@ -142,43 +210,65 @@ def parse_csv(data, known_phones=()):
     headers = header or [f"Column {index + 1}" for index in range(width)]
     hits = [sum(bool(_phone(row[column])) for row in records) for column in range(width)]
 
+    exact, ignored = _exact_columns(header)
     phone_columns = []
     if header:
         phone_columns = [index for index, value in enumerate(header)
-                         if any(word in value.lower() for word in PHONE_HEADER_WORDS)
+                         if index not in ignored
+                         and any(word in value.lower() for word in PHONE_HEADER_WORDS)
                          and "fax" not in value.lower() and hits[index]]
+    if "phone" in exact and hits[exact["phone"]] and exact["phone"] not in phone_columns:
+        phone_columns.insert(0, exact["phone"])
     if not phone_columns and max(hits, default=0):
-        phone_columns = [hits.index(max(hits))]
+        fallback = hits.index(max(hits))
+        if fallback not in ignored:
+            phone_columns = [fallback]
 
     used = set(phone_columns)
-    first_name = next((i for i, value in enumerate(header or [])
-                       if "first" in value.lower() and i not in used), None)
-    last_name = next((i for i, value in enumerate(header or [])
-                      if "last" in value.lower() and "name" in value.lower() and i not in used), None)
-    full_name = next((i for i, value in enumerate(header or [])
-                      if ("name" in value.lower() or "contact" in value.lower()) and i not in used
-                      and i not in (first_name, last_name)), None)
-    name_column = full_name
-    business_column = next((i for i, value in enumerate(header or [])
-                            if i not in used and any(word in value.lower() for word in BUSINESS_HEADER_WORDS)), None)
+    used.update(ignored)
+    used.update(exact.values())
+    if "name" in exact:
+        first_name = last_name = None
+        name_column = exact["name"]
+    else:
+        first_name = next((i for i, value in enumerate(header or [])
+                           if "first" in value.lower() and i not in used), None)
+        last_name = next((i for i, value in enumerate(header or [])
+                          if "last" in value.lower() and "name" in value.lower() and i not in used), None)
+        full_name = next((i for i, value in enumerate(header or [])
+                          if ("name" in value.lower() or "contact" in value.lower()) and i not in used
+                          and i not in (first_name, last_name)), None)
+        name_column = full_name
+    business_column = exact.get("business")
+    if business_column is None:
+        business_column = next((i for i, value in enumerate(header or [])
+                                if i not in used and any(word in value.lower() for word in BUSINESS_HEADER_WORDS)), None)
     if first_name is not None and last_name is not None:
         used.update((first_name, last_name))
     elif name_column is not None:
         used.add(name_column)
     if business_column is not None:
         used.add(business_column)
-    state_column = _header_column(header, used, STATE_HEADER)
+    state_column = exact.get("state")
+    if state_column is None:
+        state_column = _header_column(header, used, STATE_HEADER)
     if state_column is not None:
         used.add(state_column)
-    city_column = _header_column(header, used, CITY_HEADER)
+    city_column = exact.get("city")
+    if city_column is None:
+        city_column = _header_column(header, used, CITY_HEADER)
     if city_column is not None:
         used.add(city_column)
-    timezone_column = next((i for i, value in enumerate(header or [])
-                            if i not in used and any(word in value.lower() for word in TIMEZONE_HEADER_WORDS)), None)
+    timezone_column = exact.get("timezone")
+    if timezone_column is None:
+        timezone_column = next((i for i, value in enumerate(header or [])
+                                if i not in used and any(word in value.lower() for word in TIMEZONE_HEADER_WORDS)), None)
     if timezone_column is not None:
         used.add(timezone_column)
-    review_column = next((i for i, value in enumerate(header or [])
-                          if i not in used and any(word in value.lower() for word in REVIEW_HEADER_WORDS)), None)
+    review_column = exact.get("review_count")
+    if review_column is None:
+        review_column = next((i for i, value in enumerate(header or [])
+                              if i not in used and any(word in value.lower() for word in REVIEW_HEADER_WORDS)), None)
     if review_column is not None:
         used.add(review_column)
 
@@ -203,14 +293,22 @@ def parse_csv(data, known_phones=()):
             duplicates += 1
             continue
         seen.add(phone)
-        if first_name is not None and last_name is not None:
+        if "name" in exact:
+            name = row[exact["name"]].strip()
+        elif first_name is not None and last_name is not None:
             name = f"{row[first_name]} {row[last_name]}".strip()
         else:
             name = row[name_column].strip() if name_column is not None else ""
         located = {index for index in (state_column, city_column) if index is not None}
+        located.update(ignored)
+        located.update(exact[field] for field in METRIC_FIELDS if field in exact)
         fields = {headers[index]: value for index, value in enumerate(row) if value and index not in located}
         timezone = _timezone(row[timezone_column]) if timezone_column is not None else None
         review_count = _review_count(row[review_column]) if review_column is not None else None
+        reviews_last_30_days = _review_count(row[exact["reviews_last_30_days"]]) if "reviews_last_30_days" in exact else None
+        days_since_last_review = _review_count(row[exact["days_since_last_review"]]) if "days_since_last_review" in exact else None
+        review_pct_30_days = _optional_decimal(row[exact["review_pct_30_days"]]) if "review_pct_30_days" in exact else None
+        recency_source = row[exact["recency_source"]].strip() if "recency_source" in exact else ""
         leads.append({
             "id": str(uuid.uuid4()),
             "name": name,
@@ -220,6 +318,10 @@ def parse_csv(data, known_phones=()):
             "phone": phone,
             "timezone": timezone or "Unknown",
             "review_count": review_count,
+            "reviews_last_30_days": reviews_last_30_days,
+            "days_since_last_review": days_since_last_review,
+            "review_pct_30_days": review_pct_30_days,
+            "recency_source": recency_source or None,
             "status": "new",
             "scheduled_until": None,
             "transcript": [],
@@ -266,6 +368,10 @@ def build_manual_lead(payload, known_phones=()):
         "phone": phone,
         "timezone": timezone,
         "review_count": None,
+        "reviews_last_30_days": None,
+        "days_since_last_review": None,
+        "review_pct_30_days": None,
+        "recency_source": None,
         "status": status,
         "scheduled_until": scheduled_until,
         "transcript": transcript,

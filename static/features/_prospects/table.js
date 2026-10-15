@@ -2,9 +2,7 @@ import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
 import { byId, setText } from "../../_core/format.js";
 import { appendLeadRows } from "./rows.js";
-import { crmTableSignature, currentColumnSort, filteredLeads, importedColumns, setColumnSort } from "./query.js";
-
-const SORTABLE_COLUMNS = { Company: "business", State: "state", City: "city" };
+import { LEAD_COLUMNS, TRAILING_COLUMNS, crmTableSignature, currentColumnSort, filteredLeads, importedColumns, setColumnSort, syncStateFilter, toggleColumnSort } from "./query.js";
 
 let lastCrmTableSignature = null;
 
@@ -17,39 +15,58 @@ document.addEventListener("prospect-field-blur", () => {
   queueMicrotask(() => renderTableIfStale());
 });
 
-function headerCell(label) {
+function headerCell(column) {
   const cell = document.createElement("th");
   cell.scope = "col";
-  cell.textContent = label;
-  const sortKey = SORTABLE_COLUMNS[label];
-  if (!sortKey) return cell;
+  cell.textContent = column.label;
+  cell.tabIndex = 0;
   const active = currentColumnSort();
   cell.classList.add("sortable-column");
-  cell.title = "Right-click to sort";
-  if (active?.key === sortKey) {
+  cell.title = "Click to sort. Right-click to choose a direction.";
+  if (active?.key === column.key) {
     cell.setAttribute("aria-sort", active.direction === "desc" ? "descending" : "ascending");
     const mark = document.createElement("span");
     mark.className = "column-sort-mark";
-    mark.textContent = active.direction === "desc" ? "Z–A" : "A–Z";
+    mark.textContent = sortMark(column.kind, active.direction);
     cell.append(mark);
   }
+  const sort = () => {
+    toggleColumnSort(column.key);
+    if (sortMenu) sortMenu.hidden = true;
+    renderTable();
+  };
+  cell.addEventListener("click", sort);
+  cell.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    sort();
+  });
   cell.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    openColumnSortMenu(sortKey, event.clientX, event.clientY);
+    openColumnSortMenu(column, event.clientX, event.clientY);
   });
   return cell;
 }
 
+function sortMark(kind, direction) {
+  if (kind === "number") return direction === "desc" ? "9–0" : "0–9";
+  return direction === "desc" ? "Z–A" : "A–Z";
+}
+
 let sortMenu = null;
 
-function openColumnSortMenu(key, x, y) {
+function openColumnSortMenu(column, x, y) {
   const menu = ensureSortMenu();
   const dialMenu = document.getElementById("prospectMenu");
   if (dialMenu) dialMenu.hidden = true;
   const active = currentColumnSort();
+  const key = column.key;
   menu.replaceChildren();
-  for (const [direction, text] of [["asc", "Sort A–Z"], ["desc", "Sort Z–A"]]) {
+  const choices = column.kind === "number"
+    ? [["asc", "Sort 0–9"], ["desc", "Sort 9–0"]]
+    : [["asc", "Sort A–Z"], ["desc", "Sort Z–A"]];
+  for (const [direction, text] of choices) {
     const button = document.createElement("button");
     button.type = "button";
     button.setAttribute("role", "menuitemradio");
@@ -100,6 +117,7 @@ function fieldEditorFocused() {
 }
 
 export function renderTable() {
+  syncStateFilter();
   lastCrmTableSignature = crmTableSignature();
   const head = byId("tableHead");
   const body = byId("tableBody");
@@ -133,16 +151,16 @@ export function renderTable() {
   selectAllCell.append(selectAll);
   head.append(selectAllCell);
 
-  for (const label of ["Prospect", "Company", "State", "City", "Phone Number", "Timezone", ...extras, "Call status", "Call transcript"]) {
-    head.append(headerCell(label));
-  }
+  for (const column of LEAD_COLUMNS) head.append(headerCell(column));
+  for (const column of extras) head.append(headerCell({ label: column, key: `field:${column}`, kind: "text" }));
+  for (const column of TRAILING_COLUMNS) head.append(headerCell(column));
   appendLeadRows(body, leads, extras, renderTable);
   const empty = byId("emptyState");
   empty.classList.toggle("visible", leads.length === 0);
   empty.querySelector("h2").textContent = state.leads.length === 0 ? "Your CRM starts here" : "No matching prospects";
   empty.querySelector("p").textContent = state.leads.length === 0
     ? "Import a CSV or add a prospect to start your workspace."
-    : "Change the search or status filter to see more rows.";
+    : "Change the search or filters to see more rows.";
   byId("crmTable").hidden = state.leads.length === 0;
   const summary = `${leads.length} of ${state.leads.length} prospect${state.leads.length === 1 ? "" : "s"}`;
   setText("tableSummary", selectedLeadIds.size ? `${selectedLeadIds.size} selected · ${summary}` : summary);
