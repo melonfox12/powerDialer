@@ -142,8 +142,8 @@ features/_prospects/backend_supabase.py   ~160  REST fetch/write/delete, no rule
 
 features/dialer.py                ~180  public methods routes call, ROUTES, part import order
 features/_dialer/state.py         ~120  DialerState + documented Call dict
-features/_dialer/session_stats.py ~120  stage, session accounting, local time, calling window
-features/_dialer/twilio_api.py    ~200  REST, TwiML helpers, token, signature; no dialer state
+features/_dialer/rules.py ~120  stage, session accounting, local time, calling window
+features/_dialer/twilio.py    ~200  REST, TwiML helpers, token, signature; no dialer state
 features/_dialer/queue.py         ~180  start, manual dial
 features/_dialer/_queue/slots.py  ~80   fill_slots
 features/_dialer/_queue/timing.py ~70   advance + calling-window timers
@@ -299,7 +299,7 @@ No feature JS file imports another feature. No `shared` or `core` import reaches
 
 ## (d) TwilioDialer state
 
-Every `self.<attr>` found on the mixin classes that build `TwilioDialer` moves onto `DialerState` in `features/_dialer/state.py`. `TokenIndex._lock` and `TokenIndex._tokens` stay on `TokenIndex` inside `twilio_api.py`; accounts holds the index, and `state.token_index` points at it.
+Every `self.<attr>` found on the mixin classes that build `TwilioDialer` moves onto `DialerState` in `features/_dialer/state.py`. `TokenIndex._lock` and `TokenIndex._tokens` stay on `TokenIndex` inside `twilio.py`; accounts holds the index, and `state.token_index` points at it.
 
 `crm`, `metrics`, `env_path`, `token_index`, and `settings_saver` stay fields on `DialerState` so call sites change from `self.crm` to `state.crm` and nothing else. They are collaborators only in the sense that accounts constructs them and passes them into `DialerState`.
 
@@ -427,7 +427,7 @@ POST profile: `ValueError` / `KeyError` / `UnicodeDecodeError` → 400, `OSError
 | `core/__init__.py` | none | deleted with `core/` |
 | `core/debug_log.py` | `enable`, `debug_event`, `_redact` | `shared/_infra/files.py`, exported from `shared/infra.py` |
 | `core/dialer_session.py` | `STAGES`, `DISPOSITION_TO_STATUS`, `TIMEZONE_NAMES` | `shared/vocabulary.py` |
-| | `dialer_stage`, `status_for_disposition`, `new_session`, `add_connect`, `record_conversation`, `record_disposition`, `recent_streak`, `local_time`, `within_calling_window`, `session_summary` | `features/_dialer/session_stats.py`. `status_for_disposition` reads vocabulary. |
+| | `dialer_stage`, `status_for_disposition`, `new_session`, `add_connect`, `record_conversation`, `record_disposition`, `recent_streak`, `local_time`, `within_calling_window`, `session_summary` | `features/_dialer/rules.py`. `status_for_disposition` reads vocabulary. |
 | `core/metrics_store.py` | `MetricsStore.__init__`, `load`, `save`, `_today`, `bump`, `save_session`, `recent_sessions`, `snapshot` | `features/metrics.py` |
 | `crm_store/__init__.py` | re-exports | deleted with the package |
 | `crm_store/statuses.py` | `STATUSES`, `TIMEZONE_ALIASES`, `UTC_OFFSET_ZONES` | `shared/vocabulary.py` |
@@ -468,13 +468,13 @@ POST profile: `ValueError` / `KeyError` / `UnicodeDecodeError` → 400, `OSError
 | `__init__` | `DialerState` in `_dialer/state.py` |
 | `public_state` | `_dialer/projection.py` |
 | `live_state` | `_dialer/projection.py` |
-| `_save_session`, `_bump`, `record_activity` | `features/dialer.py` (thin) or `projection.py` if they only serve projection. `_bump` and `_save_session` are used by queue and events; they live in `features/dialer.py` as functions the parts call, and parts do not import `dialer.py`. So they live in `_dialer/session_stats.py` (`_save_session`) and `features/metrics.py` is called directly for `_bump`. `record_activity` writes `state.activity_log` and lives in `_dialer/state.py` next to the log. |
+| `_save_session`, `_bump`, `record_activity` | `features/dialer.py` (thin) or `projection.py` if they only serve projection. `_bump` and `_save_session` are used by queue and events; they live in `features/dialer.py` as functions the parts call, and parts do not import `dialer.py`. So they live in `_dialer/rules.py` (`_save_session`) and `features/metrics.py` is called directly for `_bump`. `record_activity` writes `state.activity_log` and lives in `_dialer/state.py` next to the log. |
 | `_pool_leads`, `set_timezone_filter` | `_dialer/queue.py` |
 | `_values`, `settings_state`, `save_settings` | `features/settings.py` (dialer holds the values dict and calls settings) |
-| `validate_webhook`, `_url`, `_next_caller`, `_launch_call`, `_create_call`, `_cancel_call`, `_hangup_call` | `_dialer/twilio_api.py` for the HTTP/TwiML/signature pieces that do not touch dialer state. `_next_caller`, `_launch_call`, `_create_call`, `_cancel_call` touch `state` (`caller_index`, `in_flight`, `paused`, `running`). Those four stay in `_dialer/queue.py` and call `twilio_request` from `twilio_api.py`. `validate_webhook`, `_url`, `_hangup_call` are pure helpers in `twilio_api.py` and receive credentials and the URL as arguments. |
+| `validate_webhook`, `_url`, `_next_caller`, `_launch_call`, `_create_call`, `_cancel_call`, `_hangup_call` | `_dialer/twilio.py` for the HTTP/TwiML/signature pieces that do not touch dialer state. `_next_caller`, `_launch_call`, `_create_call`, `_cancel_call` touch `state` (`caller_index`, `in_flight`, `paused`, `running`). Those four stay in `_dialer/queue.py` and call `twilio_request` from `twilio.py`. `validate_webhook`, `_url`, `_hangup_call` are pure helpers in `twilio.py` and receive credentials and the URL as arguments. |
 | `_transfer` | deleted (dead) |
 | `start`, `_new_call` | `_dialer/queue.py`. `_new_call` builds the Call dict. |
-| `_watch_token`, `_release_tokens`, `voice_access_token`, `handle_client_voice` | token math and AccessToken request → `twilio_api.py`. `handle_client_voice` mutates state → `call_events.py`. `_watch_token` / `_release_tokens` use `state.token_index` → `queue.py` beside `_new_call`. |
+| `_watch_token`, `_release_tokens`, `voice_access_token`, `handle_client_voice` | token math and AccessToken request → `twilio.py`. `handle_client_voice` mutates state → `call_events.py`. `_watch_token` / `_release_tokens` use `state.token_index` → `queue.py` beside `_new_call`. |
 | `handle_webhook`, `_uuid` | `call_events.py` |
 | `_pickup`, `_machine_result` | `_call_events/pickup.py` |
 | `_answer_detection_timeout` | deleted (dead) |
@@ -486,11 +486,11 @@ POST profile: `ValueError` / `KeyError` / `UnicodeDecodeError` → 400, `OSError
 | `dial_lead`, `_dialable_lead`, `_claim_manual_lead`, `_pin_manual_dial` | `_dialer/queue.py` |
 | `fill_slots` | `_dialer/_queue/slots.py` |
 | `_schedule_advance`, `_advance_queue`, `advance_now`, `_schedule_calling_window_check`, `_check_calling_window` | `_dialer/_queue/timing.py` |
-| `TokenIndex.__init__`, `register`, `forget`, `lookup` | `_dialer/twilio_api.py`. Accounts owns the instance. |
-| `TwilioError`, `twilio_request`, `normalize_phone`, `escape_xml` | `_dialer/twilio_api.py` |
+| `TokenIndex.__init__`, `register`, `forget`, `lookup` | `_dialer/twilio.py`. Accounts owns the instance. |
+| `TwilioError`, `twilio_request`, `normalize_phone`, `escape_xml` | `_dialer/twilio.py` |
 | `DIALER_DEFAULTS`, `_preferences` | `features/settings.py` (keys from vocabulary) |
 | `read_env`, `write_env` | `shared/config.py` |
-| `TWILIO_API` | `_dialer/twilio_api.py` |
+| `TWILIO_API` | `_dialer/twilio.py` |
 
 Mixin classes themselves (`CoreMixin`, `StateMixin`, `SettingsMixin`, `ClientMixin`, `TokenMixin`, `VoiceMixin`, `StartMixin`, `WebhookMixin`, `DispatchMixin`, `PickupMixin`, both `LiveMixin`s, `TranscriptMixin`, `EndedMixin`, `LifecycleMixin`, `ControlsMixin`, `QueueMixin`, `ManualDialMixin`, `SlotMixin`, `AdvanceTimingMixin`, `OutcomeMixin`, `TwilioDialer`) are deleted as the composition. `TokenIndex` and `TwilioError` remain real classes.
 

@@ -1,0 +1,1 @@
+- `rules._flush_metrics` is a private helper called from features/dialer.py across a file boundary. Leave the code as is; this is a flag for Phase 4.
