@@ -14,7 +14,7 @@ export function renderQueueStrip(active, pending, target) {
   const queueLead = active || pending || (state.in_flight || []).find((call) => call.state === "ringing")?.lead;
   const poolCount = state.pool?.length || 0;
   const firstUp = state.next_lead;
-  const nextLabel = firstUp ? (firstUp.business || firstUp.name || formatPhoneNumber(firstUp.phone)) : "";
+  const nextLabel = firstUp ? nextProspectLabel(firstUp) : "";
   primary.textContent = queueLead
     ? (queueLead.name || queueLead.business || "")
     : poolCount > 0 || firstUp
@@ -24,4 +24,11 @@ export function renderQueueStrip(active, pending, target) {
   secondary.textContent = "";
   copy.append(primary, secondary);
   activeCall.append(avatar, copy);
+}
+
+function nextProspectLabel(lead) {
+  const business = String(lead.business || "").trim();
+  const firstName = String(lead.name || "").trim().split(/\s+/)[0] || "";
+  if (firstName && business) return `${firstName} - ${business}`;
+  return business || lead.name || formatPhoneNumber(lead.phone) || "";
 }
