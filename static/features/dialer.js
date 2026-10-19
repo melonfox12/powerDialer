@@ -5,6 +5,7 @@ import { stageEffects } from "./_dialer/effects.js";
 import { dialLead } from "./_dialer/lead.js";
 import { bindCallMonitor } from "./_dialer/monitor.js";
 import { renderCallerPool } from "./_dialer/pool-view.js";
+import { renderDials } from "./_dialer/dials.js";
 import { renderDialer } from "./_dialer/render-dialer.js";
 import { startDialing } from "./_dialer/session.js";
 import { bindSessionGoal } from "./_dialer/session-goal.js";
@@ -28,6 +29,7 @@ setStartNewSession(startDialing);
 registerCallerPool(renderCallerPool);
 registerRenderer(() => {
   renderCallerPool();
+  renderDials();
   renderDialer();
 });
 

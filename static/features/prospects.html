@@ -1,4 +1,15 @@
-<div id="prospectsTabPanel" class="dashboard-tab-panel prospects-tab-panel" role="tabpanel" aria-labelledby="prospectsTabButton" hidden>
+<div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
+                <section class="pool-table-panel" aria-label="Total dials">
+                  <div class="pool-table-toolbar">
+                    <div><h2>Total dials</h2><span id="dialsTableSummary" class="pool-table-summary">0 calls</span></div>
+                  </div>
+                  <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">
+                    <table id="dialsTable"><thead><tr><th>When</th><th>Prospect</th><th>Business</th><th>Reviews</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsTableBody"></tbody></table>
+                    <div id="dialsTableEmpty" class="empty-state"><h2>No dials yet</h2><p>Each call the dialer places shows up here, newest first.</p></div>
+                  </div>
+                </section>
+              </div>
+              <div id="prospectsTabPanel" class="dashboard-tab-panel prospects-tab-panel" role="tabpanel" aria-labelledby="prospectsTabButton" hidden>
                 <section class="crm-table-panel" aria-label="Prospect table">
                   <div class="table-toolbar">
                     <div class="toolbar-leading">

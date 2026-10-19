@@ -43,3 +43,24 @@ class Part3:
             self.assertIs(dialer.active, call)
             self.assertEqual(crm.snapshot()[0]["status"], "new")
             self.assertEqual(dialer.session["connects"], 1)
+
+    def test_unanswered_call_is_kept_in_the_dial_log(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            lead = {
+                "id": "prospect-1", "name": "Marillian", "business": "Buono Pest Control",
+                "phone": "+12025550123", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [lead]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            call = dialer._new_call("prospect", lead)
+            call["call_uuid"] = "CA-miss"
+            status, _, _ = dialer.handle_webhook(call["token"], "status", {"CallSid": "CA-miss", "CallStatus": "no-answer"})
+            self.assertEqual(status, 200)
+            saved = crm.snapshot()[0]["call_log"]
+            self.assertEqual(len(saved), 1)
+            self.assertEqual(saved[0]["id"], "CA-miss")
+            self.assertEqual(saved[0]["answered_by"], "no_answer")
+            self.assertTrue(saved[0]["started_at"])

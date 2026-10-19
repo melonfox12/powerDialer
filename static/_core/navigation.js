@@ -2,15 +2,16 @@ import { byId, setText } from "./format.js";
 import { renderCallerPool, renderTable } from "./registry.js";
 import { S } from "./state.js";
 
-const DASHBOARD_TABS = ["dialer", "performance", "prospects", "pool"];
+const DASHBOARD_TABS = ["dialer", "performance", "prospects", "pool", "dials"];
 const TAB_ORDER_KEY = "prospect-desk-sidebar-order";
 const TAB_BUTTONS = {
   dialer: "dialerTabButton",
   performance: "performanceTabButton",
   prospects: "prospectsTabButton",
   pool: "poolTabButton",
+  dials: "dialsTabButton",
 };
-const TAB_TITLES = { dialer: "Dialer", performance: "Performance", prospects: "Prospects", pool: "Caller pool" };
+const TAB_TITLES = { dialer: "Dialer", performance: "Performance", prospects: "Prospects", pool: "Caller pool", dials: "Total dials" };
 
 export function normalizeTabOrder(order) {
   const next = [];
@@ -116,7 +117,7 @@ export function setDashboardTab(name, moveFocus = false) {
   }
   byId("dialerTabPanel").hidden = S.dashboardTab !== "dialer";
   byId("metricsPanel").hidden = S.dashboardTab === "dialer";
-  for (const tab of ["performance", "prospects", "pool"]) byId(`${tab}TabPanel`).hidden = S.dashboardTab !== tab;
+  for (const tab of ["performance", "prospects", "pool", "dials"]) byId(`${tab}TabPanel`).hidden = S.dashboardTab !== tab;
   setText("pageTitle", TAB_TITLES[S.dashboardTab]);
   if (S.dashboardTab === "prospects") renderTable();
   if (S.dashboardTab === "pool") renderCallerPool();

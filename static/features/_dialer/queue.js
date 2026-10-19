@@ -20,6 +20,13 @@ export function renderQueueStrip(active, pending, target) {
     : poolCount > 0 || firstUp
       ? (nextLabel ? `${poolCount} ready · Next: ${nextLabel}` : `${poolCount} ready`)
       : "No prospects in queue";
+  const place = prospectPlace(queueLead || firstUp);
+  if (place) {
+    const where = document.createElement("span");
+    where.className = "queue-place";
+    where.textContent = place;
+    primary.append(document.createTextNode(" "), where);
+  }
   const secondary = document.createElement("span");
   secondary.textContent = "";
   copy.append(primary, secondary);
@@ -33,6 +40,25 @@ export function queueProspect() {
   if (live?.lead) return live.lead;
   if (live?.lead_id) return { id: live.lead_id };
   return state.next_lead || null;
+}
+
+function prospectPlace(lead) {
+  const source = lead?.city || lead?.state || lead?.fields
+    ? lead
+    : state.leads?.find((item) => item.id && item.id === lead?.id) || lead;
+  const city = locationOf(source, "city");
+  const region = locationOf(source, "state");
+  if (city && region) return `${city}, ${region}`;
+  return city || region;
+}
+
+function locationOf(lead, key) {
+  const direct = String(lead?.[key] || "").trim();
+  if (direct) return direct;
+  for (const [name, value] of Object.entries(lead?.fields || {})) {
+    if (name.trim().toLowerCase() === key) return String(value || "").trim();
+  }
+  return "";
 }
 
 export function nextProspectLabel(lead) {

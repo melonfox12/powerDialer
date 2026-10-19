@@ -4,6 +4,7 @@ import secrets
 import threading
 
 from features._dialer import rules, twilio
+from shared.infra import utc_now
 
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
@@ -115,6 +116,7 @@ def _new_call(state, kind, lead):
         "lead_id": lead["id"] if lead else None,
         "lead": lead,
         "call_uuid": None,
+        "created_at": utc_now().isoformat(),
         "state": "creating" if kind == "prospect" else "calling agent",
         "handled": False,
         "cancelled": False,

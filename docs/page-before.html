@@ -48,6 +48,7 @@
         <button id="performanceTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="performanceTabPanel" tabindex="-1" data-dashboard-tab="performance"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 13.5h11M4 13.5V8.5M8 13.5V4.5M12 13.5V6.5"/></svg>Performance</button>
         <button id="prospectsTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8.2a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8ZM3.2 13.2c.4-2 2.3-3.2 4.8-3.2s4.4 1.2 4.8 3.2"/></svg>Prospects <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
         <button id="poolTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="poolTabPanel" tabindex="-1" data-dashboard-tab="pool"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h7"/></svg>Caller pool <span id="poolTabCount" class="dashboard-tab-count">0</span></button>
+        <button id="dialsTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="dialsTabPanel" tabindex="-1" data-dashboard-tab="dials"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6"/></svg>Total dials <span id="dialsTabCount" class="dashboard-tab-count">0</span></button>
       </div>
       <div class="side-foot">
         <span id="connectionState" class="connection-state"><span class="connection-dot"></span><span>Ready</span></span>
@@ -235,6 +236,17 @@
                     </div>
                   </section>
                 </div>
+              </div>
+              <div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
+                <section class="pool-table-panel" aria-label="Total dials">
+                  <div class="pool-table-toolbar">
+                    <div><h2>Total dials</h2><span id="dialsTableSummary" class="pool-table-summary">0 calls</span></div>
+                  </div>
+                  <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">
+                    <table id="dialsTable"><thead><tr><th>When</th><th>Prospect</th><th>Business</th><th>Reviews</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsTableBody"></tbody></table>
+                    <div id="dialsTableEmpty" class="empty-state"><h2>No dials yet</h2><p>Each call the dialer places shows up here, newest first.</p></div>
+                  </div>
+                </section>
               </div>
               <div id="prospectsTabPanel" class="dashboard-tab-panel prospects-tab-panel" role="tabpanel" aria-labelledby="prospectsTabButton" hidden>
                 <section class="crm-table-panel" aria-label="Prospect table">
