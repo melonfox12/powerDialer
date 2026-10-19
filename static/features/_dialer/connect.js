@@ -1,11 +1,11 @@
 import { debugEvent, postJson, request } from "../../_core/api.js";
-import { createVoiceDevice } from "./_voice/connect.js";
+import { createVoiceDevice, takeLatestVoiceError } from "./_voice/connect.js";
 import { applyVoiceAudioDevices, refreshAudioDevices } from "./_voice/devices.js";
 import { S, state } from "../../_core/state.js";
 import { render } from "../../core.js";
 import { byId } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
-import { showToast } from "../../_core/notify.js";
+import { errorText, showToast } from "../../_core/notify.js";
 import { drawProspectWaveform, startProspectWaveform, stopProspectWaveform } from "./card.js";
 
 export function prospectLabel(lead) {
@@ -20,7 +20,7 @@ export async function connectBrowserCall(clientCallToken) {
     permissionStream = await navigator.mediaDevices.getUserMedia({ audio });
   } catch (error) {
     if (inputId === "default") throw error;
-    debugEvent("error", "mic fallback", error.message);
+    debugEvent("error", "mic fallback", errorText(error, "Microphone permission failed."));
     permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   }
   permissionStream.getTracks().forEach((track) => track.stop());
@@ -28,7 +28,7 @@ export async function connectBrowserCall(clientCallToken) {
   const device = await createVoiceDevice();
   await applyVoiceAudioDevices();
   S.voiceCall = await device.connect({
-    params: { CallToken: clientCallToken },
+    params: { DeskToken: clientCallToken },
     rtcConstraints: { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } },
   });
   S.voiceCall.on("accept", () => startProspectWaveform(S.voiceCall));
@@ -43,7 +43,7 @@ export async function connectBrowserCall(clientCallToken) {
     if (!S.waveformAnalyser) drawProspectWaveform(outputVolume);
   });
   startProspectWaveform(S.voiceCall);
-  S.voiceCall.on("error", (error) => showToast(error.message || "Browser call failed.", true));
+  S.voiceCall.on("error", (error) => showToast(errorText(error, "Browser call failed."), true));
 }
 
 export async function connectAndCleanup(clientCallToken, sessionState) {
@@ -59,7 +59,8 @@ export async function connectAndCleanup(clientCallToken, sessionState) {
     stopProspectWaveform();
     Object.assign(state, await request("/api/state").catch(() => ({})));
     render();
-    showToast(error.message, true);
+    const signaled = errorText(takeLatestVoiceError(), "");
+    showToast(errorText(error, "") || signaled || "The browser call could not connect.", true);
     return error;
   }
   Object.assign(state, await request("/api/state"));

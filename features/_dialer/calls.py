@@ -7,10 +7,24 @@ from features._dialer import rules, twilio
 
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
-    pool = [lead for lead in leads if lead["status"] == "new"]
+    anchor_id = state.queue_anchor_id
+    indexed = [
+        (index, lead) for index, lead in enumerate(leads)
+        if lead["status"] == "new" or lead["id"] == anchor_id
+    ]
     if state.selected_timezone:
-        pool = [lead for lead in pool if (lead.get("timezone") or "Unknown") == state.selected_timezone]
-    return pool
+        zone = state.selected_timezone
+        indexed = [
+            (index, lead) for index, lead in indexed
+            if lead["id"] == anchor_id or (lead.get("timezone") or "Unknown") == zone
+        ]
+    indexed.sort(key=lambda item: (bool(item[1].get("passed_at")), item[1].get("passed_at") or "", item[0]))
+    ordered = [lead for _index, lead in indexed]
+    if anchor_id:
+        held = [lead for lead in ordered if lead["id"] == anchor_id]
+        rest = [lead for lead in ordered if lead["id"] != anchor_id]
+        ordered = held + rest
+    return ordered
 
 def _next_caller(state):
     with state.lock:
@@ -28,8 +42,9 @@ def _launch_call(state, call, destination):
 def _create_call(state, call, destination):
     caller = call.get("caller_id") or _next_caller(state)
     call["caller_id"] = caller
+    number = twilio.normalize_phone(destination) or str(destination or "").strip()
     data = {
-        "To": destination,
+        "To": number,
         "From": caller,
         "Url": twilio._url(state, call, "answer"),
         "Method": "GET",

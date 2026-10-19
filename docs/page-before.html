@@ -95,11 +95,18 @@
 
                 <div class="dialer-controls" data-controls="idle">
                   <button id="startButton" class="button button-primary" type="button"><svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8v8.4L13 8 6 3.8Z"/></svg>Start dialing<kbd>Space</kbd></button>
+                  <button id="removeNextButton" class="button button-danger-quiet" type="button" hidden>Remove</button>
                   <button id="pauseButton" class="button button-secondary" type="button" disabled hidden>Pause</button>
                   <button id="hangupButton" class="button button-danger-quiet" type="button" disabled hidden>Hang up<kbd>H</kbd></button>
                   <button id="stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
+                  <button id="skipNextButton" class="button button-secondary" type="button">Skip</button>
                   <details class="shortcut-help"><summary aria-label="Show keyboard shortcuts">?</summary><div>Space start / resume / skip wait · 1-5 outcome · H hang up · Esc pause</div></details>
                 </div>
+
+                <section class="crm-status" aria-labelledby="crmStatusLabel">
+                  <div class="outcome-label" id="crmStatusLabel">CRM status <span id="crmStatusTarget"></span></div>
+                  <div id="crmStatusButtons" class="outcome-buttons" role="group" aria-label="CRM status"></div>
+                </section>
 
                 <div id="outcomeRow" class="outcome-row" hidden>
                   <div class="outcome-label">Disposition</div>

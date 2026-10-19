@@ -46,7 +46,13 @@
   font-size: 12px;
 }
 
+.dialer-document .crm-status,
 .dialer-document .outcome-row { gap: 8px; margin-top: 20px; }
+.dialer-document .crm-status { display: grid; }
+.dialer-document .crm-status .outcome-btn[aria-pressed="true"] {
+  border-color: #d0d6e0;
+  color: #f7f8f8;
+}
 .outcome-label {
   color: #8a8f98;
   font-size: 12px;

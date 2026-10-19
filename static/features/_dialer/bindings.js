@@ -8,9 +8,13 @@ import { stopProspectWaveform } from "./card.js";
 import { render } from "../../core.js";
 import { selectTimezone } from "./pool.js";
 import { startDialing } from "./session.js";
+import { bindCrmStatus } from "./crm-status.js";
+import { bindPreviewActions } from "./preview.js";
 
 export function bindDialer() {
   byId("startButton").addEventListener("click", startDialing);
+  bindPreviewActions();
+  bindCrmStatus();
   byId("pauseButton").addEventListener("click", async () => {
     try { Object.assign(state, await postJson("/api/pause")); render(); }
     catch (error) { showToast(error.message, true); }

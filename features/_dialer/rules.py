@@ -148,7 +148,13 @@ def _flush_metrics(state):
         return
     with state.metrics_lock:
         for key, amount in bumps:
-            state.metrics.bump(key, amount)
+            try:
+                state.metrics.bump(key, amount)
+            except OSError as exc:
+                state.record_activity(f"Could not save dial metric {key}: {exc}", "error")
         if session and session[0] > state.saved_session_version:
-            state.metrics.save_session(session[1])
-            state.saved_session_version = session[0]
+            try:
+                state.metrics.save_session(session[1])
+                state.saved_session_version = session[0]
+            except OSError as exc:
+                state.record_activity(f"Could not save the session: {exc}", "error")

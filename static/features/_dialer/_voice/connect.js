@@ -2,11 +2,19 @@ import { registerAudioDevices } from "../../../core.js";
 import { request } from "../../../_core/api.js";
 import { S, audioInputStorageKey, audioOutputStorageKey } from "../../../_core/state.js";
 import { byId } from "../../../_core/format.js";
-import { showToast } from "../../../_core/notify.js";
+import { errorText, showToast } from "../../../_core/notify.js";
 import { startMicrophoneTest, stopMicrophoneTest, testAudioOutput } from "./testing.js";
 import { applyVoiceAudioDevices, refreshAudioDevices, routeTestAudio, setMicLevel } from "./devices.js";
 
 registerAudioDevices(refreshAudioDevices, stopMicrophoneTest);
+
+let latestVoiceError = null;
+
+export function takeLatestVoiceError() {
+  const error = latestVoiceError;
+  latestVoiceError = null;
+  return error;
+}
 
 export async function createVoiceDevice() {
   if (S.voiceDevice) return S.voiceDevice;
@@ -17,18 +25,22 @@ export async function createVoiceDevice() {
   S.voiceDevice = new window.Twilio.Device(token, {
     codecPreferences: ["opus", "pcmu"],
     closeProtection: true,
-    logLevel: 2,
+    enableImprovedSignalingErrorPrecision: true,
+    logLevel: 1,
   });
-  S.voiceDevice.on("error", (error) => showToast(error.message || "Twilio audio device error.", true));
+  S.voiceDevice.on("error", (error) => {
+    latestVoiceError = error || latestVoiceError;
+    showToast(errorText(error, "Twilio audio device error."), true);
+  });
   S.voiceDevice.on("tokenWillExpire", async () => {
     try {
       const refreshed = await request("/api/voice-token");
       S.voiceDevice?.updateToken(refreshed.token);
     } catch (error) {
-      showToast(error.message, true);
+      showToast(errorText(error, "Could not refresh the Twilio audio token."), true);
     }
   });
-  S.voiceDevice.audio.on("deviceChange", () => refreshAudioDevices().catch((error) => showToast(error.message, true)));
+  S.voiceDevice.audio.on("deviceChange", () => refreshAudioDevices().catch((error) => showToast(errorText(error, "Could not refresh audio devices."), true)));
   S.voiceDevice.audio.on("inputVolume", (volume) => setMicLevel(volume * 100));
   await applyVoiceAudioDevices();
   return S.voiceDevice;

@@ -6,7 +6,7 @@ import time
 from datetime import timedelta
 from pathlib import Path
 
-from shared.infra import utc_now
+from shared.infra import debug_event, utc_now
 from shared.vocabulary import METRIC_KEYS
 
 
@@ -103,12 +103,48 @@ class SupabaseMetricsStore:
         if not self.user_id:
             raise ValueError("Sign in to record dialer metrics.")
         self._cached_snapshot = None
-        self.client.request("POST", "rpc/increment_metric", payload={
-            "p_user_id": self.user_id,
-            "p_day": utc_now().date().isoformat(),
-            "p_metric_key": key,
-            "p_amount": amount,
-        })
+        day = utc_now().date().isoformat()
+        try:
+            self.client.request("POST", "rpc/increment_metric", payload={
+                "p_user_id": self.user_id,
+                "p_day": day,
+                "p_metric_key": key,
+                "p_amount": amount,
+            })
+        except OSError as exc:
+            if "increment_metric" not in str(exc):
+                raise
+            try:
+                self._increment_rows(key, amount, day)
+            except OSError as row_error:
+                debug_event("error", f"Could not save dial metric {key}: {row_error}")
+
+    def _increment_rows(self, key, amount, day):
+        self._add_metric("dialer_metric_daily", key, amount, day)
+        self._add_metric("dialer_metric_totals", key, amount, None)
+
+    def _add_metric(self, table, key, amount, day):
+        params = {
+            "select": "value",
+            "user_id": f"eq.{self.user_id}",
+            "metric_key": f"eq.{key}",
+        }
+        if day:
+            params["day"] = f"eq.{day}"
+        rows = self.client.request("GET", table, params) or []
+        current = int(rows[0].get("value") or 0) if rows else 0
+        body = {"user_id": self.user_id, "metric_key": key, "value": current + amount}
+        conflict = "user_id,metric_key"
+        if day:
+            body["day"] = day
+            conflict = "user_id,day,metric_key"
+        self.client.request(
+            "POST",
+            table,
+            {"on_conflict": conflict},
+            body,
+            "resolution=merge-duplicates,return=minimal",
+        )
 
     def save_session(self, session):
         self.client.request(

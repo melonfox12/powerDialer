@@ -65,7 +65,13 @@ def sign(url, params, token):
     return base64.b64encode(digest).decode()
 
 
-def fake_twilio(account_sid, auth_token, method, path, data=None, params=None):
+def fake_twilio(account_sid, auth_token, method, path, data=None, params=None, username=None):
+    if path == ".json" and method == "GET":
+        return {"sid": account_sid, "status": "active"}
+    if path.startswith("/Applications/") and method == "GET":
+        return {"sid": "AP" + "3" * 32, "voice_url": PUBLIC_BASE + "/hooks/voice", "voice_method": "POST"}
+    if path.startswith("/Applications/") and method == "POST":
+        return {"voice_url": (data or {}).get("VoiceUrl"), "voice_method": "POST"}
     if path.startswith("/IncomingPhoneNumbers"):
         return {
             "incoming_phone_numbers": [

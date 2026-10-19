@@ -66,6 +66,15 @@ class ProspectStore:
     def save(self):
         return self.backend.save()
 
+    def defer(self, lead_id):
+        with self.lock:
+            leads = self.backend.leads_locked()
+            self.backend.expire_locked(leads)
+            lead = _copy_of(leads, lead_id)
+            lead["passed_at"] = utc_now().isoformat()
+            self.backend.save_locked(lead)
+            return dict(lead)
+
     def set_status(self, lead_id, status, scheduled_until=None):
         if status not in STATUS_KEYS:
             raise ValueError("Unknown prospect status")

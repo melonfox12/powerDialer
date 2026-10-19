@@ -25,7 +25,10 @@ def make_hook_handler(runtime):
             self.dispatch(values)
 
         def resolve_dialer(self, params, parts):
-            token = params.get("CallToken") if urllib.parse.urlsplit(self.path).path == "/hooks/voice" else None
+            if urllib.parse.urlsplit(self.path).path == "/hooks/voice":
+                token = params.get("DeskToken") or params.get("CallToken")
+            else:
+                token = None
             if not token and len(parts) == 3 and parts[0] == "hooks":
                 token = parts[1]
             dialer = runtime.tokens.lookup(token)

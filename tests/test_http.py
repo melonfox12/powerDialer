@@ -197,6 +197,17 @@ class HttpContractTests(unittest.TestCase):
         self.assert_keys(payload["state"], STATE_KEYS)
         lead_id = payload["lead"]["id"]
 
+        status, payload, _type = self.json_request("POST", "/api/next/skip", {"id": lead_id})
+        self.assertEqual(status, 200)
+        self.assert_keys(payload, STATE_KEYS)
+        self.assertEqual(payload["next_lead"]["id"], lead_id)
+        self.assertTrue(any(lead["id"] == lead_id for lead in payload["leads"]))
+
+        status, payload, _type = self.json_request("POST", "/api/next/skip", {})
+        self.assertEqual(status, 200)
+        self.assert_keys(payload, STATE_KEYS)
+        self.assertEqual(payload["next_lead"]["id"], lead_id)
+
         csv_body = b"Name,Phone,Timezone\nBea,2025550112,Central\n"
         status, raw, content_type = self.request(
             "POST", "/api/import", csv_body, {"Content-Type": "text/csv"},
@@ -409,6 +420,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/stop"),
     ("POST", "/api/hangup"),
     ("POST", "/api/skip"),
+    ("POST", "/api/next/skip"),
     ("POST", "/api/advance"),
     ("POST", "/api/leads/{id}/dial"),
     ("POST", "/api/leads/{id}/status"),

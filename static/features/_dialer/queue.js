@@ -26,7 +26,16 @@ export function renderQueueStrip(active, pending, target) {
   activeCall.append(avatar, copy);
 }
 
-function nextProspectLabel(lead) {
+export function queueProspect() {
+  if (state.active_lead) return state.active_lead;
+  if (state.pending_outcome?.id) return state.pending_outcome;
+  const live = (state.in_flight || []).find((call) => call.kind !== "agent" && (call.lead || call.lead_id));
+  if (live?.lead) return live.lead;
+  if (live?.lead_id) return { id: live.lead_id };
+  return state.next_lead || null;
+}
+
+export function nextProspectLabel(lead) {
   const business = String(lead.business || "").trim();
   const firstName = String(lead.name || "").trim().split(/\s+/)[0] || "";
   if (firstName && business) return `${firstName} - ${business}`;

@@ -70,7 +70,7 @@ def handle_webhook(state, token, action, params):
     return 404, "text/plain", "Unknown callback"
 
 def handle_client_voice(state, params):
-    token = params.get("CallToken", "")
+    token = params.get("DeskToken") or params.get("CallToken") or ""
     with state.lock:
         call = state.calls.get(token)
         if not call or call["kind"] != "agent" or call["cancelled"] or not state.running:

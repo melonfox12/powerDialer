@@ -58,6 +58,7 @@ def start(state, priority_lead_id=None):
     if not callers:
         raise ValueError("No voice-enabled Twilio phone numbers were found on this account.")
     state.record_activity(f"Twilio ready: {len(callers)} caller ID(s) available", "api")
+    twilio.prepare_browser_voice(state, values)
     eligible = calls._pool_leads(state)
     if not eligible and priority is None:
         where = f" in the {state.selected_timezone} timezone" if state.selected_timezone else ""
@@ -77,6 +78,7 @@ def start(state, priority_lead_id=None):
         state.conference = "crm-" + secrets.token_hex(8)
         state.session = new_session(goal=int(values["SESSION_GOAL"]))
         state.manual_lead_id = priority["id"] if priority else None
+        state.queue_anchor_id = None
         pinned_extra = 1 if priority and all(item["id"] != priority["id"] for item in eligible) else 0
         state.queue_total = len(eligible) + pinned_extra
         state.advance_at = None
@@ -91,6 +93,76 @@ def start(state, priority_lead_id=None):
     view = projection.public_state(state)
     view["client_call_token"] = agent_call["token"]
     return view
+
+def _current_queue_id(state, leads):
+    with state.lock:
+        active = state.active
+        if active and active.get("kind") != "agent" and active.get("lead_id"):
+            return active["lead_id"]
+        if state.pending_outcome:
+            return state.pending_outcome
+        for call in state.in_flight.values():
+            if call.get("kind") != "agent" and call.get("lead_id"):
+                return call["lead_id"]
+        manual = state.manual_lead_id
+    if manual:
+        return manual
+    pool = calls._pool_leads(state, leads)
+    return pool[0]["id"] if pool else ""
+
+def _drop_prospect_call(state, lead_id):
+    hung = []
+    with state.lock:
+        for token, call in list(state.in_flight.items()):
+            if call.get("kind") == "agent" or call.get("lead_id") != lead_id:
+                continue
+            call["handled"] = True
+            call["cancelled"] = True
+            call["state"] = "skipped"
+            state.in_flight.pop(token, None)
+            if state.active is call:
+                state.active = None
+            if call.get("call_uuid"):
+                hung.append(call["call_uuid"])
+        active = state.active
+        if active and active.get("kind") != "agent" and active.get("lead_id") == lead_id:
+            active["handled"] = True
+            active["cancelled"] = True
+            active["state"] = "skipped"
+            if active.get("call_uuid"):
+                hung.append(active["call_uuid"])
+            state.active = None
+        if state.pending_outcome == lead_id:
+            state.pending_outcome = None
+        if state.manual_lead_id == lead_id:
+            state.manual_lead_id = None
+        should_fill = (
+            state.running and not state.paused and state.agent_ready
+            and not state.active and not state.pending_outcome and not state.in_flight
+        )
+    for call_uuid in hung:
+        threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
+    return should_fill
+
+def pass_next(state, lead_id=None):
+    lead_id = str(lead_id or "").strip() or _current_queue_id(state, state.crm.snapshot())
+    if not lead_id:
+        raise ValueError("There is no prospect to skip.")
+    leads = state.crm.snapshot()
+    lead = next((item for item in leads if item["id"] == lead_id), None)
+    if lead is None:
+        raise KeyError("Prospect not found")
+    if lead.get("status") == "new":
+        state.crm.defer(lead_id)
+    with state.lock:
+        if state.queue_anchor_id == lead_id:
+            state.queue_anchor_id = None
+    should_fill = _drop_prospect_call(state, lead_id)
+    name = lead.get("name") or lead.get("business") or "Prospect"
+    state.record_activity(f"Skipped {name}", "web")
+    if should_fill:
+        slots.fill_slots(state)
+    return projection.public_state(state)
 
 def dial_lead(state, lead_id):
     lead = calls._dialable_lead(state, lead_id)
@@ -175,6 +247,7 @@ def stop(state):
         state.active = None
         state.pending_outcome = None
         state.manual_lead_id = None
+        state.queue_anchor_id = None
         state.in_flight.clear()
         state.last_event = "Stopped"
         if state.advance_timer:

@@ -69,6 +69,9 @@ class Dialer(DialerState):
     def skip_active(self):
         return call_events.skip_active(self)
 
+    def pass_next(self, lead_id):
+        return queue.pass_next(self, lead_id)
+
     def _pickup(self, call):
         return pickup._pickup(self, call)
 
@@ -84,8 +87,8 @@ class Dialer(DialerState):
     def choose_outcome(self, lead_id, status, scheduled_until=None):
         return outcomes.choose_outcome(self, lead_id, status, scheduled_until)
 
-    def update_status(self, lead_id, status=None, scheduled_until=None, disposition=None):
-        return outcomes.update_status(self, lead_id, status, scheduled_until, disposition)
+    def update_status(self, lead_id, status=None, scheduled_until=None, disposition=None, crm_only=False):
+        return outcomes.update_status(self, lead_id, status, scheduled_until, disposition, crm_only)
 
     def validate_webhook(self, url, signature, params):
         return twilio.validate_webhook(self, url, signature, params)
@@ -162,6 +165,10 @@ def post_skip(request):
     request.send_json(200, request.account.dialer.skip_active())
 
 
+def post_pass_next(request, data):
+    request.send_json(200, request.account.dialer.pass_next(data.get("id")))
+
+
 def post_advance(request):
     request.send_json(200, request.account.dialer.advance_now())
 
@@ -176,6 +183,7 @@ def post_status(request, data):
     dialer = request.account.dialer
     lead = dialer.update_status(
         lead_id, data.get("status"), data.get("scheduled_until"), data.get("disposition"),
+        crm_only=bool(data.get("crm_only")),
     )
     request.send_json(200, {"lead": lead, "state": dialer.public_state()})
 
@@ -190,6 +198,7 @@ ROUTES = [
     ("POST", "/api/stop", post_stop, "POST"),
     ("POST", "/api/hangup", post_hangup, "POST"),
     ("POST", "/api/skip", post_skip, "POST"),
+    ("POST", "/api/next/skip", post_pass_next, "POST"),
     ("POST", "/api/advance", post_advance, "POST"),
     ("POST", "/api/leads/{id}/dial", post_dial, "POST"),
     ("POST", "/api/leads/{id}/status", post_status, "POST"),

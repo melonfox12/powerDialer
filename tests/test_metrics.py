@@ -46,6 +46,46 @@ class MetricsTests(unittest.TestCase):
             }),
         ])
 
+    def test_missing_increment_function_writes_metric_rows(self):
+        class MissingFunction:
+            def __init__(self):
+                self.calls = []
+
+            def request(self, method, resource, params=None, payload=None, prefer=None):
+                self.calls.append((method, resource, payload))
+                if resource == "rpc/increment_metric":
+                    raise OSError(
+                        "Supabase HTTP 404: Could not find the function public.increment_metric in the schema cache"
+                    )
+                if method == "GET":
+                    return [{"value": 2}]
+                return None
+
+        client = MissingFunction()
+        store = SupabaseMetricsStore(client, user_id="11111111-1111-1111-1111-111111111111")
+        store.bump("dials", 3)
+        resources = [resource for _method, resource, _payload in client.calls]
+        self.assertEqual(resources, [
+            "rpc/increment_metric",
+            "dialer_metric_daily",
+            "dialer_metric_daily",
+            "dialer_metric_totals",
+            "dialer_metric_totals",
+        ])
+        daily = client.calls[2][2]
+        self.assertEqual(daily["value"], 5)
+        self.assertEqual(daily["metric_key"], "dials")
+
+    def test_missing_metric_storage_does_not_raise(self):
+        class Unavailable:
+            def request(self, method, resource, params=None, payload=None, prefer=None):
+                raise OSError(
+                    "Supabase HTTP 404: Could not find the function public.increment_metric in the schema cache"
+                )
+
+        store = SupabaseMetricsStore(Unavailable(), user_id="11111111-1111-1111-1111-111111111111")
+        store.bump("dials")
+
     def test_schema_defines_increment_metric_for_service_role_only(self):
         text = (Path(__file__).resolve().parent.parent / "docs" / "supabase" / "schema.sql").read_text(encoding="utf-8")
         signature = "public.increment_metric(uuid, date, text, bigint)"

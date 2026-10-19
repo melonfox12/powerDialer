@@ -41,13 +41,20 @@ def choose_outcome(state, lead_id, status, scheduled_until=None):
         timing._schedule_advance(state)
     return result
 
-def update_status(state, lead_id, status=None, scheduled_until=None, disposition=None):
-    if disposition:
+def update_status(state, lead_id, status=None, scheduled_until=None, disposition=None, crm_only=False):
+    if disposition and not crm_only:
         status = status_for_disposition(disposition)
+    if not crm_only:
+        with state.lock:
+            is_outcome = live_outcome_lead_id(state) == lead_id and status in (
+                "call", "disqualified", "booked", "interested", "do_not_call"
+            )
+        if is_outcome:
+            return choose_outcome(state, lead_id, status, scheduled_until)
+        return state.crm.set_status(lead_id, status, scheduled_until)
+    lead = state.crm.set_status(lead_id, status, scheduled_until)
     with state.lock:
-        is_outcome = live_outcome_lead_id(state) == lead_id and status in (
-            "call", "disqualified", "booked", "interested", "do_not_call"
-        )
-    if is_outcome:
-        return choose_outcome(state, lead_id, status, scheduled_until)
-    return state.crm.set_status(lead_id, status, scheduled_until)
+        state.queue_anchor_id = lead_id
+    name = lead.get("name") or lead.get("business") or "prospect"
+    state.record_activity(f"CRM status for {name} set to {status}", "web")
+    return lead

@@ -3,6 +3,7 @@ import { byId, setText } from "../../_core/format.js";
 import { renderCallStage } from "./stage.js";
 import { renderDialerControls } from "./controls.js";
 import { renderOutcomeRow } from "./outcome-row.js";
+import { renderCrmStatus } from "./crm-status.js";
 import { renderQueueStrip } from "./queue.js";
 import { renderSessionMomentum } from "./session-goal.js";
 
@@ -39,6 +40,7 @@ export function renderDialer() {
   const ringing = state.in_flight?.some((call) => call.state === "ringing");
   renderQueueStrip(active, pending, target);
   renderDialerControls(stage, active, ringing);
+  renderCrmStatus();
   renderOutcomeRow(pending);
   renderSessionMomentum();
   renderCallStage(stage, target);

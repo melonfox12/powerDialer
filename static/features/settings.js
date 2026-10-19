@@ -4,14 +4,18 @@ import { postJson, refreshAudioDevices, render, request, SECRET_INPUTS, S, byId,
 const SECRET_FIELDS = SECRET_INPUTS;
 const SAVED_SECRET_PLACEHOLDER = "Saved — leave blank to keep";
 
+function showSecretField(id, saved) {
+  const input = byId(id);
+  if (input.value) return;
+  input.placeholder = saved ? SAVED_SECRET_PLACEHOLDER : "";
+}
+
 export function applySavedSettings(settings) {
   state.settings = settings;
   byId("accountSidInput").value = settings.account_sid || "";
-  byId("authTokenInput").value = "";
-  byId("authTokenInput").placeholder = settings.has_auth_token ? SAVED_SECRET_PLACEHOLDER : "";
+  showSecretField("authTokenInput", settings.has_auth_token);
   byId("apiKeyInput").value = settings.api_key || "";
-  byId("apiSecretInput").value = "";
-  byId("apiSecretInput").placeholder = settings.has_api_secret ? SAVED_SECRET_PLACEHOLDER : "";
+  showSecretField("apiSecretInput", settings.has_api_secret);
   byId("twimlAppSidInput").value = settings.twiml_app_sid || "";
   byId("publicUrlInput").value = settings.public_base_url || "";
   byId("sessionGoalInput").value = settings.session_goal;
@@ -51,6 +55,26 @@ export async function openSettings() {
   }
 }
 
+function settingsPayload() {
+  return {
+    account_sid: byId("accountSidInput").value,
+    auth_token: byId("authTokenInput").value,
+    api_key: byId("apiKeyInput").value,
+    api_secret: byId("apiSecretInput").value,
+    twiml_app_sid: byId("twimlAppSidInput").value,
+    public_base_url: byId("publicUrlInput").value,
+    session_goal: byId("sessionGoalInput").value,
+    conversation_threshold: byId("conversationThresholdInput").value,
+    auto_advance_delay: byId("autoAdvanceDelayInput").value,
+    calling_start_hour: byId("callingStartHourInput").value,
+    calling_end_hour: byId("callingEndHourInput").value,
+    break_nudge_minutes: byId("breakNudgeInput").value,
+    opening_script: byId("openingScriptInput").value,
+    sounds_enabled: byId("soundsEnabledInput").checked,
+    sound_volume: byId("soundVolumeInput").value,
+  };
+}
+
 export function bindSettings() {
   byId("settingsButton").addEventListener("click", openSettings);
   for (const [id, noun] of SECRET_FIELDS) {
@@ -76,23 +100,7 @@ export function bindSettings() {
     const submit = byId("settingsForm").querySelector("[type=submit]");
     submit.disabled = true;
     try {
-      const settings = await postJson("/api/settings", {
-        account_sid: byId("accountSidInput").value,
-        auth_token: byId("authTokenInput").value,
-        api_key: byId("apiKeyInput").value,
-        api_secret: byId("apiSecretInput").value,
-        twiml_app_sid: byId("twimlAppSidInput").value,
-        public_base_url: byId("publicUrlInput").value,
-        session_goal: byId("sessionGoalInput").value,
-        conversation_threshold: byId("conversationThresholdInput").value,
-        auto_advance_delay: byId("autoAdvanceDelayInput").value,
-        calling_start_hour: byId("callingStartHourInput").value,
-        calling_end_hour: byId("callingEndHourInput").value,
-        break_nudge_minutes: byId("breakNudgeInput").value,
-        opening_script: byId("openingScriptInput").value,
-        sounds_enabled: byId("soundsEnabledInput").checked,
-        sound_volume: byId("soundVolumeInput").value,
-      });
+      const settings = await postJson("/api/settings", settingsPayload());
       applySavedSettings(settings);
       maskSecrets();
       byId("settingsDialog").close();

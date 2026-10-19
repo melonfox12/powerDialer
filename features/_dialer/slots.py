@@ -1,14 +1,21 @@
 """Fill the single prospect slot, and the calling-window timer that refills it."""
 
-import random
 import threading
 
 from features._dialer import calls, rules
 
 
 def fill_slots(state):
+    try:
+        _place_prospect_call(state)
+    except Exception as exc:
+        state.record_activity(f"Could not start the next call: {exc}", "error")
+
+
+def _place_prospect_call(state):
     leads = state.crm.snapshot()
     launches = []
+    none_ready = False
     with state.lock:
         if not state.running or state.paused or not state.agent_ready or state.active or state.pending_outcome:
             return
@@ -22,14 +29,20 @@ def fill_slots(state):
                 lead for lead in calls._pool_leads(state, leads)
                 if lead["id"] not in active_leads
             ]
-            selected = random.sample(pool, min(open_slots, len(pool)))
+            selected = pool[:open_slots]
+        if open_slots and not selected:
+            none_ready = True
         for lead in selected:
             call = calls._new_call(state, "prospect", lead)
             call["caller_id"] = calls._next_caller(state)
             launches.append((call, lead["phone"]))
-    rules._flush_metrics(state)
+    if none_ready:
+        state.record_activity("No prospect was ready to dial", "call")
     for call, destination in launches:
+        name = (call.get("lead") or {}).get("name") or "prospect"
+        state.record_activity(f"Dialing {name}", "call")
         calls._launch_call(state, call, destination)
+    rules._flush_metrics(state)
     _schedule_calling_window_check(state)
 
 

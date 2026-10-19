@@ -2,8 +2,12 @@ import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { renderCallMonitor } from "./monitor.js";
+import { queueProspect } from "./queue.js";
 
 export function renderDialerControls(stage, active, ringing) {
+  const canPreview = stage === "idle" && Boolean(state.next_lead);
+  byId("skipNextButton").disabled = !queueProspect();
+  byId("removeNextButton").hidden = !canPreview;
   byId("startButton").disabled = state.running;
   byId("startButton").hidden = stage !== "idle";
   byId("pauseButton").disabled = !state.running;

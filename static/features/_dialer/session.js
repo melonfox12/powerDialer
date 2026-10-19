@@ -1,7 +1,7 @@
 import { postJson, request } from "../../_core/api.js";
 import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
-import { showToast } from "../../_core/notify.js";
+import { errorText, showToast } from "../../_core/notify.js";
 import { stopProspectWaveform } from "./card.js";
 import { render } from "../../core.js";
 import { openSettings } from "../settings.js";
@@ -25,7 +25,7 @@ export async function startDialing() {
     stopProspectWaveform();
     Object.assign(state, await request("/api/state").catch(() => ({})));
     render();
-    showToast(error.message, true);
+    showToast(errorText(error, "Could not start dialing."), true);
     if (!sessionStarted) openSettings();
   } finally {
     byId("startButton").disabled = state.running;

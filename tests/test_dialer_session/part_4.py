@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
 from features._dialer import calls
+from features._dialer.rules import new_session
 from features.dialer import Dialer
 from features.prospects import ProspectStore
 
@@ -52,6 +53,69 @@ class Part4:
                 [caller for caller, _destination in launched],
                 ["+15551110001", "+15551110002", "+15551110003", "+15551110001"],
             )
+
+    def test_metrics_save_failure_still_places_the_call(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = [{
+                "id": "prospect-0", "name": "Ada", "business": "Shop",
+                "phone": "+12025550100", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001"]
+            dialer.session = new_session()
+
+            class BrokenMetrics:
+                def bump(self, key, amount=1):
+                    raise OSError("missing increment_metric")
+
+                def save_session(self, session):
+                    raise OSError("missing session save")
+
+            dialer.metrics = BrokenMetrics()
+            launched = []
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append(destination)
+            try:
+                dialer.fill_slots()
+            finally:
+                calls._launch_call = original_launch
+            self.assertEqual(launched, ["+12025550100"])
+
+    def test_skip_still_dials_when_metrics_cannot_be_saved(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = [{
+                "id": "prospect-0", "name": "Ada", "business": "Shop",
+                "phone": "+12025550100", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001"]
+            dialer.session = new_session()
+
+            class BrokenMetrics:
+                def bump(self, key, amount=1):
+                    raise OSError("missing increment_metric")
+
+                def save_session(self, session):
+                    raise OSError("missing session save")
+
+            dialer.metrics = BrokenMetrics()
+            launched = []
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append(destination)
+            try:
+                view = dialer.pass_next("prospect-0")
+            finally:
+                calls._launch_call = original_launch
+            self.assertEqual(launched, ["+12025550100"])
+            self.assertEqual(view["next_lead"]["id"], "prospect-0")
 
     def test_manual_dial_calls_the_chosen_prospect_and_can_wait_for_the_line(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -139,3 +203,33 @@ class Part4:
             self.assertFalse(dialer.paused)
             self.assertEqual(state["dial_status"], "now")
             self.assertEqual(launched, [chosen["phone"]])
+
+    def test_auto_dial_calls_the_prospect_left_after_a_skip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            first = {
+                "id": "first", "name": "Ada Lovelace", "business": "Shop",
+                "phone": "+12025550100", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            second = {
+                "id": "second", "name": "Grace Hopper", "business": "Lab",
+                "phone": "+12025550101", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [first, second]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.pass_next(first["id"])
+            dialer.running = True
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001"]
+            dialer.settings = {"CALLING_START_HOUR": "0", "CALLING_END_HOUR": "24"}
+            launched = []
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append((destination, call["lead_id"]))
+            try:
+                dialer.fill_slots()
+            finally:
+                calls._launch_call = original_launch
+            self.assertEqual(launched, [(second["phone"], second["id"])])
+            self.assertEqual(len(crm.snapshot()), 2)

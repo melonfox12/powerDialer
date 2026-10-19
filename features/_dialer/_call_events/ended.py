@@ -12,6 +12,8 @@ def _call_ended(state, call, params):
         if call["kind"] == "agent":
             _agent_call_ended(state)
             return
+        if state.queue_anchor_id == call.get("lead_id"):
+            state.queue_anchor_id = None
         if call.get("end_processed"):
             return
         call["end_processed"] = True

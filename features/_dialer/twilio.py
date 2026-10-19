@@ -16,13 +16,13 @@ TWILIO_API = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}"
 class TwilioError(Exception):
     pass
 
-def twilio_request(account_sid, auth_token, method, path, data=None, params=None):
+def twilio_request(account_sid, auth_token, method, path, data=None, params=None, username=None):
     url = TWILIO_API.format(account_sid=urllib.parse.quote(account_sid, safe="")) + path
     if params:
         url += "?" + urllib.parse.urlencode(params)
     body = urllib.parse.urlencode(data, doseq=True).encode() if data is not None else None
     request = urllib.request.Request(url, data=body, method=method)
-    auth = base64.b64encode(f"{account_sid}:{auth_token}".encode()).decode()
+    auth = base64.b64encode(f"{username or account_sid}:{auth_token}".encode()).decode()
     request.add_header("Authorization", "Basic " + auth)
     if body is not None:
         request.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -101,6 +101,47 @@ def _hangup_call(state, call_uuid):
                        f"/Calls/{urllib.parse.quote(call_uuid, safe='')}.json", data={"Status": "completed"})
     except (TwilioError, KeyError):
         pass
+
+def prepare_browser_voice(state, values):
+    """Check the API key, then point the TwiML app at this dialer's voice URL."""
+    account = values["TWILIO_ACCOUNT_SID"]
+    token = values["TWILIO_AUTH_TOKEN"]
+    if not _api_key_accepted(account, values["TWILIO_API_KEY"], values["TWILIO_API_SECRET"]):
+        raise TwilioError(
+            "The API Key Secret does not match the API Key SID. Paste the current secret in Settings and click Save. The saved secret was not changed."
+        )
+    voice_url = f"{state.public_base_url}/hooks/voice"
+    _point_voice_app(state, account, token, values["TWILIO_TWIML_APP_SID"], voice_url)
+
+
+def _api_key_accepted(account, key, secret):
+    try:
+        twilio_request(account, secret, "GET", ".json", username=key)
+    except TwilioError as exc:
+        message = str(exc)
+        if "permissions" in message.lower():
+            return True
+        if "Twilio error 401" in message:
+            return False
+        raise
+    return True
+
+
+def _point_voice_app(state, account, token, app_sid, voice_url):
+    path = "/Applications/" + urllib.parse.quote(app_sid, safe="") + ".json"
+    try:
+        app = twilio_request(account, token, "GET", path)
+    except TwilioError as exc:
+        if "Twilio error 404" in str(exc):
+            raise TwilioError("The TwiML App SID in Settings was not found on this Twilio account.") from exc
+        raise
+    current = str(app.get("voice_url") or "").rstrip("/")
+    method = str(app.get("voice_method") or "").upper()
+    if current == voice_url and method == "POST":
+        return
+    twilio_request(account, token, "POST", path, data={"VoiceUrl": voice_url, "VoiceMethod": "POST"})
+    state.record_activity("Pointed the TwiML app at the public voice URL", "api")
+
 
 def voice_access_token(state):
     state.record_activity("Requesting browser Voice access token", "api")

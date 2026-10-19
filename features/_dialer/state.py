@@ -55,6 +55,7 @@ class DialerState:
         self.queue_total = 0
         self.calling_window_timer = None
         self.manual_lead_id = None
+        self.queue_anchor_id = None
 
 
     def record_activity(self, message, source="dialer"):
