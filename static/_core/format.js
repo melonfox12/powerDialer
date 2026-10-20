@@ -41,6 +41,50 @@ export function statusDate(lead) {
   return due.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+export function callbackCountdown(until, now = Date.now()) {
+  const due = new Date(until || "").getTime();
+  if (Number.isNaN(due)) return "";
+  const total = Math.max(0, Math.ceil((due - now) / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+export function callbackStatusText(lead, now = Date.now()) {
+  const label = STATUS_LABELS[lead?.status] || "New";
+  if (lead?.status !== "call" || !lead.scheduled_until) return label;
+  const countdown = callbackCountdown(lead.scheduled_until, now);
+  return countdown ? `${label} ${countdown}` : label;
+}
+
+export function markCallback(node, lead) {
+  if (lead?.status === "call" && lead.scheduled_until) {
+    node.dataset.callbackUntil = lead.scheduled_until;
+    return true;
+  }
+  delete node.dataset.callbackUntil;
+  return false;
+}
+
+export function startStatusClock() {
+  const tick = () => {
+    const now = Date.now();
+    for (const node of document.querySelectorAll("[data-callback-until]")) {
+      const countdown = callbackCountdown(node.dataset.callbackUntil, now);
+      const text = `${node.dataset.callbackPrefix || "Callback "}${countdown}`;
+      if (node.tagName === "SELECT") {
+        const option = node.querySelector('option[value="call"]');
+        if (option) option.textContent = text;
+      } else {
+        node.textContent = text;
+      }
+    }
+  };
+  tick();
+  setInterval(tick, 1000);
+}
+
 export function formatMinutes(totalSeconds) {
   const minutes = Math.round((totalSeconds || 0) / 60);
   return `${minutes}m`;

@@ -1,8 +1,10 @@
 import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 from features.prospects import ProspectStore
 from features._dialer.rules import new_session
 from features.dialer import Dialer
+from shared.infra import utc_now
 
 class Part2:
     def test_callback_is_persisted_and_do_not_call_leaves_the_auto_dial_pool(self):
@@ -77,7 +79,7 @@ class Part2:
             dialer.update_status("prospect-0", "disqualified", crm_only=True)
             view = dialer.public_state()
             self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
-            self.assertEqual(view["next_lead"]["id"], "prospect-0")
+            self.assertEqual(view["next_lead"]["id"], "prospect-1")
             self.assertEqual(view["in_flight"][0]["lead_id"], "prospect-0")
             self.assertIsNone(view["pending_outcome"])
             self.assertTrue(view["running"])
@@ -107,15 +109,33 @@ class Part2:
             skipped = dialer.pass_next("prospect-0")
             self.assertEqual(skipped["next_lead"]["id"], "prospect-1")
             kept = next(lead for lead in crm.snapshot() if lead["id"] == "prospect-0")
-            self.assertEqual(kept["status"], "new")
-            self.assertTrue(kept["passed_at"])
+            self.assertEqual(kept["status"], "call")
+            self.assertEqual(kept["call_log"][0]["answered_by"], "skipped")
+            skipped_at = datetime.fromisoformat(kept["call_log"][0]["started_at"])
+            self.assertLessEqual(abs(utc_now() - skipped_at), timedelta(seconds=2))
+            due = datetime.fromisoformat(kept["scheduled_until"])
+            remaining = due - utc_now()
+            self.assertGreater(remaining, timedelta(hours=12) - timedelta(seconds=2))
+            self.assertLessEqual(remaining, timedelta(hours=12))
             self.assertEqual(len(crm.snapshot()), 3)
 
             dialer.pass_next("prospect-1")
             self.assertEqual(dialer.public_state()["next_lead"]["id"], "prospect-2")
             dialer.pass_next("prospect-2")
+            self.assertIsNone(dialer.public_state()["next_lead"])
+
+            with crm.lock:
+                stored = next(lead for lead in crm.leads if lead["id"] == "prospect-0")
+                stored["scheduled_until"] = (utc_now() - timedelta(seconds=1)).isoformat()
+            returned = next(lead for lead in crm.snapshot() if lead["id"] == "prospect-0")
+            self.assertEqual(returned["status"], "new")
+            self.assertIsNone(returned["scheduled_until"])
             self.assertEqual(dialer.public_state()["next_lead"]["id"], "prospect-0")
 
+            with crm.lock:
+                other = next(lead for lead in crm.leads if lead["id"] == "prospect-1")
+                other["status"] = "new"
+                other["scheduled_until"] = None
             dialer.running = True
             dialer.in_flight["token"] = {"lead_id": "prospect-0", "kind": "prospect"}
             skipped_live = dialer.pass_next("prospect-0")
@@ -126,3 +146,24 @@ class Part2:
             crm.remove("prospect-0")
             self.assertEqual(dialer.public_state()["next_lead"]["id"], "prospect-1")
             self.assertEqual(len(crm.snapshot()), 2)
+
+    def test_open_callback_without_a_call_is_listed_as_a_skip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            due = utc_now().replace(microsecond=0) + timedelta(hours=6)
+            crm.leads = [{
+                "id": "prospect-0",
+                "name": "Ada Lovelace",
+                "business": "Shop 0",
+                "phone": "+12025550120",
+                "timezone": "Eastern",
+                "status": "call",
+                "scheduled_until": due.isoformat(),
+                "transcript": [],
+                "fields": {},
+            }]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.public_state()
+            kept = crm.snapshot()[0]
+            self.assertEqual(kept["call_log"][0]["answered_by"], "skipped")
+            self.assertEqual(kept["call_log"][0]["started_at"], (due - timedelta(hours=12)).isoformat())

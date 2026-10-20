@@ -11,7 +11,7 @@ def _pool_leads(state, leads=None):
     anchor_id = state.queue_anchor_id
     indexed = [
         (index, lead) for index, lead in enumerate(leads)
-        if lead["status"] == "new" or lead["id"] == anchor_id
+        if lead["status"] == "new"
     ]
     if state.selected_timezone:
         zone = state.selected_timezone

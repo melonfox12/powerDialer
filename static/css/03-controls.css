@@ -33,7 +33,7 @@ tbody tr:last-child td { border-bottom: 0; }
 td:has(.cell-editor) { overflow: visible; }
 .status-cell { position: relative; overflow: visible; }
 .status-cell:focus-within { z-index: 3; }
-.status-select { max-width: 156px; min-width: 115px; height: 27px; padding: 0 25px 0 9px; border: 1px solid transparent; border-radius: var(--radius-full); appearance: auto; font-size: 11px; font-weight: 510; cursor: pointer; }
+.status-select { max-width: 188px; min-width: 115px; height: 27px; padding: 0 25px 0 9px; border: 1px solid transparent; border-radius: var(--radius-full); appearance: auto; font-size: 11px; font-weight: 510; cursor: pointer; }
 .status-select.status-neutral { background: rgba(138, 143, 152, .14); color: var(--ink-secondary); }
 .status-select.status-callback { background: var(--amber-soft); color: var(--amber); }
 .status-select.status-positive { background: var(--success-soft); color: var(--success); }
@@ -88,6 +88,7 @@ td:has(.cell-editor) { overflow: visible; }
 .live-indicator.is-pulsing i { animation: status-pulse 1.2s ease-in-out infinite; }
 @keyframes status-pulse { 50% { opacity: .4; } }
 .line-count { color: var(--muted); font-size: 12px; }
+[data-callback-until] { font-variant-numeric: tabular-nums; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(235, 87, 87, 0); } }
 .live-panel h2 { margin-top: 9px; }
 .queue-strip .active-avatar { display: none; }

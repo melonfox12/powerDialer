@@ -4,10 +4,12 @@ import secrets
 import threading
 import time
 import urllib.parse
+from datetime import datetime, timedelta
 
 from features._dialer import calls, slots, timing
 from features._dialer import projection, rules, twilio
 from features._dialer.rules import new_session, session_summary
+from shared.infra import utc_now
 
 def set_timezone_filter(state, timezone):
     timezone = str(timezone or "").strip() or None
@@ -144,6 +146,39 @@ def _drop_prospect_call(state, lead_id):
         threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
     return should_fill
 
+def remember_skip(state, lead_id, when):
+    moment = when.replace(microsecond=0).isoformat()
+    try:
+        state.crm.append_call_log(lead_id, {
+            "id": f"skip-{lead_id}-{moment}",
+            "started_at": moment,
+            "ended_at": moment,
+            "answered_by": "skipped",
+        })
+    except OSError as exc:
+        state.record_activity(f"Could not log the skip: {exc}", "error")
+
+def remember_open_skips(state):
+    """Keep a 12-hour callback that has no call record in the dial list."""
+    now = utc_now()
+    horizon = timedelta(hours=12, seconds=2)
+    for lead in state.crm.snapshot():
+        if lead.get("status") != "call" or not lead.get("scheduled_until"):
+            continue
+        log = lead.get("call_log") or []
+        if any(item.get("answered_by") == "skipped" for item in log):
+            continue
+        try:
+            due = datetime.fromisoformat(str(lead["scheduled_until"]))
+        except ValueError:
+            continue
+        if due.tzinfo is None:
+            continue
+        remaining = due - now
+        if remaining <= timedelta(0) or remaining > horizon:
+            continue
+        remember_skip(state, lead["id"], due - timedelta(hours=12))
+
 def pass_next(state, lead_id=None):
     lead_id = str(lead_id or "").strip() or _current_queue_id(state, state.crm.snapshot())
     if not lead_id:
@@ -153,7 +188,11 @@ def pass_next(state, lead_id=None):
     if lead is None:
         raise KeyError("Prospect not found")
     if lead.get("status") == "new":
-        state.crm.defer(lead_id)
+        due = utc_now().replace(microsecond=0) + timedelta(hours=12)
+        state.crm.set_status(lead_id, "call", due.isoformat())
+        remember_skip(state, lead_id, due - timedelta(hours=12))
+    else:
+        remember_skip(state, lead_id, utc_now())
     with state.lock:
         if state.queue_anchor_id == lead_id:
             state.queue_anchor_id = None

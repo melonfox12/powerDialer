@@ -92,6 +92,10 @@ class Part4:
                 "id": "prospect-0", "name": "Ada", "business": "Shop",
                 "phone": "+12025550100", "timezone": "Eastern", "status": "new",
                 "scheduled_until": None, "transcript": [], "fields": {},
+            }, {
+                "id": "prospect-1", "name": "Grace", "business": "Lab",
+                "phone": "+12025550101", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
             }]
             dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.running = True
@@ -114,8 +118,10 @@ class Part4:
                 view = dialer.pass_next("prospect-0")
             finally:
                 calls._launch_call = original_launch
-            self.assertEqual(launched, ["+12025550100"])
-            self.assertEqual(view["next_lead"]["id"], "prospect-0")
+            self.assertEqual(launched, ["+12025550101"])
+            self.assertEqual(view["next_lead"]["id"], "prospect-1")
+            skipped = next(lead for lead in crm.snapshot() if lead["id"] == "prospect-0")
+            self.assertEqual(skipped["status"], "call")
 
     def test_manual_dial_calls_the_chosen_prospect_and_can_wait_for_the_line(self):
         with tempfile.TemporaryDirectory() as directory:

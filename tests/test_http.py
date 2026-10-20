@@ -200,13 +200,13 @@ class HttpContractTests(unittest.TestCase):
         status, payload, _type = self.json_request("POST", "/api/next/skip", {"id": lead_id})
         self.assertEqual(status, 200)
         self.assert_keys(payload, STATE_KEYS)
-        self.assertEqual(payload["next_lead"]["id"], lead_id)
-        self.assertTrue(any(lead["id"] == lead_id for lead in payload["leads"]))
+        self.assertIsNone(payload["next_lead"])
+        skipped = next(lead for lead in payload["leads"] if lead["id"] == lead_id)
+        self.assertEqual(skipped["status"], "call")
+        self.assertEqual(skipped["call_log"][0]["answered_by"], "skipped")
 
         status, payload, _type = self.json_request("POST", "/api/next/skip", {})
-        self.assertEqual(status, 200)
-        self.assert_keys(payload, STATE_KEYS)
-        self.assertEqual(payload["next_lead"]["id"], lead_id)
+        self.assertEqual(status, 400)
 
         csv_body = b"Name,Phone,Timezone\nBea,2025550112,Central\n"
         status, raw, content_type = self.request(

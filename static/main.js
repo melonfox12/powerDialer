@@ -6,9 +6,10 @@ import "./features/performance.js";
 import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "./features/prospects.js";
 import { bindSettings } from "./features/settings.js";
 import { arcadeSensory, startArcade } from "./features/arcade.js";
-import { byId, setText } from "./_core/format.js";
+import { byId, setText, startStatusClock } from "./_core/format.js";
 
 bindDebugListeners();
+startStatusClock();
 startArcade();
 bindNavigation();
 bindDialogs();

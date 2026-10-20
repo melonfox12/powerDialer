@@ -1,6 +1,6 @@
 import { stageEffects } from "./effects.js";
 import { S, state } from "../../_core/state.js";
-import { STATUS_LABELS, byId, setText } from "../../_core/format.js";
+import { STATUS_LABELS, byId, callbackStatusText, markCallback, setText } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { startCallTimer, stopCallTimer } from "./timer.js";
 
@@ -72,9 +72,17 @@ export function renderCallStage(stage, target) {
     const next = state.next_lead;
     const clock = next ? localTimeLabel(next.timezone) : "";
     const context = next && Object.entries(next.fields || {}).find(([key, value]) => /notes?/i.test(key) && value);
-    detail.textContent = next
-      ? `Next up: ${next.business || next.name || "Prospect"} · ${formatPhoneNumber(next.phone)} · ${clock || next.timezone || "Local time unavailable"} · ${context ? `Context: ${context[1]}` : `Status: ${STATUS_LABELS[next.status] || "New"}`}`
-      : "No prospects available in this queue.";
+    if (next) {
+      detail.append(`Next up: ${next.business || next.name || "Prospect"} · ${formatPhoneNumber(next.phone)} · ${clock || next.timezone || "Local time unavailable"} · `);
+      const status = document.createElement("span");
+      const countdown = next.status === "call" && next.scheduled_until;
+      status.dataset.callbackPrefix = "Status: Callback ";
+      status.textContent = countdown ? `Status: ${callbackStatusText(next)}` : `Status: ${STATUS_LABELS[next.status] || "New"}`;
+      if (countdown && !context) markCallback(status, next);
+      detail.append(context ? `Context: ${context[1]}` : status);
+    } else {
+      detail.textContent = "No prospects available in this queue.";
+    }
     container.classList.remove("call-stage-live");
   }
 

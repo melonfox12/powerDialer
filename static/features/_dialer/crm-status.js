@@ -1,6 +1,6 @@
 import { postJson } from "../../_core/api.js";
 import { state } from "../../_core/state.js";
-import { STATUS_KEYS, STATUS_LABELS, byId } from "../../_core/format.js";
+import { STATUS_KEYS, STATUS_LABELS, byId, callbackStatusText, markCallback } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 import { nextProspectLabel, queueProspect } from "./queue.js";
@@ -27,7 +27,10 @@ export function renderCrmStatus() {
     button.type = "button";
     button.className = "outcome-btn";
     button.dataset.status = status;
-    button.textContent = STATUS_LABELS[status];
+    button.textContent = status === "call" && lead?.status === "call"
+      ? callbackStatusText(lead)
+      : STATUS_LABELS[status];
+    if (status === "call") markCallback(button, lead);
     button.disabled = !lead || saving;
     button.setAttribute("aria-pressed", lead?.status === status ? "true" : "false");
     return button;

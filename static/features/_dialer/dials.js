@@ -1,11 +1,11 @@
 import { state } from "../../_core/state.js";
-import { STATUS_LABELS, byId, setText } from "../../_core/format.js";
+import { byId, callbackStatusText, markCallback, setText } from "../../_core/format.js";
 import { openTranscript } from "../../_core/transcript.js";
 
 export function renderDials() {
   const rows = dialRows(state.leads);
   setText("dialsTabCount", String(rows.length));
-  setText("dialsTableSummary", `${rows.length} call${rows.length === 1 ? "" : "s"}`);
+  setText("dialsTableSummary", `${rows.length} dial${rows.length === 1 ? "" : "s"}`);
   const body = byId("dialsTableBody");
   body.replaceChildren(...rows.map(({ lead, entry }) => {
     const row = document.createElement("tr");
@@ -14,7 +14,7 @@ export function renderDials() {
     row.append(cell(lead.business || "—"));
     row.append(cell(reviewText(lead)));
     row.append(transcriptCell(lead));
-    row.append(cell(STATUS_LABELS[lead.status] || "New"));
+    row.append(statusCell(lead));
     return row;
   }));
   byId("dialsTable").hidden = rows.length === 0;
@@ -70,6 +70,13 @@ function transcriptCell(lead) {
   button.addEventListener("click", () => openTranscript(lead));
   cell.append(button);
   return cell;
+}
+
+function statusCell(lead) {
+  const item = document.createElement("td");
+  item.textContent = callbackStatusText(lead);
+  markCallback(item, lead);
+  return item;
 }
 
 function cell(text) {

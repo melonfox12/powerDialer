@@ -1,6 +1,6 @@
 import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
-import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, fillTimezoneSelect, initials, statusDate } from "../../_core/format.js";
+import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, callbackStatusText, fillTimezoneSelect, initials, markCallback } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { LEAD_COLUMNS, locationText } from "./query.js";
 import { openTranscript } from "./transcript.js";
@@ -53,7 +53,9 @@ export function appendLeadRows(body, leads, extras, onSelection) {
     for (const value of STATUS_KEYS) {
       const option = document.createElement("option");
       option.value = value;
-      option.textContent = value === "call" && statusDate(lead) ? `Callback (${statusDate(lead)})` : STATUS_LABELS[value];
+      option.textContent = value === "call" && lead.status === "call"
+        ? callbackStatusText(lead)
+        : STATUS_LABELS[value];
       option.selected = lead.status === value;
       if (value === "new" && state.pending_outcome?.id === lead.id) option.disabled = true;
       select.append(option);
@@ -63,6 +65,7 @@ export function appendLeadRows(body, leads, extras, onSelection) {
         detail: { lead, status: select.value, select },
       }));
     });
+    markCallback(select, lead);
     statusCell.append(select);
     row.append(statusCell);
 

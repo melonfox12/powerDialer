@@ -26,6 +26,7 @@ class Dialer(DialerState):
         return {**current, **settings_feature.preferences(current)}
 
     def public_state(self):
+        queue.remember_open_skips(self)
         return projection.public_state(self)
 
     def live_state(self):
