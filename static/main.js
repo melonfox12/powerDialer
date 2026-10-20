@@ -1,7 +1,7 @@
 import { bindDebugListeners } from "./_core/api.js";
 import { bindAuth, initAuth, showLoginGate } from "./features/auth.js";
 import { bindNavigation, renderTable } from "./core.js";
-import { bindCallMonitor, bindDialer, bindKeyboard, bindOutcomes, bindSessionGoal, bindVoice, startPolling } from "./features/dialer.js";
+import { bindCallMonitor, bindDialer, bindKeyboard, bindSessionGoal, bindVoice, startPolling } from "./features/dialer.js";
 import "./features/performance.js";
 import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "./features/prospects.js";
 import { bindSettings } from "./features/settings.js";
@@ -28,7 +28,6 @@ bindCallMonitor();
 bindSessionGoal();
 bindDialer();
 bindKeyboard();
-bindOutcomes();
 byId("arcadeEnabledInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ enabled: event.target.checked }));
 byId("arcadeReelsInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ reels: event.target.checked }));
 byId("arcadeSoundInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ sound: event.target.checked }));

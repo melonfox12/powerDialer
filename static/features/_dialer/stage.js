@@ -114,8 +114,8 @@ export function renderCallStage(stage, target) {
   }
   if (stage !== S.previousStage && stage !== "idle") {
     setText("stageAnnouncer", stage === "connected"
-      ? (state.pickup_answered_by === "voicemail" ? "Voicemail picked up. Stay on the line or skip." : "Prospect picked up. Stay on the line or skip.")
-      : stage === "wrapup" ? "Call ended. Choose a disposition." : stage === "paused" ? "Dialing session paused." : stage === "ringing" ? "Prospect line is ringing." : "Dialing next prospect.");
+      ? (state.pickup_answered_by === "voicemail" ? "Voicemail picked up." : "Prospect picked up.")
+      : stage === "wrapup" ? "Call ended." : stage === "paused" ? "Dialing session paused." : stage === "ringing" ? "Prospect line is ringing." : "Dialing next prospect.");
     container.classList.remove("stage-enter");
     void container.offsetWidth;
     container.classList.add("stage-enter");

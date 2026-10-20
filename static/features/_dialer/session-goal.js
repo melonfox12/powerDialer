@@ -54,10 +54,6 @@ export function renderSessionMomentum() {
 }
 
 export function bindSessionGoal() {
-  byId("breakPauseButton").addEventListener("click", () => {
-    byId("pauseButton").click();
-    byId("breakNudge").hidden = true;
-  });
   byId("breakDismissButton").addEventListener("click", () => {
     S.dismissedBreakForSession = state.session_stats?.id || null;
     byId("breakNudge").hidden = true;

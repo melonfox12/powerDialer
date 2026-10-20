@@ -32,6 +32,14 @@ def _call_ended(state, call, params):
             state.queue_anchor_id = None
         if call.get("end_processed"):
             return
+        if call.get("skip_closed"):
+            call["end_processed"] = True
+            state.in_flight.pop(call["token"], None)
+            if state.active is call:
+                state.active = None
+            if state.pending_outcome == call.get("lead_id"):
+                state.pending_outcome = None
+            return
         call["end_processed"] = True
         if call["cancelled"] and not call.get("picked_up"):
             state.in_flight.pop(call["token"], None)
@@ -63,12 +71,8 @@ def _call_ended(state, call, params):
                 rules._save_session(state)
             log_entry = _dial_record(call, duration)
             if state.running and was_connected:
-                if outcome_already_chosen:
-                    state.last_event = "Call ended"
-                    should_schedule_advance = not pending_already and not state.pending_outcome
-                elif not pending_already:
-                    state.pending_outcome = call["lead_id"]
-                    state.last_event = "Choose an outcome before the next calls"
+                state.last_event = "Call ended"
+                should_schedule_advance = not pending_already and not state.pending_outcome
             elif state.running and not was_connected and not pending_already and not outcome_already_chosen:
                 state.last_event = "No answer"
                 should_schedule_advance = True

@@ -98,16 +98,19 @@
   font-weight: 590;
   letter-spacing: -0.022em;
   line-height: 1.2;
+  overflow: visible;
   white-space: normal;
 }
-.dialer-document .queue-strip .queue-place {
+.dialer-document .queue-strip .queue-place,
+.dialer-document .queue-strip .queue-reviews {
   margin-left: 10px;
-  color: var(--success);
   font-size: 13px;
   font-weight: 510;
   letter-spacing: 0;
   white-space: nowrap;
 }
+.dialer-document .queue-strip .queue-place { color: var(--success); }
+.dialer-document .queue-strip .queue-reviews { color: var(--amber); }
 .issue-lede {
   max-width: 560px;
   margin: 8px 0 0;

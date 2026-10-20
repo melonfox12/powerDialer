@@ -29,37 +29,20 @@
                     <div><span>Session</span><strong id="sessionGoalLabel">0 / 20 conversations</strong><span id="sessionHalfway" class="session-halfway" hidden>Halfway</span><p id="sessionStreak" class="session-streak" hidden></p></div>
                     <div id="sessionGoalTrack" class="goal-track" role="progressbar" aria-label="Session conversation goal" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><span id="sessionGoalProgress"></span></div>
                   </div>
-                  <div id="breakNudge" class="break-nudge" hidden><span>Good work. Consider a 5-minute break.</span><button id="breakPauseButton" class="button button-quiet" type="button">Pause</button><button id="breakDismissButton" class="button button-quiet" type="button">Dismiss</button></div>
+                  <div id="breakNudge" class="break-nudge" hidden><span>Good work. Consider a 5-minute break.</span><button id="breakDismissButton" class="button button-quiet" type="button">Dismiss</button></div>
                 </div>
                 <div id="dialerMessage" class="dialer-message" role="status" hidden></div>
                 <h2 id="liveTitle" class="visually-hidden">Call desk</h2>
 
                 <div class="dialer-controls" data-controls="idle">
                   <button id="startButton" class="button button-primary" type="button"><svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8v8.4L13 8 6 3.8Z"/></svg>Start dialing<kbd>Space</kbd></button>
-                  <button id="removeNextButton" class="button button-danger-quiet" type="button" hidden>Remove</button>
-                  <button id="pauseButton" class="button button-secondary" type="button" disabled hidden>Pause</button>
-                  <button id="hangupButton" class="button button-danger-quiet" type="button" disabled hidden>Hang up<kbd>H</kbd></button>
                   <button id="stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
-                  <button id="skipNextButton" class="button button-secondary" type="button">Skip</button>
-                  <details class="shortcut-help"><summary aria-label="Show keyboard shortcuts">?</summary><div>Space start / resume / skip wait · 1-5 outcome · H hang up · Esc pause</div></details>
                 </div>
 
                 <section class="crm-status" aria-labelledby="crmStatusLabel">
                   <div class="outcome-label" id="crmStatusLabel">CRM status <span id="crmStatusTarget"></span></div>
                   <div id="crmStatusButtons" class="outcome-buttons" role="group" aria-label="CRM status"></div>
                 </section>
-
-                <div id="outcomeRow" class="outcome-row" hidden>
-                  <div class="outcome-label">Disposition</div>
-                  <div class="outcome-buttons">
-                    <button id="outcomeBookedButton" class="outcome-btn outcome-btn-booked" type="button" disabled><kbd>1</kbd>Booked</button>
-                    <button id="outcomeCallButton" class="outcome-btn outcome-btn-call" type="button" disabled><kbd>2</kbd>Callback</button>
-                    <button id="outcomeDisqualifiedButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled><kbd>3</kbd>Not interested</button>
-                    <button id="outcomeNoAnswerButton" class="outcome-btn outcome-btn-call" type="button" disabled><kbd>4</kbd>Voicemail / No answer</button>
-                    <button id="outcomeDncButton" class="outcome-btn outcome-btn-disqualified" type="button" disabled><kbd>5</kbd>Wrong number / Do not call</button>
-                  </div>
-                  <div id="callbackPicker" class="callback-picker" hidden><label for="callbackAt">Call again in prospect’s local time</label><input id="callbackAt" type="datetime-local" aria-label="Callback date and time"><button id="saveCallbackButton" class="button button-secondary" type="button">Save callback</button></div>
-                </div>
 
                 <section id="callStage" class="call-stage" data-stage="idle" aria-live="off" tabindex="0" aria-label="Call stage"></section>
                 <section id="arcadeViewport" class="arcade-viewport" aria-label="Call feedback" aria-live="off" hidden>
@@ -76,7 +59,6 @@
                 <span id="stageAnnouncer" class="visually-hidden" role="status" aria-live="polite"></span>
                 <div id="advanceControls" class="advance-controls" hidden>
                   <p id="autoAdvance" class="auto-advance" hidden></p>
-                  <button id="advanceNowButton" class="button button-quiet advance-now" type="button" hidden>Dial next now <kbd>Space</kbd></button>
                 </div>
 
               <details id="callMonitorDisclosure" class="call-monitor-disclosure" open>
@@ -97,7 +79,6 @@
                     <strong id="dialedProspectName">No one is being dialed</strong>
                     <span id="dialedProspectBusiness" hidden></span>
                   </div>
-                  <div class="monitor-header-actions"><button id="keepLineButton" class="button button-secondary monitor-keep" type="button" hidden>Keep</button><button id="skipVoicemailButton" class="button button-danger-quiet monitor-skip" type="button" disabled>Skip</button></div>
                   <div class="monitor-waveform-block">
                     <div class="monitor-subheading"><span>Prospect audio</span><output id="prospectAudioLevel">0%</output></div>
                     <canvas id="prospectWaveform" height="42" role="img" aria-label="Live waveform for prospect audio"></canvas>

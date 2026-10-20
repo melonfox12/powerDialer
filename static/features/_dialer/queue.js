@@ -20,13 +20,7 @@ export function renderQueueStrip(active, pending, target) {
     : poolCount > 0 || firstUp
       ? (nextLabel ? `${poolCount} ready · Next: ${nextLabel}` : `${poolCount} ready`)
       : "No prospects in queue";
-  const place = prospectPlace(queueLead || firstUp);
-  if (place) {
-    const where = document.createElement("span");
-    where.className = "queue-place";
-    where.textContent = place;
-    primary.append(document.createTextNode(" "), where);
-  }
+  appendProspectFacts(primary, queueLead || firstUp);
   const secondary = document.createElement("span");
   secondary.textContent = "";
   copy.append(primary, secondary);
@@ -42,14 +36,41 @@ export function queueProspect() {
   return state.next_lead || null;
 }
 
+function appendProspectFacts(primary, lead) {
+  const source = titledProspect(lead);
+  const place = prospectPlace(source);
+  if (place) {
+    const where = document.createElement("span");
+    where.className = "queue-place";
+    where.textContent = place;
+    primary.append(document.createTextNode(" "), where);
+  }
+  const reviews = reviewCount(source);
+  if (reviews) {
+    const count = document.createElement("span");
+    count.className = "queue-reviews";
+    count.textContent = reviews;
+    primary.append(document.createTextNode(" "), count);
+  }
+}
+
+function titledProspect(lead) {
+  if (!lead?.id) return lead || null;
+  const stored = (state.leads || []).find((item) => item.id === lead.id);
+  return stored ? { ...lead, ...stored } : lead;
+}
+
 function prospectPlace(lead) {
-  const source = lead?.city || lead?.state || lead?.fields
-    ? lead
-    : state.leads?.find((item) => item.id && item.id === lead?.id) || lead;
-  const city = locationOf(source, "city");
-  const region = locationOf(source, "state");
+  const city = locationOf(lead, "city");
+  const region = locationOf(lead, "state");
   if (city && region) return `${city}, ${region}`;
   return city || region;
+}
+
+function reviewCount(lead) {
+  const count = lead?.review_count;
+  if (count === 0 || count) return String(count);
+  return "";
 }
 
 function locationOf(lead, key) {

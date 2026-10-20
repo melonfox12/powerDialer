@@ -46,9 +46,6 @@ export function renderCallMonitor() {
   const statusState = status.toLowerCase();
   monitorActivity.dataset.state = ["dialing", "live", "voicemail"].includes(statusState) ? statusState : "idle";
   const onLine = Boolean(state.active_lead);
-  byId("keepLineButton").hidden = !onLine;
-  byId("keepLineButton").disabled = S.keptLineId && S.keptLineId === state.active_lead?.id;
-  byId("keepLineButton").textContent = S.keptLineId === state.active_lead?.id ? "Keeping" : "Keep";
   renderDialedProspect();
   setText("monitorStatus", status);
   setText("transcriptLiveStatus", liveTranscript.lead_id === lead?.id && (liveTranscript.transcribing || onLine)

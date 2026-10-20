@@ -35,7 +35,6 @@ registerRenderer(() => {
 
 export { bindDialer } from "./_dialer/bindings.js";
 export { bindKeyboard } from "./_dialer/keyboard.js";
-export { bindOutcomes } from "./_dialer/outcomes.js";
 export { refreshState, startPolling } from "./_dialer/poller.js";
 export { bindSessionSummary, showSessionSummary } from "./_dialer/summary.js";
 export { bindCallMonitor, bindSessionGoal, bindVoice, dialLead, drawProspectWaveform, startDialing };

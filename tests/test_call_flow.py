@@ -205,17 +205,16 @@ class CallFlowTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(prospect["answered_by"], "human")
 
+        status, updated = self.json_app("POST", f"/api/leads/{lead_id}/status", {"disposition": "booked"})
+        self.assertEqual(status, 200)
+        self.assertEqual(updated["lead"]["status"], "booked")
+
         status, raw, _type = self.hook(
             f"/hooks/{token}/status",
             {"CallStatus": "completed", "CallDuration": "45"},
         )
         self.assertEqual(status, 200)
         self.assertEqual(raw, b"OK")
-        self.assertEqual(dialer.pending_outcome, lead_id)
-
-        status, updated = self.json_app("POST", f"/api/leads/{lead_id}/status", {"disposition": "booked"})
-        self.assertEqual(status, 200)
-        self.assertEqual(updated["lead"]["status"], "booked")
         self.assertIsNone(dialer.pending_outcome)
 
         status, stopped = self.json_app("POST", "/api/stop", {})

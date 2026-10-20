@@ -120,6 +120,7 @@ def _drop_prospect_call(state, lead_id):
                 continue
             call["handled"] = True
             call["cancelled"] = True
+            call["skip_closed"] = True
             call["state"] = "skipped"
             state.in_flight.pop(token, None)
             if state.active is call:
@@ -130,6 +131,7 @@ def _drop_prospect_call(state, lead_id):
         if active and active.get("kind") != "agent" and active.get("lead_id") == lead_id:
             active["handled"] = True
             active["cancelled"] = True
+            active["skip_closed"] = True
             active["state"] = "skipped"
             if active.get("call_uuid"):
                 hung.append(active["call_uuid"])
@@ -179,6 +181,48 @@ def remember_open_skips(state):
             continue
         remember_skip(state, lead["id"], due - timedelta(hours=12))
 
+def _schedule_callback(state, lead_id):
+    due = utc_now().replace(microsecond=0) + timedelta(hours=12)
+    lead = state.crm.set_status(lead_id, "call", due.isoformat())
+    remember_skip(state, lead_id, due - timedelta(hours=12))
+    return lead
+
+def callback_skip(state, lead_id):
+    """Skip the prospect and start the 12-hour callback timer."""
+    lead_id = str(lead_id or "").strip()
+    leads = state.crm.snapshot()
+    current = next((item for item in leads if item["id"] == lead_id), None)
+    if current is None:
+        raise KeyError("Prospect not found")
+    lead = _schedule_callback(state, lead_id)
+    with state.lock:
+        if state.queue_anchor_id == lead_id:
+            state.queue_anchor_id = None
+    should_fill = _drop_prospect_call(state, lead_id)
+    name = current.get("name") or current.get("business") or "Prospect"
+    state.record_activity(f"Callback set for {name}", "web")
+    if should_fill:
+        slots.fill_slots(state)
+    return lead
+
+def remove_prospect(state, lead_id):
+    """Skip the prospect, then delete them from the CRM."""
+    lead_id = str(lead_id or "").strip()
+    leads = state.crm.snapshot()
+    lead = next((item for item in leads if item["id"] == lead_id), None)
+    if lead is None:
+        raise KeyError("Prospect not found")
+    with state.lock:
+        if state.queue_anchor_id == lead_id:
+            state.queue_anchor_id = None
+    should_fill = _drop_prospect_call(state, lead_id)
+    state.crm.remove(lead_id)
+    name = lead.get("name") or lead.get("business") or "Prospect"
+    state.record_activity(f"Removed {name}", "web")
+    if should_fill:
+        slots.fill_slots(state)
+    return lead
+
 def pass_next(state, lead_id=None):
     lead_id = str(lead_id or "").strip() or _current_queue_id(state, state.crm.snapshot())
     if not lead_id:
@@ -188,9 +232,7 @@ def pass_next(state, lead_id=None):
     if lead is None:
         raise KeyError("Prospect not found")
     if lead.get("status") == "new":
-        due = utc_now().replace(microsecond=0) + timedelta(hours=12)
-        state.crm.set_status(lead_id, "call", due.isoformat())
-        remember_skip(state, lead_id, due - timedelta(hours=12))
+        lead = _schedule_callback(state, lead_id)
     else:
         remember_skip(state, lead_id, utc_now())
     with state.lock:

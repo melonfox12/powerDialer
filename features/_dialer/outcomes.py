@@ -1,6 +1,6 @@
 """Disposition and prospect status changes during a call."""
 
-from features._dialer import timing
+from features._dialer import queue, timing
 from features._dialer import rules
 from features._dialer.rules import record_disposition, status_for_disposition
 from shared.vocabulary import DEFAULT_OUTCOME_METRIC, OUTCOME_METRIC
@@ -44,6 +44,15 @@ def choose_outcome(state, lead_id, status, scheduled_until=None):
 def update_status(state, lead_id, status=None, scheduled_until=None, disposition=None, crm_only=False):
     if disposition and not crm_only:
         status = status_for_disposition(disposition)
+    if crm_only and status == "booked":
+        lead = state.crm.set_status(lead_id, "booked", scheduled_until)
+        name = lead.get("name") or lead.get("business") or "prospect"
+        state.record_activity(f"CRM status for {name} set to booked", "web")
+        return lead
+    if crm_only and status == "call":
+        return queue.callback_skip(state, lead_id)
+    if crm_only and status == "disqualified":
+        return queue.remove_prospect(state, lead_id)
     if not crm_only:
         with state.lock:
             is_outcome = live_outcome_lead_id(state) == lead_id and status in (

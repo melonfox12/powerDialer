@@ -1,24 +1,11 @@
-import { S, state } from "../../_core/state.js";
+import { state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { renderCallMonitor } from "./monitor.js";
-import { queueProspect } from "./queue.js";
 
-export function renderDialerControls(stage, active, ringing) {
-  const canPreview = stage === "idle" && Boolean(state.next_lead);
-  byId("skipNextButton").disabled = !queueProspect();
-  byId("removeNextButton").hidden = !canPreview;
+export function renderDialerControls(stage) {
   byId("startButton").disabled = state.running;
   byId("startButton").hidden = stage !== "idle";
-  byId("pauseButton").disabled = !state.running;
-  byId("pauseButton").hidden = stage === "idle";
-  byId("pauseButton").textContent = state.paused ? "Resume" : "Pause";
-  byId("hangupButton").disabled = !active && !ringing;
-  byId("hangupButton").hidden = stage !== "connected" && stage !== "ringing";
-  byId("hangupButton").classList.toggle("button-danger-quiet", Boolean(active || ringing));
-  byId("hangupButton").classList.toggle("button-secondary", !active && !ringing);
-  byId("skipVoicemailButton").disabled = !active && !(state.in_flight?.length);
-  if (!active) S.keptLineId = "";
   byId("stopButton").disabled = !state.running;
   byId("stopButton").hidden = stage === "idle";
   document.querySelector(".dialer-controls").dataset.controls = stage;

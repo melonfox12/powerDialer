@@ -49,8 +49,9 @@ class Part2:
             self.assertEqual(call["answered_by"], "human")
             dialer._call_ended(call, {"CallDuration": "30"})
             self.assertEqual(dialer.session["conversations"], 1)
-            self.assertEqual(dialer.pending_outcome, lead["id"])
+            self.assertIsNone(dialer.pending_outcome)
             self.assertEqual(crm.snapshot()[0]["status"], "new")
+            dialer.pending_outcome = lead["id"]
             dialer.choose_outcome(lead["id"], "interested")
             self.assertEqual(crm.snapshot()[0]["status"], "interested")
 
@@ -76,14 +77,83 @@ class Part2:
             dialer.agent_ready = True
             dialer.session = new_session()
             call = dialer._new_call("prospect", leads[0])
-            dialer.update_status("prospect-0", "disqualified", crm_only=True)
+            dialer.update_status("prospect-0", "booked", crm_only=True)
             view = dialer.public_state()
-            self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
+            self.assertEqual(crm.snapshot()[0]["status"], "booked")
             self.assertEqual(view["next_lead"]["id"], "prospect-1")
             self.assertEqual(view["in_flight"][0]["lead_id"], "prospect-0")
             self.assertIsNone(view["pending_outcome"])
             self.assertTrue(view["running"])
             self.assertFalse(call["cancelled"])
+
+    def test_callback_skips_and_starts_the_timer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            leads = []
+            for index, name in enumerate(("Ada Lovelace", "Grace Hopper")):
+                leads.append({
+                    "id": f"prospect-{index}",
+                    "name": name,
+                    "business": f"Shop {index}",
+                    "phone": f"+1202555012{index}",
+                    "timezone": "Eastern",
+                    "status": "new",
+                    "scheduled_until": None,
+                    "transcript": [],
+                    "fields": {},
+                })
+            crm.leads = leads
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            dialer.agent_ready = True
+            dialer.session = new_session()
+            call = dialer._new_call("prospect", leads[0])
+            call["picked_up"] = True
+            dialer.update_status("prospect-0", "call", crm_only=True)
+            kept = next(lead for lead in crm.snapshot() if lead["id"] == "prospect-0")
+            due = datetime.fromisoformat(kept["scheduled_until"])
+            remaining = due - utc_now()
+            self.assertEqual(kept["status"], "call")
+            self.assertGreater(remaining, timedelta(hours=12) - timedelta(seconds=2))
+            self.assertLessEqual(remaining, timedelta(hours=12))
+            self.assertEqual(kept["call_log"][0]["answered_by"], "skipped")
+            view = dialer.public_state()
+            self.assertEqual(view["next_lead"]["id"], "prospect-1")
+            self.assertTrue(call["skip_closed"])
+            self.assertIsNone(dialer.active)
+            self.assertIsNone(view["pending_outcome"])
+            dialer._call_ended(call, {"CallStatus": "completed", "CallDuration": "8"})
+            self.assertIsNone(dialer.pending_outcome)
+
+    def test_disqualified_skips_and_deletes_the_prospect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            leads = []
+            for index, name in enumerate(("Ada Lovelace", "Grace Hopper")):
+                leads.append({
+                    "id": f"prospect-{index}",
+                    "name": name,
+                    "business": f"Shop {index}",
+                    "phone": f"+1202555012{index}",
+                    "timezone": "Eastern",
+                    "status": "new",
+                    "scheduled_until": None,
+                    "transcript": [],
+                    "fields": {},
+                })
+            crm.leads = leads
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            dialer.session = new_session()
+            call = dialer._new_call("prospect", leads[0])
+            dialer.update_status("prospect-0", "disqualified", crm_only=True)
+            self.assertEqual([lead["id"] for lead in crm.snapshot()], ["prospect-1"])
+            view = dialer.public_state()
+            self.assertEqual(view["next_lead"]["id"], "prospect-1")
+            self.assertEqual(view["in_flight"], [])
+            self.assertTrue(call["cancelled"])
+            self.assertTrue(call["skip_closed"])
+            self.assertIsNone(view["pending_outcome"])
 
     def test_skip_keeps_the_prospect_and_shows_the_following_one(self):
         with tempfile.TemporaryDirectory() as directory:
