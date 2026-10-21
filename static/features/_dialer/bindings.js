@@ -6,6 +6,7 @@ import { showSessionSummary } from "./summary.js";
 import { stopProspectWaveform } from "./card.js";
 import { render } from "../../core.js";
 import { selectTimezone } from "./pool.js";
+import { bindDialerTimezoneMenu } from "./pool-view.js";
 import { startDialing } from "./session.js";
 import { bindCrmStatus } from "./crm-status.js";
 
@@ -28,6 +29,7 @@ export function bindDialer() {
   for (const selector of [byId("dialerTimezoneFilter"), byId("poolTimezoneFilter")]) {
     selector.addEventListener("change", (event) => selectTimezone(event.target.value));
   }
+  bindDialerTimezoneMenu();
   const callDesk = document.querySelector(".dialer-run-panel");
   callDesk.addEventListener("click", (event) => {
     if (!event.target.closest("button, input, select, summary, a")) callDesk.focus();

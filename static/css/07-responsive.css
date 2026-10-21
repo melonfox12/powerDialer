@@ -93,6 +93,7 @@
 .activity-log-disclosure[open] .monitor-subheading::after { transform: rotate(225deg) translate(-2px, -1px); }
 
 @media (max-width: 820px) {
+  .dialer-document .power-lines { grid-template-columns: 1fr; }
   .dialer-run-panel { padding: 16px; }
   .dashboard-top-row { grid-template-columns: 1fr; }
   .queue-strip-content { align-items: stretch; flex-direction: column; gap: 5px; }

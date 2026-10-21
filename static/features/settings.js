@@ -10,11 +10,28 @@ function showSecretField(id, saved) {
   input.placeholder = saved ? SAVED_SECRET_PLACEHOLDER : "";
 }
 
+function resetAuthTokenField(saved) {
+  const input = byId("authTokenInput");
+  if (input.dataset.edited === "1") return;
+  input.value = "";
+  input.readOnly = true;
+  input.placeholder = saved ? SAVED_SECRET_PLACEHOLDER : "";
+}
+
+function authTokenToSave() {
+  const input = byId("authTokenInput");
+  if (input.dataset.edited === "1") return input.value.trim();
+  return "";
+}
+
 export function applySavedSettings(settings) {
   state.settings = settings;
   byId("accountSidInput").value = settings.account_sid || "";
-  showSecretField("authTokenInput", settings.has_auth_token);
-  byId("apiKeyInput").value = settings.api_key || "";
+  resetAuthTokenField(settings.has_auth_token);
+  const apiKey = byId("apiKeyInput");
+  apiKey.value = settings.api_key || "";
+  apiKey.readOnly = true;
+  byId("apiSecretInput").value = settings.api_secret || "";
   showSecretField("apiSecretInput", settings.has_api_secret);
   byId("twimlAppSidInput").value = settings.twiml_app_sid || "";
   byId("publicUrlInput").value = settings.public_base_url || "";
@@ -49,7 +66,10 @@ export async function openSettings() {
     maskSecrets();
     arcadeSensory.syncControls();
     await refreshAudioDevices();
-    byId("settingsDialog").showModal();
+    const dialog = byId("settingsDialog");
+    dialog.showModal();
+    applySavedSettings(settings);
+    requestAnimationFrame(() => applySavedSettings(settings));
   } catch (error) {
     showToast(error.message, true);
   }
@@ -58,7 +78,7 @@ export async function openSettings() {
 function settingsPayload() {
   return {
     account_sid: byId("accountSidInput").value,
-    auth_token: byId("authTokenInput").value,
+    auth_token: authTokenToSave(),
     api_key: byId("apiKeyInput").value,
     api_secret: byId("apiSecretInput").value,
     twiml_app_sid: byId("twimlAppSidInput").value,
@@ -77,6 +97,19 @@ function settingsPayload() {
 
 export function bindSettings() {
   byId("settingsButton").addEventListener("click", openSettings);
+  byId("apiKeyInput").addEventListener("focus", (event) => {
+    event.target.readOnly = false;
+  });
+  const authToken = byId("authTokenInput");
+  const unlockAuthToken = (event) => {
+    event.currentTarget.readOnly = false;
+  };
+  authToken.addEventListener("pointerdown", unlockAuthToken);
+  authToken.addEventListener("focus", unlockAuthToken);
+  authToken.addEventListener("input", (event) => {
+    const typed = event.isTrusted && event.inputType && event.inputType !== "insertReplacementText";
+    if (typed) event.target.dataset.edited = "1";
+  });
   for (const [id, noun] of SECRET_FIELDS) {
     const button = document.querySelector(`[data-reveal="${id}"]`);
     button?.addEventListener("click", () => {
@@ -101,6 +134,7 @@ export function bindSettings() {
     submit.disabled = true;
     try {
       const settings = await postJson("/api/settings", settingsPayload());
+      delete byId("authTokenInput").dataset.edited;
       applySavedSettings(settings);
       maskSecrets();
       byId("settingsDialog").close();

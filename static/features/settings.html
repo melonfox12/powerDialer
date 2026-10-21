@@ -2,12 +2,12 @@
       <form id="settingsForm" method="dialog">
         <div class="dialog-heading"><div><div class="eyebrow">ACCOUNT</div><h2>Dialer settings</h2></div><button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">×</button></div>
         <label class="form-field"><span>Twilio Account SID</span><input id="accountSidInput" name="account_sid" autocomplete="off" required></label>
-        <label class="form-field"><span>Twilio Auth Token</span><span class="secret-field"><input id="authTokenInput" name="auth_token" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="authTokenInput" aria-pressed="false" aria-label="Show auth token">Show</button></span></label>
+        <label class="form-field"><span>Twilio Auth Token</span><span class="secret-field"><input id="authTokenInput" name="auth_token" type="password" autocomplete="off" spellcheck="false" readonly><button class="button button-quiet secret-reveal" type="button" data-reveal="authTokenInput" aria-pressed="false" aria-label="Show auth token">Show</button></span></label>
         <label class="form-field"><span>Twilio API Key SID</span><input id="apiKeyInput" name="api_key" autocomplete="off" required></label>
         <label class="form-field"><span>Twilio API Key Secret</span><span class="secret-field"><input id="apiSecretInput" name="api_secret" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="apiSecretInput" aria-pressed="false" aria-label="Show API key secret">Show</button></span></label>
         <label class="form-field"><span>Twilio TwiML App SID</span><input id="twimlAppSidInput" name="twiml_app_sid" autocomplete="off" required></label>
         <label class="form-field"><span>Public HTTPS callback URL</span><input id="publicUrlInput" name="public_base_url" type="url" placeholder="https://your-tunnel.example" autocomplete="off" required></label>
-        <p class="form-footnote">These Twilio and session settings load from your Google account each time the app starts. Auth token and API key secret stay masked until you click Show, and they stay saved until you change them and save again.</p>
+        <p class="form-footnote">These Twilio and session settings load from your Google account each time the app starts. The auth token stays saved unless you type a new one into that box. The API key secret stays masked until you click Show, and it stays saved until you change it.</p>
         <section class="call-flow-settings" aria-labelledby="callFlowSettingsTitle">
           <div class="audio-section-heading"><div class="eyebrow">CALL FLOW</div><h3 id="callFlowSettingsTitle">Session preferences</h3></div>
           <label class="form-field"><span>Session conversation goal</span><input id="sessionGoalInput" type="number" min="1" max="1000"></label>

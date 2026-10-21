@@ -55,8 +55,14 @@ def handle_webhook(state, token, action, params):
     if action == "answer":
         if call["kind"] != "prospect" or call["cancelled"] or not state.running:
             return 200, "application/xml", "<Response><Hangup/></Response>"
-        pickup._pickup(state, call)
-        return 200, "application/xml", str(transcript._live_twiml(state, call))
+        with state.lock:
+            lost = call.get("skip_closed") or (state.active is not None and state.active is not call)
+            joined = call.get("picked_up") and state.active is call
+        if lost:
+            return 200, "application/xml", "<Response><Hangup/></Response>"
+        if joined:
+            return 200, "application/xml", str(transcript._live_twiml(state, call))
+        return 200, "application/xml", '<Response><Pause length="15"/></Response>'
     if action == "machine":
         return pickup._machine_result(state, call, params)
     if action == "transcript":

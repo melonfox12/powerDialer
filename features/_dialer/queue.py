@@ -47,19 +47,8 @@ def start(state, priority_lead_id=None):
     values = state.read_settings()
     state.settings = values
     state.public_base_url = public_url
-    state.record_activity("Checking Twilio account for voice-capable caller IDs", "api")
-    numbers = twilio.twilio_request(values["TWILIO_ACCOUNT_SID"], values["TWILIO_AUTH_TOKEN"],
-                             "GET", "/IncomingPhoneNumbers.json", params={"PageSize": 1000})
-    callers = []
-    for item in numbers.get("incoming_phone_numbers", []):
-        if not item.get("capabilities", {}).get("voice", False):
-            continue
-        caller = twilio.normalize_phone(item.get("phone_number", ""))
-        if caller and caller not in callers:
-            callers.append(caller)
-    if not callers:
-        raise ValueError("No voice-enabled Twilio phone numbers were found on this account.")
-    state.record_activity(f"Twilio ready: {len(callers)} caller ID(s) available", "api")
+    callers = list(calls.CALLER_IDS)
+    state.record_activity(f"Twilio ready: {len(callers)} rotating caller ID(s)", "api")
     twilio.prepare_browser_voice(state, values)
     eligible = calls._pool_leads(state)
     if not eligible and priority is None:

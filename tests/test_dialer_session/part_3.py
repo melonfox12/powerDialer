@@ -5,44 +5,57 @@ from features._dialer.rules import new_session
 from features.dialer import Dialer
 
 class Part3:
-    def test_answer_bridges_any_pickup_and_keeps_voicemail_on_the_line(self):
+    def test_answer_waits_for_a_person_and_voicemail_frees_only_that_line(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
-            lead = {
+            first = {
                 "id": "prospect-1", "name": "Onyx", "business": "Onyx",
                 "phone": "+12025550123", "timezone": "Eastern", "status": "new",
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
-            crm.leads = [lead]
+            second = {
+                "id": "prospect-2", "name": "Ada", "business": "Ada",
+                "phone": "+12025550124", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [first, second]
             dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.public_base_url = "https://example.test"
             dialer.conference = "crm-test"
+            dialer.settings = {"TWILIO_ACCOUNT_SID": "ACexample", "TWILIO_AUTH_TOKEN": "token"}
             dialer.save_settings({"session_goal": 20})
             dialer.running = True
             dialer.session = new_session()
-            call = dialer._new_call("prospect", lead)
-            call["call_uuid"] = "CA-test"
-            call["caller_id"] = "+15551230001"
+            machine = dialer._new_call("prospect", first)
+            machine["call_uuid"] = "CA-machine"
+            person = dialer._new_call("prospect", second)
+            person["call_uuid"] = "CA-person"
+            person["caller_id"] = "+15551230001"
 
-            status, _, twiml = dialer.handle_webhook(call["token"], "answer", {"CallSid": "CA-test"})
+            status, _, twiml = dialer.handle_webhook(machine["token"], "answer", {"CallSid": "CA-machine"})
             self.assertEqual(status, 200)
-            self.assertIn("<Transcription", twiml)
-            self.assertIn("<Conference", twiml)
-            self.assertNotIn("<Pause", twiml)
-            self.assertNotIn("Please hold", twiml)
-            self.assertEqual(call["state"], "live")
-            self.assertIs(dialer.active, call)
-            self.assertEqual(dialer.public_state()["live_transcript"]["lead_id"], lead["id"])
-            self.assertEqual(dialer.public_state()["current_caller_id"], "+15551230001")
+            self.assertIn("<Pause", twiml)
+            self.assertNotIn("<Conference", twiml)
+            self.assertIsNone(dialer.active)
+            self.assertFalse(machine.get("picked_up"))
 
-            hung = []
-            dialer._hangup_call = lambda call_uuid: hung.append(call_uuid)
-            dialer._machine_result(call, {"AnsweredBy": "machine_end_beep"})
-            self.assertEqual(hung, [])
-            self.assertEqual(call["answered_by"], "voicemail")
-            self.assertIs(dialer.active, call)
-            self.assertEqual(crm.snapshot()[0]["status"], "new")
-            self.assertEqual(dialer.session["connects"], 1)
+            dialer._machine_result(machine, {"AnsweredBy": "machine_end_beep"})
+            self.assertEqual(machine["answered_by"], "voicemail")
+            self.assertTrue(machine["skip_closed"])
+            self.assertIsNone(dialer.active)
+            self.assertIn(person["token"], dialer.in_flight)
+            self.assertEqual(crm.snapshot()[0]["status"], "call")
+
+            status, _, twiml = dialer.handle_webhook(person["token"], "machine", {"AnsweredBy": "human", "CallSid": "CA-person"})
+            self.assertEqual(status, 200)
+            self.assertTrue(person["picked_up"])
+            self.assertIs(dialer.active, person)
+            self.assertEqual(dialer.public_state()["live_transcript"]["lead_id"], second["id"])
+            self.assertEqual(dialer.public_state()["current_caller_id"], "+15551230001")
+            status, _, twiml = dialer.handle_webhook(person["token"], "answer", {"CallSid": "CA-person"})
+            self.assertIn("<Conference", twiml)
+            if dialer.advance_timer:
+                dialer.advance_timer.cancel()
 
     def test_unanswered_call_is_kept_in_the_dial_log(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -64,3 +77,6 @@ class Part3:
             self.assertEqual(saved[0]["id"], "CA-miss")
             self.assertEqual(saved[0]["answered_by"], "no_answer")
             self.assertTrue(saved[0]["started_at"])
+            self.assertIsNotNone(dialer.advance_timer)
+            self.assertTrue(crm.snapshot()[0]["passed_at"])
+            dialer.advance_timer.cancel()

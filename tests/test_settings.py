@@ -70,7 +70,7 @@ class SettingsTests(unittest.TestCase):
             self.assertEqual(saved[0].account_values["SESSION_GOAL"], "12")
             shown = dialer.settings_state()
             self.assertEqual(shown["auth_token"], "")
-            self.assertEqual(shown["api_secret"], "")
+            self.assertEqual(shown["api_secret"], "secret")
             self.assertTrue(shown["has_auth_token"])
             self.assertTrue(shown["has_api_secret"])
             dialer.save_settings({

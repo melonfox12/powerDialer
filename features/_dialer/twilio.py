@@ -102,6 +102,36 @@ def _hangup_call(state, call_uuid):
     except (TwilioError, KeyError):
         pass
 
+def _start_live_transcription(state, call_uuid, callback_url, name):
+    """Start another live transcript on a call that is still connected."""
+    if not call_uuid or not callback_url or not name:
+        return
+    twilio_request(state.settings["TWILIO_ACCOUNT_SID"], state.settings["TWILIO_AUTH_TOKEN"], "POST",
+                   f"/Calls/{urllib.parse.quote(call_uuid, safe='')}/Transcriptions.json",
+                   data={
+                       "Name": name,
+                       "Track": "both_tracks",
+                       "StatusCallbackUrl": callback_url,
+                       "StatusCallbackMethod": "POST",
+                       "InboundTrackLabel": "prospect",
+                       "OutboundTrackLabel": "agent",
+                       "PartialResults": "true",
+                       "LanguageCode": "en-US",
+                       "SpeechModel": "telephony",
+                       "EnableAutomaticPunctuation": "true",
+                   })
+
+def _redirect_call(state, call_uuid, url):
+    """Point an answered call at new TwiML once we know a person is on the line."""
+    if not call_uuid or not url:
+        return
+    try:
+        twilio_request(state.settings["TWILIO_ACCOUNT_SID"], state.settings["TWILIO_AUTH_TOKEN"], "POST",
+                       f"/Calls/{urllib.parse.quote(call_uuid, safe='')}.json",
+                       data={"Url": url, "Method": "POST"})
+    except (TwilioError, KeyError):
+        pass
+
 def prepare_browser_voice(state, values):
     """Check the API key, then point the TwiML app at this dialer's voice URL."""
     account = values["TWILIO_ACCOUNT_SID"]

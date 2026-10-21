@@ -23,6 +23,7 @@ def _dial_record(call, duration):
 def _call_ended(state, call, params):
     log_entry = None
     should_schedule_advance = False
+    should_refill = False
     others = []
     with state.lock:
         if call["kind"] == "agent":
@@ -73,10 +74,13 @@ def _call_ended(state, call, params):
             if state.running and was_connected:
                 state.last_event = "Call ended"
                 should_schedule_advance = not pending_already and not state.pending_outcome
+                others = list(state.in_flight.values())
             elif state.running and not was_connected and not pending_already and not outcome_already_chosen:
                 state.last_event = "No answer"
-                should_schedule_advance = True
-            others = list(state.in_flight.values()) if state.running else []
+                should_refill = not state.active and not state.pending_outcome and not state.paused
+                others = []
+            else:
+                others = []
     rules._flush_metrics(state)
     for other in others:
         calls._cancel_call(state, other)
@@ -86,6 +90,14 @@ def _call_ended(state, call, params):
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call: {exc}", "error")
     if should_schedule_advance:
+        timing._schedule_advance(state)
+    elif should_refill:
+        lead_id = call.get("lead_id")
+        if lead_id:
+            try:
+                state.crm.defer(lead_id)
+            except (KeyError, ValueError, OSError) as exc:
+                state.record_activity(f"Could not move the unanswered prospect back: {exc}", "error")
         timing._schedule_advance(state)
 
 def _agent_call_ended(state):

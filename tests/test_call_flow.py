@@ -80,6 +80,7 @@ def fake_twilio(account_sid, auth_token, method, path, data=None, params=None, u
         }
     if path == "/Calls.json" and method == "POST":
         fake_twilio.calls += 1
+        fake_twilio.payloads.append(dict(data or {}))
         return {"sid": f"CA{fake_twilio.calls:032d}"}
     if method == "POST" and path.startswith("/Calls/"):
         return {}
@@ -87,6 +88,7 @@ def fake_twilio(account_sid, auth_token, method, path, data=None, params=None, u
 
 
 fake_twilio.calls = 0
+fake_twilio.payloads = []
 
 
 class CallFlowTests(unittest.TestCase):
@@ -104,6 +106,7 @@ class CallFlowTests(unittest.TestCase):
             module.threading = _ThreadNamespace(module.threading)
         self._saved_twilio = twilio.twilio_request
         fake_twilio.calls = 0
+        fake_twilio.payloads = []
         twilio.twilio_request = fake_twilio
         self._tmp = tempfile.TemporaryDirectory()
         self.servers = LocalServers(self._tmp.name).start()
@@ -175,6 +178,7 @@ class CallFlowTests(unittest.TestCase):
 
         status, started = self.json_app("POST", "/api/start", {})
         self.assertEqual(status, 200)
+        self.assertEqual(started["caller_ids"], ["+18607354163", "+18607521887", "+18607824999"])
         agent_token = started["client_call_token"]
         self.assertTrue(started["running"])
         self.assertFalse(started["agent_ready"])
@@ -192,18 +196,26 @@ class CallFlowTests(unittest.TestCase):
         self.assertEqual(len(prospects), 1)
         prospect = prospects[0]
         self.assertEqual(prospect["lead_id"], lead_id)
+        self.assertEqual(prospect["caller_id"], "+18607354163")
         self.assertTrue(prospect["call_uuid"])
+        prospect_calls = [item for item in fake_twilio.payloads if item.get("MachineDetection") == "Enable"]
+        self.assertEqual(len(prospect_calls), 1)
+        self.assertEqual(prospect_calls[0]["MachineDetectionSpeechThreshold"], "4000")
+        self.assertEqual(prospect_calls[0]["MachineDetectionSpeechEndThreshold"], "1200")
+        self.assertEqual(prospect_calls[0]["MachineDetectionTimeout"], "12")
         token = prospect["token"]
 
         status, raw, content_type = self.hook(f"/hooks/{token}/answer", {"CallSid": prospect["call_uuid"]})
         self.assertEqual(status, 200)
         self.assertIn("xml", content_type)
-        self.assertEqual(prospect["state"], "live")
-        self.assertTrue(prospect["picked_up"])
+        self.assertIn(b"Pause", raw)
+        self.assertFalse(prospect.get("picked_up"))
 
         status, raw, _type = self.hook(f"/hooks/{token}/machine", {"AnsweredBy": "human"})
         self.assertEqual(status, 200)
         self.assertEqual(prospect["answered_by"], "human")
+        self.assertEqual(prospect["state"], "live")
+        self.assertTrue(prospect["picked_up"])
 
         status, updated = self.json_app("POST", f"/api/leads/{lead_id}/status", {"disposition": "booked"})
         self.assertEqual(status, 200)

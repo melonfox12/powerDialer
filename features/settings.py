@@ -51,7 +51,7 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
         "account_sid": current.get("TWILIO_ACCOUNT_SID", ""),
         "auth_token": "",
         "api_key": current.get("TWILIO_API_KEY", ""),
-        "api_secret": "",
+        "api_secret": current.get("TWILIO_API_SECRET", ""),
         "twiml_app_sid": current.get("TWILIO_TWIML_APP_SID", ""),
         "public_base_url": current.get("PUBLIC_BASE_URL", ""),
         "has_auth_token": bool(current.get("TWILIO_AUTH_TOKEN")),

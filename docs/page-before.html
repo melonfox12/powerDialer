@@ -73,16 +73,13 @@
                   <span class="live-indicator"><i></i><span id="liveLabel">Standby</span></span>
                   <span id="lineCount" class="line-count">0 of 0 dialed</span>
                   <div id="callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
-                  <label class="dialer-pool-filter"><span class="visually-hidden">Dial from</span><select id="dialerTimezoneFilter" aria-label="Select caller pool timezone"><option value="">All time zones</option></select></label>
+                  <div class="dialer-pool-filter"><span class="visually-hidden" id="dialerTimezoneLabel">Dial from</span><select id="dialerTimezoneFilter" aria-labelledby="dialerTimezoneLabel" aria-hidden="true" tabindex="-1"><option value="">All time zones</option></select><div class="timezone-menu"><button id="dialerTimezoneButton" class="timezone-menu-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="dialerTimezoneList">All time zones</button><ul id="dialerTimezoneList" class="timezone-menu-list" role="listbox" aria-labelledby="dialerTimezoneLabel" hidden></ul></div></div>
                 </div>
 
                 <section class="queue-strip" aria-label="Call queue">
-                  <div id="activeCall" class="active-call">
-                    <div class="active-avatar">PD</div>
-                    <div class="active-copy"><strong>Ready when you are</strong><span></span></div>
-                  </div>
+                  <div id="activeCall" class="power-lines"></div>
                 </section>
-                <p class="issue-lede">Work the queue one conversation at a time.</p>
+                <p class="issue-lede">Three lines dial at once. The first answer stays on the line.</p>
 
                 <div class="session-momentum" aria-label="Current session progress">
                   <div class="session-goal">
@@ -295,12 +292,12 @@
       <form id="settingsForm" method="dialog">
         <div class="dialog-heading"><div><div class="eyebrow">ACCOUNT</div><h2>Dialer settings</h2></div><button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">×</button></div>
         <label class="form-field"><span>Twilio Account SID</span><input id="accountSidInput" name="account_sid" autocomplete="off" required></label>
-        <label class="form-field"><span>Twilio Auth Token</span><span class="secret-field"><input id="authTokenInput" name="auth_token" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="authTokenInput" aria-pressed="false" aria-label="Show auth token">Show</button></span></label>
+        <label class="form-field"><span>Twilio Auth Token</span><span class="secret-field"><input id="authTokenInput" name="auth_token" type="password" autocomplete="off" spellcheck="false" readonly><button class="button button-quiet secret-reveal" type="button" data-reveal="authTokenInput" aria-pressed="false" aria-label="Show auth token">Show</button></span></label>
         <label class="form-field"><span>Twilio API Key SID</span><input id="apiKeyInput" name="api_key" autocomplete="off" required></label>
         <label class="form-field"><span>Twilio API Key Secret</span><span class="secret-field"><input id="apiSecretInput" name="api_secret" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="apiSecretInput" aria-pressed="false" aria-label="Show API key secret">Show</button></span></label>
         <label class="form-field"><span>Twilio TwiML App SID</span><input id="twimlAppSidInput" name="twiml_app_sid" autocomplete="off" required></label>
         <label class="form-field"><span>Public HTTPS callback URL</span><input id="publicUrlInput" name="public_base_url" type="url" placeholder="https://your-tunnel.example" autocomplete="off" required></label>
-        <p class="form-footnote">These Twilio and session settings load from your Google account each time the app starts. Auth token and API key secret stay masked until you click Show, and they stay saved until you change them and save again.</p>
+        <p class="form-footnote">These Twilio and session settings load from your Google account each time the app starts. The auth token stays saved unless you type a new one into that box. The API key secret stays masked until you click Show, and it stays saved until you change it.</p>
         <section class="call-flow-settings" aria-labelledby="callFlowSettingsTitle">
           <div class="audio-section-heading"><div class="eyebrow">CALL FLOW</div><h3 id="callFlowSettingsTitle">Session preferences</h3></div>
           <label class="form-field"><span>Session conversation goal</span><input id="sessionGoalInput" type="number" min="1" max="1000"></label>

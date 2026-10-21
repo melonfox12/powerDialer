@@ -287,7 +287,7 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assert_keys(payload, STATE_KEYS)
 
-    def test_settings_never_return_stored_secrets(self):
+    def test_settings_keep_the_api_key_and_hide_the_auth_token(self):
         credentials = {
             "account_sid": "ACstored",
             "auth_token": "stored-auth-token",
@@ -301,16 +301,18 @@ class HttpContractTests(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertNotIn(b"stored-auth-token", raw)
-        self.assertNotIn(b"stored-api-secret", raw)
+        saved = json.loads(raw.decode("utf-8"))
+        self.assertEqual(saved["api_key"], "SKstored")
+        self.assertEqual(saved["api_secret"], "stored-api-secret")
 
         status, raw, _type = self.request("GET", "/api/settings")
         self.assertEqual(status, 200)
         self.assertNotIn(b"stored-auth-token", raw)
-        self.assertNotIn(b"stored-api-secret", raw)
         payload = json.loads(raw.decode("utf-8"))
         self.assert_keys(payload, SETTINGS_KEYS)
         self.assertEqual(payload["auth_token"], "")
-        self.assertEqual(payload["api_secret"], "")
+        self.assertEqual(payload["api_key"], "SKstored")
+        self.assertEqual(payload["api_secret"], "stored-api-secret")
         self.assertTrue(payload["has_auth_token"])
         self.assertTrue(payload["has_api_secret"])
 

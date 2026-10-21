@@ -1,4 +1,4 @@
-"""Fill the single prospect slot, and the calling-window timer that refills it."""
+"""Fill the open prospect lines, and the calling-window timer that refills them."""
 
 import threading
 
@@ -20,16 +20,20 @@ def _place_prospect_call(state):
         if not state.running or state.paused or not state.agent_ready or state.active or state.pending_outcome:
             return
         active_leads = {call["lead_id"] for call in state.in_flight.values()}
-        open_slots = max(0, 1 - len(state.in_flight))
-        manual = calls._claim_manual_lead(state, leads, active_leads) if open_slots else None
-        if manual:
-            selected = [manual]
-        else:
+        open_slots = max(0, len(state.callers) - len(state.in_flight))
+        selected = []
+        if open_slots:
+            manual = calls._claim_manual_lead(state, leads, active_leads)
+            if manual:
+                selected.append(manual)
+                active_leads.add(manual["id"])
+                open_slots -= 1
+        if open_slots:
             pool = [
                 lead for lead in calls._pool_leads(state, leads)
                 if lead["id"] not in active_leads
             ]
-            selected = pool[:open_slots]
+            selected.extend(pool[:open_slots])
         if open_slots and not selected:
             none_ready = True
         for lead in selected:

@@ -6,6 +6,12 @@ import threading
 from features._dialer import rules, twilio
 from shared.infra import utc_now
 
+CALLER_IDS = (
+    "+18607354163",
+    "+18607521887",
+    "+18607824999",
+)
+
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
     anchor_id = state.queue_anchor_id
@@ -60,7 +66,8 @@ def _create_call(state, call, destination):
             "MachineDetection": "Enable",
             "AsyncAmd": "true",
             "MachineDetectionTimeout": "12",
-            "MachineDetectionSpeechEndThreshold": "800",
+            "MachineDetectionSpeechThreshold": "4000",
+            "MachineDetectionSpeechEndThreshold": "1200",
             "AsyncAmdStatusCallback": twilio._url(state, call, "machine"),
             "AsyncAmdStatusCallbackMethod": "POST",
         })
@@ -84,18 +91,48 @@ def _create_call(state, call, destination):
         else:
             state.record_activity(f"Twilio call accepted for {lead_name}", "call")
     except twilio.TwilioError as exc:
+        account_rejected = "Twilio error 401" in str(exc)
+        refill = False
+        lead_id = call.get("lead_id")
+        siblings = []
         with state.lock:
-            if call["kind"] == "agent":
-                state.running = False
+            if call["kind"] == "agent" or account_rejected:
+                if call["kind"] == "agent":
+                    state.running = False
+                else:
+                    state.in_flight.pop(call["token"], None)
+                    call["handled"] = True
+                    call["cancelled"] = True
+                    rules._bump(state, "failed")
+                    siblings = [item["token"] for item in state.in_flight.values()]
+                state.paused = True
+                state.last_error = str(exc)
+                state.last_event = "Call request failed"
             else:
                 state.in_flight.pop(call["token"], None)
                 call["handled"] = True
+                call["cancelled"] = True
                 rules._bump(state, "failed")
-            state.paused = True
-            state.last_error = str(exc)
-            state.last_event = "Call request failed"
+                state.last_event = "Call request failed"
+                refill = True
         rules._flush_metrics(state)
         state.record_activity(f"Twilio call failed: {exc}", "error")
+        for token in siblings:
+            other = state.calls.get(token)
+            if other:
+                _cancel_call(state, other)
+        if refill:
+            _replace_line_after_delay(state, lead_id)
+
+def _replace_line_after_delay(state, lead_id):
+    """Move a failed prospect back and wait before filling that open line."""
+    if lead_id:
+        try:
+            state.crm.defer(lead_id)
+        except (KeyError, ValueError, OSError):
+            pass
+    from features._dialer import timing
+    timing._schedule_advance(state)
 
 def _cancel_call(state, call):
     with state.lock:

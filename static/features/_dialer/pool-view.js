@@ -14,6 +14,56 @@ export function renderTimezoneFilters() {
     select.replaceChildren(...options.map((option) => option.cloneNode(true)));
     select.value = selected;
   }
+  syncDialerTimezoneMenu();
+}
+
+function syncDialerTimezoneMenu() {
+  const select = byId("dialerTimezoneFilter");
+  const button = byId("dialerTimezoneButton");
+  const list = byId("dialerTimezoneList");
+  if (!select || !button || !list) return;
+  const chosen = select.selectedOptions[0];
+  button.textContent = chosen ? chosen.textContent : "All time zones";
+  list.replaceChildren(...[...select.options].map((option) => {
+    const item = document.createElement("li");
+    item.className = "timezone-menu-option";
+    item.role = "option";
+    item.dataset.value = option.value;
+    item.textContent = option.textContent;
+    item.setAttribute("aria-selected", option.value === select.value ? "true" : "false");
+    return item;
+  }));
+}
+
+export function bindDialerTimezoneMenu() {
+  const button = byId("dialerTimezoneButton");
+  const list = byId("dialerTimezoneList");
+  const select = byId("dialerTimezoneFilter");
+  button.addEventListener("click", () => {
+    const open = list.hidden;
+    list.hidden = !open;
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  });
+  list.addEventListener("click", (event) => {
+    const item = event.target.closest(".timezone-menu-option");
+    if (!item) return;
+    select.value = item.dataset.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    list.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".timezone-menu")) {
+      list.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || list.hidden) return;
+    list.hidden = true;
+    button.setAttribute("aria-expanded", "false");
+    button.focus();
+  });
 }
 
 export function renderCallerPool() {

@@ -62,26 +62,79 @@
   content: "·";
 }
 .issue-meta .dialer-pool-filter {
+  position: relative;
   flex: 0 0 auto;
   gap: 0;
   margin: 0 0 0 auto;
 }
 .issue-meta .dialer-pool-filter select {
-  width: auto;
-  min-width: 148px;
-  height: 28px;
-  max-width: none;
-  field-sizing: content;
-  padding: 0 22px 0 8px;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
   border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #8a8f98;
-  font-size: 13px;
 }
-.issue-meta .dialer-pool-filter select:hover {
+.issue-meta .timezone-menu { position: relative; }
+.issue-meta .timezone-menu-button {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  min-width: 148px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.issue-meta .timezone-menu-button::after {
+  content: "";
+  width: 0;
+  height: 0;
+  margin-left: 10px;
+  border-right: 3.5px solid transparent;
+  border-left: 3.5px solid transparent;
+  border-top: 4px solid currentColor;
+}
+.issue-meta .timezone-menu-button:hover {
   background: rgba(255, 255, 255, .04);
-  color: #f7f8f8;
+  color: var(--ink);
+}
+.issue-meta .timezone-menu-list {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 100%;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--canvas);
+  border-radius: var(--radius-md);
+}
+.issue-meta .timezone-menu-option {
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--ink) 34%, transparent);
+  border-radius: var(--radius-sm);
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.issue-meta .timezone-menu-option + .timezone-menu-option { margin-top: 4px; }
+.issue-meta .timezone-menu-option:hover {
+  background: var(--canvas);
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--ink) 72%, transparent);
 }
 
 .dialer-document .queue-strip {
@@ -109,6 +162,43 @@
   letter-spacing: 0;
   white-space: nowrap;
 }
+.dialer-document .power-lines {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.dialer-document .power-line {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--paper);
+}
+.dialer-document .power-line strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 590;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dialer-document .power-line .queue-place,
+.dialer-document .power-line .queue-reviews,
+.dialer-document .power-line .power-line-state,
+.dialer-document .power-line-empty {
+  display: block;
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 510;
+}
+.dialer-document .power-line .queue-place { color: var(--success); }
+.dialer-document .power-line .queue-reviews { color: var(--amber); }
+.dialer-document .power-line .power-line-state,
+.dialer-document .power-line-empty { color: var(--muted); }
+.dialer-document .power-line[data-tone="live"] { border-color: var(--success); }
+.dialer-document .power-line[data-tone="live"] .power-line-state { color: var(--success); }
 .dialer-document .queue-strip .queue-place { color: var(--success); }
 .dialer-document .queue-strip .queue-reviews { color: var(--amber); }
 .issue-lede {
