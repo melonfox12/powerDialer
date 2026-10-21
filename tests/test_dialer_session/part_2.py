@@ -116,7 +116,7 @@ class Part2:
             self.assertEqual(kept["status"], "call")
             self.assertGreater(remaining, timedelta(hours=12) - timedelta(seconds=2))
             self.assertLessEqual(remaining, timedelta(hours=12))
-            self.assertEqual(kept["call_log"][0]["answered_by"], "skipped")
+            self.assertTrue(any(item["answered_by"] == "skipped" for item in kept["call_log"]))
             view = dialer.public_state()
             self.assertEqual(view["next_lead"]["id"], "prospect-1")
             self.assertTrue(call["skip_closed"])
@@ -197,6 +197,8 @@ class Part2:
             with crm.lock:
                 stored = next(lead for lead in crm.leads if lead["id"] == "prospect-0")
                 stored["scheduled_until"] = (utc_now() - timedelta(seconds=1)).isoformat()
+                for item in stored.get("call_log") or []:
+                    item["started_at"] = (utc_now() - timedelta(hours=12, seconds=1)).isoformat()
             returned = next(lead for lead in crm.snapshot() if lead["id"] == "prospect-0")
             self.assertEqual(returned["status"], "new")
             self.assertIsNone(returned["scheduled_until"])
@@ -206,6 +208,8 @@ class Part2:
                 other = next(lead for lead in crm.leads if lead["id"] == "prospect-1")
                 other["status"] = "new"
                 other["scheduled_until"] = None
+                for item in other.get("call_log") or []:
+                    item["started_at"] = (utc_now() - timedelta(hours=12, seconds=1)).isoformat()
             dialer.running = True
             dialer.in_flight["token"] = {"lead_id": "prospect-0", "kind": "prospect"}
             skipped_live = dialer.pass_next("prospect-0")

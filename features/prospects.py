@@ -118,7 +118,7 @@ class ProspectStore:
             self.backend.save_locked(lead)
             return dict(lead)
 
-    def append_call_log(self, lead_id, entry):
+    def append_call_log(self, lead_id, entry, replace_id=None):
         record = {
             "id": str(entry.get("id") or ""),
             "started_at": str(entry.get("started_at") or ""),
@@ -132,6 +132,8 @@ class ProspectStore:
             leads = self.backend.leads_locked()
             lead = _copy_of(leads, lead_id)
             log = lead.setdefault("call_log", [])
+            if replace_id:
+                log[:] = [item for item in log if item.get("id") != str(replace_id)]
             if record["id"] and any(item.get("id") == record["id"] for item in log):
                 return dict(lead)
             log.append(record)

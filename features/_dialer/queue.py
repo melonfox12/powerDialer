@@ -11,6 +11,22 @@ from features._dialer import projection, rules, twilio
 from features._dialer.rules import new_session, session_summary
 from shared.infra import utc_now
 
+def scan_crm(state):
+    """Copy an open callback onto new prospects with the same name and location."""
+    plan = calls.callback_sync_plan(state.crm.snapshot(), utc_now())
+    synced = 0
+    for item in plan:
+        try:
+            state.crm.set_status(item["id"], "call", item["scheduled_until"])
+        except ValueError:
+            continue
+        synced += 1
+    if synced:
+        noun = "prospect" if synced == 1 else "prospects"
+        state.record_activity(f"Scan CRM synced {synced} {noun}", "web")
+    return {"synced": synced, "state": projection.public_state(state)}
+
+
 def set_timezone_filter(state, timezone):
     timezone = str(timezone or "").strip() or None
     leads = state.crm.snapshot()
@@ -53,7 +69,7 @@ def start(state, priority_lead_id=None):
     eligible = calls._pool_leads(state)
     if not eligible and priority is None:
         where = f" in the {state.selected_timezone} timezone" if state.selected_timezone else ""
-        raise ValueError(f"There are no prospects with new status{where} in the caller pool.")
+        raise ValueError(f"There are no prospects ready to dial{where}. Prospects dialed in the last 12 hours stay out of the queue.")
     with state.lock:
         state.running = True
         state.paused = False

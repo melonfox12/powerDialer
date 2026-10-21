@@ -2,8 +2,10 @@
 
 import secrets
 import threading
+from datetime import datetime, timedelta, timezone
 
 from features._dialer import rules, twilio
+from features._prospects.csv_import import location_text
 from shared.infra import utc_now
 
 CALLER_IDS = (
@@ -11,13 +13,98 @@ CALLER_IDS = (
     "+18607521887",
     "+18607824999",
 )
+RECENT_DIAL_WINDOW = timedelta(hours=12)
+CALLBACK_HOLD = timedelta(hours=12, seconds=2)
+
+def _dial_times(lead):
+    """Times shown on Total dials: each call record, or the transcript when that is all we have."""
+    log = lead.get("call_log") or []
+    if log:
+        return [item.get("started_at") or item.get("ended_at") or "" for item in log]
+    return [line.get("timestamp") or "" for line in (lead.get("transcript") or [])]
+
+def _folded(value):
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _identity(lead):
+    """Name plus location. City and state are the location; timezone is used when both are blank."""
+    name = _folded(lead.get("name"))
+    if not name:
+        return None
+    city = _folded(location_text(lead, "city"))
+    state_name = _folded(location_text(lead, "state"))
+    if city or state_name:
+        place = (city, state_name)
+    else:
+        place = ("", _folded(lead.get("timezone")))
+    return (name, place)
+
+
+def _callback_due(lead):
+    try:
+        moment = datetime.fromisoformat(str(lead.get("scheduled_until") or ""))
+    except (TypeError, ValueError):
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment
+
+
+def callback_sync_plan(leads, now):
+    """New prospects that match a Total dials prospect still inside a 12-hour callback.
+
+    The copy keeps that prospect's callback time, so a delete-and-reimport does not
+    put someone back in the queue while the original callback is still running.
+    """
+    sources = {}
+    for lead in leads or []:
+        if lead.get("status") != "call" or not _dial_times(lead):
+            continue
+        due = _callback_due(lead)
+        if due is None:
+            continue
+        remaining = due - now
+        if remaining <= timedelta(0) or remaining > CALLBACK_HOLD:
+            continue
+        key = _identity(lead)
+        if key is None:
+            continue
+        current = sources.get(key)
+        if current is None or due > current[0]:
+            sources[key] = (due, due.isoformat(), lead.get("id"))
+    copies = []
+    for lead in leads or []:
+        if lead.get("status") != "new":
+            continue
+        key = _identity(lead)
+        source = sources.get(key)
+        if source is None or lead.get("id") == source[2]:
+            continue
+        copies.append({"id": lead["id"], "scheduled_until": source[1]})
+    return copies
+
+
+def _dialed_recently(lead, now=None):
+    moment_now = now or utc_now()
+    cutoff = moment_now - RECENT_DIAL_WINDOW
+    for raw in _dial_times(lead):
+        try:
+            moment = datetime.fromisoformat(str(raw))
+        except (TypeError, ValueError):
+            continue
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=timezone.utc)
+        if moment > cutoff:
+            return True
+    return False
 
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
     anchor_id = state.queue_anchor_id
     indexed = [
         (index, lead) for index, lead in enumerate(leads)
-        if lead["status"] == "new"
+        if lead["status"] == "new" and not _dialed_recently(lead)
     ]
     if state.selected_timezone:
         zone = state.selected_timezone
@@ -90,6 +177,10 @@ def _create_call(state, call, destination):
             twilio._hangup_call(state, call_uuid)
         else:
             state.record_activity(f"Twilio call accepted for {lead_name}", "call")
+            if call["kind"] == "prospect":
+                timer = threading.Timer(30, _expire_silent_call, args=(state, call["token"]))
+                timer.daemon = True
+                timer.start()
     except twilio.TwilioError as exc:
         account_rejected = "Twilio error 401" in str(exc)
         refill = False
@@ -123,6 +214,26 @@ def _create_call(state, call, destination):
                 _cancel_call(state, other)
         if refill:
             _replace_line_after_delay(state, lead_id)
+
+def _expire_silent_call(state, token):
+    """Drop a line Twilio stopped reporting, so the queue does not sit on it."""
+    with state.lock:
+        call = state.calls.get(token)
+        if (
+            not call
+            or call.get("end_processed")
+            or call.get("picked_up")
+            or call.get("cancelled")
+            or call.get("skip_closed")
+            or state.active is call
+            or call["token"] not in state.in_flight
+        ):
+            return
+        call_uuid = call.get("call_uuid")
+    if call_uuid:
+        twilio._hangup_call(state, call_uuid)
+    from features._dialer._call_events import ended
+    ended._call_ended(state, call, {"CallStatus": "no-answer", "CallDuration": "0"})
 
 def _replace_line_after_delay(state, lead_id):
     """Move a failed prospect back and wait before filling that open line."""
@@ -176,6 +287,19 @@ def _new_call(state, kind, lead):
         if state.session:
             state.session["dials"] += 1
             rules._save_session(state)
+        if lead and lead.get("id"):
+            try:
+                state.crm.append_call_log(lead["id"], {
+                    "id": token,
+                    "started_at": call["created_at"],
+                    "ended_at": "",
+                    "caller_id": "",
+                    "answered_by": "",
+                    "duration_seconds": 0,
+                    "transcript_lines": 0,
+                })
+            except (KeyError, ValueError, OSError):
+                pass
     return call
 
 def _watch_token(state, token):

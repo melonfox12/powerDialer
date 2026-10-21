@@ -55,7 +55,9 @@ def public_state(state):
     view["active_lead"] = by_id.get(active_id)
     view["pending_outcome"] = by_id.get(pending_id)
     view["leads"] = leads
-    groups = state.crm.timezone_groups(leads)
+    groups = state.crm.timezone_groups([
+        lead for lead in leads if not calls._dialed_recently(lead)
+    ])
     view["timezone_groups"] = [{"name": name, "count": count} for name, count in groups]
     view["leads_version"] = getattr(state.crm, "revision", 0)
     view["selected_timezone"] = state.selected_timezone

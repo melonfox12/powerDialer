@@ -34,8 +34,10 @@ class Part3:
 
             status, _, twiml = dialer.handle_webhook(machine["token"], "answer", {"CallSid": "CA-machine"})
             self.assertEqual(status, 200)
-            self.assertIn("<Pause", twiml)
+            self.assertIn("<Play", twiml)
+            self.assertIn("https://example.test/hooks/ringback.wav", twiml)
             self.assertNotIn("<Conference", twiml)
+            self.assertNotIn("<Pause", twiml)
             self.assertIsNone(dialer.active)
             self.assertFalse(machine.get("picked_up"))
 

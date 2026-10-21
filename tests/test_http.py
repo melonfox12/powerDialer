@@ -424,6 +424,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/skip"),
     ("POST", "/api/next/skip"),
     ("POST", "/api/advance"),
+    ("POST", "/api/dials/scan"),
     ("POST", "/api/leads/{id}/dial"),
     ("POST", "/api/leads/{id}/status"),
 }

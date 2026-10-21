@@ -7,6 +7,8 @@ import base64
 import hashlib
 import hmac
 import json
+import math
+import struct
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -54,6 +56,30 @@ def normalize_phone(raw):
 def escape_xml(value):
     return (str(value).replace("&", "&amp;").replace("<", "&lt;")
             .replace(">", "&gt;").replace('"', "&quot;").replace("'", "&apos;"))
+
+def waiting_twiml(state):
+    """Ring the answered line until Twilio decides a person is there."""
+    url = escape_xml(f"{state.public_base_url}/hooks/ringback.wav")
+    return f'<Response><Play loop="3">{url}</Play></Response>'
+
+def ringback_wav():
+    """Two seconds of ring, then four seconds of quiet. One North American ring cycle."""
+    global _RINGBACK
+    if _RINGBACK is None:
+        rate = 8000
+        frames = bytearray()
+        for index in range(rate * 2):
+            second = index / rate
+            sample = 0.35 * (math.sin(2 * math.pi * 440 * second) + math.sin(2 * math.pi * 480 * second))
+            frames += struct.pack("<h", int(sample * 32767))
+        frames += b"\x00\x00" * (rate * 4)
+        _RINGBACK = struct.pack(
+            "<4sI4s4sIHHIIHH4sI",
+            b"RIFF", 36 + len(frames), b"WAVE", b"fmt ", 16, 1, 1, rate, rate * 2, 2, 16, b"data", len(frames),
+        ) + bytes(frames)
+    return _RINGBACK
+
+_RINGBACK = None
 
 import threading
 

@@ -62,7 +62,7 @@ def handle_webhook(state, token, action, params):
             return 200, "application/xml", "<Response><Hangup/></Response>"
         if joined:
             return 200, "application/xml", str(transcript._live_twiml(state, call))
-        return 200, "application/xml", '<Response><Pause length="15"/></Response>'
+        return 200, "application/xml", twilio.waiting_twiml(state)
     if action == "machine":
         return pickup._machine_result(state, call, params)
     if action == "transcript":

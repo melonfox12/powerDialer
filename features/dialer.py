@@ -35,6 +35,9 @@ class Dialer(DialerState):
     def set_timezone_filter(self, timezone):
         return queue.set_timezone_filter(self, timezone)
 
+    def scan_crm(self):
+        return queue.scan_crm(self)
+
     def start(self, priority_lead_id=None):
         return queue.start(self, priority_lead_id)
 
@@ -174,6 +177,10 @@ def post_advance(request):
     request.send_json(200, request.account.dialer.advance_now())
 
 
+def post_scan_crm(request):
+    request.send_json(200, request.account.dialer.scan_crm())
+
+
 def post_dial(request):
     lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/").removesuffix("/dial"))
     request.send_json(200, request.account.dialer.dial_lead(lead_id))
@@ -201,6 +208,7 @@ ROUTES = [
     ("POST", "/api/skip", post_skip, "POST"),
     ("POST", "/api/next/skip", post_pass_next, "POST"),
     ("POST", "/api/advance", post_advance, "POST"),
+    ("POST", "/api/dials/scan", post_scan_crm, "POST"),
     ("POST", "/api/leads/{id}/dial", post_dial, "POST"),
     ("POST", "/api/leads/{id}/status", post_status, "POST"),
 ]

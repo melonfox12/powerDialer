@@ -1,4 +1,5 @@
 import tempfile
+from datetime import timedelta
 from pathlib import Path
 from features._dialer import calls
 from features._dialer import twilio
@@ -6,13 +7,14 @@ from features._dialer.rules import new_session
 from features._dialer.twilio import TwilioError
 from features.dialer import Dialer
 from features.prospects import ProspectStore
+from shared.infra import utc_now
 
 class Part4:
     def test_three_lines_dial_at_once_and_caller_ids_rotate(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
             leads = []
-            for index in range(4):
+            for index in range(6):
                 leads.append({
                     "id": f"prospect-{index}",
                     "name": f"Prospect {index}",
@@ -169,7 +171,7 @@ class Part4:
             finally:
                 calls._launch_call = original_launch
             self.assertEqual(launched, ["+12025550101"])
-            self.assertEqual(view["next_lead"]["id"], "prospect-1")
+            self.assertIsNone(view["next_lead"])
             skipped = next(lead for lead in crm.snapshot() if lead["id"] == "prospect-0")
             self.assertEqual(skipped["status"], "call")
 
@@ -336,3 +338,140 @@ class Part4:
                     dialer.advance_timer.cancel()
             self.assertTrue(dialer.paused)
             self.assertIn("401", dialer.last_error)
+
+    def test_a_prospect_dialed_in_the_last_12_hours_stays_out_of_the_queue(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            recent = {
+                "id": "recent", "name": "Recent", "business": "Shop",
+                "phone": "+12025550101", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+                "call_log": [{
+                    "id": "CA-recent",
+                    "started_at": utc_now().isoformat(),
+                    "ended_at": "",
+                    "answered_by": "no_answer",
+                }],
+            }
+            older = {
+                "id": "older", "name": "Older", "business": "Shop",
+                "phone": "+12025550102", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+                "call_log": [{
+                    "id": "CA-older",
+                    "started_at": (utc_now() - timedelta(hours=13)).isoformat(),
+                    "ended_at": "",
+                    "answered_by": "no_answer",
+                }],
+            }
+            fresh = {
+                "id": "fresh", "name": "Fresh", "business": "Shop",
+                "phone": "+12025550103", "timezone": "Pacific", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [recent, older, fresh]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.session = new_session()
+            self.assertEqual([lead["id"] for lead in dialer.public_state()["pool"]], ["older", "fresh"])
+
+            dialer.set_timezone_filter("Eastern")
+            self.assertEqual([lead["id"] for lead in dialer.public_state()["pool"]], ["older"])
+            dialer.set_timezone_filter("Pacific")
+            self.assertEqual([lead["id"] for lead in dialer.public_state()["pool"]], ["fresh"])
+            dialer.set_timezone_filter("")
+            self.assertEqual([lead["id"] for lead in dialer.public_state()["pool"]], ["older", "fresh"])
+            self.assertEqual(
+                [group["name"] for group in dialer.public_state()["timezone_groups"]],
+                ["Eastern", "Pacific"],
+            )
+            self.assertEqual(dialer.public_state()["timezone_groups"][0]["count"], 1)
+
+    def test_a_line_with_no_twilio_update_is_released(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            lead = {
+                "id": "prospect-1", "name": "Ada", "business": "Shop",
+                "phone": "+12025550123", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [lead]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            dialer.agent_ready = True
+            dialer.session = new_session()
+            call = dialer._new_call("prospect", lead)
+            call["call_uuid"] = "CA-silent"
+            original = twilio._hangup_call
+            twilio._hangup_call = lambda *_args: None
+            try:
+                calls._expire_silent_call(dialer, call["token"])
+                self.assertTrue(call["end_processed"])
+                self.assertNotIn(call["token"], dialer.in_flight)
+                self.assertTrue(crm.snapshot()[0]["passed_at"])
+                call["end_processed"] = False
+                call["picked_up"] = True
+                dialer.in_flight[call["token"]] = call
+                calls._expire_silent_call(dialer, call["token"])
+                self.assertFalse(call["end_processed"])
+                self.assertIn(call["token"], dialer.in_flight)
+            finally:
+                twilio._hangup_call = original
+                if dialer.advance_timer:
+                    dialer.advance_timer.cancel()
+
+    def test_scan_crm_copies_an_open_callback_onto_a_reimported_prospect(self):
+        now = utc_now().replace(microsecond=0)
+        due = now + timedelta(hours=5)
+        later = now + timedelta(hours=8)
+        leads = [
+            self._scan_lead("held", "Ada Lovelace", "call", due, city="Austin", state="TX", dialed=True),
+            self._scan_lead("held-later", "Ada Lovelace", "call", later, city="Austin", state="TX", dialed=True),
+            self._scan_lead("fresh", "ada   lovelace", "new", None, fields={"City": "Austin", "State": "tx"}),
+            self._scan_lead("other-city", "Ada Lovelace", "new", None, city="Dallas", state="TX"),
+            self._scan_lead("booked", "Ada Lovelace", "booked", None, city="Austin", state="TX"),
+            self._scan_lead("far", "Grace Hopper", "call", now + timedelta(hours=20), city="Austin", state="TX", dialed=True),
+            self._scan_lead("far-copy", "Grace Hopper", "new", None, city="Austin", state="TX"),
+            self._scan_lead("quiet", "Alan Turing", "call", due, city="Austin", state="TX"),
+            self._scan_lead("quiet-copy", "Alan Turing", "new", None, city="Austin", state="TX"),
+            self._scan_lead("blank", "", "new", None, city="Austin", state="TX"),
+            self._scan_lead("zone", "Lin Zhao", "call", due, timezone="Pacific", dialed=True),
+            self._scan_lead("zone-copy", "Lin Zhao", "new", None, timezone="Pacific"),
+            self._scan_lead("zone-other", "Lin Zhao", "new", None, timezone="Eastern"),
+        ]
+        plan = {item["id"]: item["scheduled_until"] for item in calls.callback_sync_plan(leads, now)}
+        self.assertEqual(set(plan), {"fresh", "zone-copy"})
+        self.assertEqual(plan["fresh"], later.isoformat())
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = leads
+            result = Dialer(crm, str(Path(directory) / ".env")).scan_crm()
+            stored = {lead["id"]: lead for lead in crm.snapshot()}
+            self.assertEqual(result["synced"], 2)
+            self.assertEqual(stored["fresh"]["status"], "call")
+            self.assertEqual(stored["fresh"]["scheduled_until"], later.isoformat())
+            self.assertEqual(stored["held"]["status"], "call")
+            self.assertEqual(stored["held"]["scheduled_until"], due.isoformat())
+            self.assertEqual(stored["other-city"]["status"], "new")
+            self.assertEqual(stored["far-copy"]["status"], "new")
+            self.assertEqual(stored["quiet-copy"]["status"], "new")
+            self.assertEqual(stored["zone-other"]["status"], "new")
+            self.assertEqual(stored["booked"]["status"], "booked")
+            pool_ids = {lead["id"] for lead in result["state"]["pool"]}
+            self.assertNotIn("fresh", pool_ids)
+            self.assertIn("other-city", pool_ids)
+
+    def _scan_lead(self, lead_id, name, status, due, city="", state="", timezone="Central", fields=None, dialed=False):
+        return {
+            "id": lead_id,
+            "name": name,
+            "business": "Shop",
+            "phone": "+12025550100",
+            "timezone": timezone,
+            "status": status,
+            "scheduled_until": due.isoformat() if due else None,
+            "city": city,
+            "state": state,
+            "transcript": [],
+            "fields": fields or {},
+            "call_log": [{"id": f"dial-{lead_id}", "started_at": utc_now().isoformat()}] if dialed else [],
+        }
