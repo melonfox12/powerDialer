@@ -14,6 +14,19 @@ CALLER_IDS = (
     "+18607824999",
 )
 RECENT_DIAL_WINDOW = timedelta(hours=12)
+# answered_by labels written by drops we make ourselves.
+RACE_LOST = "race_lost"
+CANCELLED = "cancelled"
+UNCLEAR = "unclear"
+# How long a lead stays out of the queue after a dial that did not reach a person.
+# Any other label (connected, skipped, unlabelled) uses RECENT_DIAL_WINDOW.
+RETRY_AFTER = {
+    "no_answer": timedelta(hours=3),
+    "voicemail": timedelta(hours=4),
+    UNCLEAR: timedelta(hours=4),
+    RACE_LOST: timedelta(minutes=2),
+    CANCELLED: timedelta(minutes=2),
+}
 CALLBACK_HOLD = timedelta(hours=12, seconds=2)
 
 def _dial_times(lead):
@@ -85,17 +98,28 @@ def callback_sync_plan(leads, now):
     return copies
 
 
+def _dial_windows(lead):
+    """(time, wait) for each dial: the wait depends on how that dial ended."""
+    log = lead.get("call_log") or []
+    if log:
+        return [
+            (item.get("started_at") or item.get("ended_at") or "",
+             RETRY_AFTER.get(item.get("answered_by"), RECENT_DIAL_WINDOW))
+            for item in log
+        ]
+    return [(raw, RECENT_DIAL_WINDOW) for raw in _dial_times(lead)]
+
+
 def _dialed_recently(lead, now=None):
     moment_now = now or utc_now()
-    cutoff = moment_now - RECENT_DIAL_WINDOW
-    for raw in _dial_times(lead):
+    for raw, wait in _dial_windows(lead):
         try:
             moment = datetime.fromisoformat(str(raw))
         except (TypeError, ValueError):
             continue
         if moment.tzinfo is None:
             moment = moment.replace(tzinfo=timezone.utc)
-        if moment > cutoff:
+        if moment > moment_now - wait:
             return True
     return False
 
@@ -256,6 +280,21 @@ def _cancel_call(state, call):
     if call_uuid:
         threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
 
+def _dial_record(call, duration, answered_by=None):
+    """The one call-log entry for a finished dial. It replaces the entry written at dial time."""
+    answered = answered_by or call.get("answered_by") or ""
+    if not answered:
+        answered = "unknown" if call.get("picked_up") else "no_answer"
+    return {
+        "id": call.get("call_uuid") or call["token"],
+        "started_at": call.get("created_at") or call.get("connected_at") or "",
+        "ended_at": datetime.now(timezone.utc).isoformat(),
+        "caller_id": call.get("caller_id") or "",
+        "answered_by": answered,
+        "duration_seconds": duration,
+        "transcript_lines": len(call.get("transcript_lines") or []),
+    }
+
 def _new_call(state, kind, lead):
     token = secrets.token_urlsafe(24)
     call = {
@@ -274,6 +313,8 @@ def _new_call(state, kind, lead):
         "transcription_started": False,
         "caller_id": "",
         "answered_by": "",
+        "line_seen_at": None,
+        "answered_at": None,
         "picked_up": False,
         "connect_counted": False,
         "transcript_lines": [],

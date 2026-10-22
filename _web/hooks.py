@@ -5,7 +5,6 @@ import traceback
 import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
-from features._dialer.twilio import ringback_wav
 from shared.infra import debug_event
 from _web.respond import HandlerMixin, log_server_fault
 
@@ -13,15 +12,6 @@ from _web.respond import HandlerMixin, log_server_fault
 def make_hook_handler(runtime):
     class HookHandler(HandlerMixin, BaseHTTPRequestHandler):
         def do_GET(self):
-            if urllib.parse.urlsplit(self.path).path == "/hooks/ringback.wav":
-                body = ringback_wav()
-                self.send_response(200)
-                self.send_header("Content-Type", "audio/wav")
-                self.send_header("Content-Length", str(len(body)))
-                self.send_header("Cache-Control", "public, max-age=86400")
-                self.end_headers()
-                self.wfile.write(body)
-                return
             self.dispatch()
 
         def do_POST(self):

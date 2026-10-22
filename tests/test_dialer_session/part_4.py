@@ -60,7 +60,7 @@ class Part4:
                 ],
             )
 
-    def test_first_answer_connects_and_the_other_lines_become_callbacks(self):
+    def test_first_answer_connects_and_the_other_lines_go_back_in_the_queue(self):
         from features._dialer._call_events import pickup
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
@@ -100,8 +100,9 @@ class Part4:
             self.assertIs(dialer.active, launched[0])
             self.assertEqual(crm.snapshot()[0]["status"], "new")
             for lead in crm.snapshot()[1:]:
-                self.assertEqual(lead["status"], "call")
-                self.assertTrue(lead.get("scheduled_until"))
+                self.assertEqual(lead["status"], "new")
+                self.assertFalse(lead.get("scheduled_until"))
+                self.assertEqual([item["answered_by"] for item in lead["call_log"]], ["race_lost"])
             self.assertTrue(launched[1]["skip_closed"])
             self.assertTrue(launched[2]["skip_closed"])
             self.assertFalse(launched[0]["cancelled"])

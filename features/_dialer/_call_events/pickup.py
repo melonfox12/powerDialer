@@ -4,33 +4,47 @@ from datetime import datetime, timezone
 
 from features._dialer import calls
 from features._dialer import rules
+from features._dialer import timing
 from features._dialer import twilio
 from features._dialer.rules import add_connect
 
-def _drop_to_callback(state, call):
-    """Hang up a line that lost the race and schedule a callback."""
+# A person cannot pick up this soon after Twilio starts the call. Carrier voicemail,
+# forwarding, and call screening can. Used only when Twilio could not decide.
+INSTANT_ANSWER_SECONDS = 2.0
+
+def _name(call):
+    lead = call.get("lead") or {}
+    return lead.get("name") or lead.get("phone") or "prospect"
+
+def _answered_instantly(call):
+    seen = call.get("line_seen_at")
+    answered = call.get("answered_at")
+    if seen is None or answered is None or answered <= seen:
+        return False
+    return answered - seen < INSTANT_ANSWER_SECONDS
+
+def _drop_line(state, call, answered_by):
+    """Hang up a line that will not reach the agent and log it once.
+
+    The lead stays in the queue. calls.RETRY_AFTER decides how long it waits.
+    """
     with state.lock:
         if call.get("picked_up") or call.get("skip_closed"):
-            return
+            return False
         call["skip_closed"] = True
-        lead_id = call.get("lead_id")
-        name = (call.get("lead") or {}).get("name") or (call.get("lead") or {}).get("phone") or "prospect"
     calls._cancel_call(state, call)
-    if not lead_id:
-        return
-    from features._dialer.queue import _schedule_callback
-    try:
-        _schedule_callback(state, lead_id)
-    except (KeyError, ValueError, OSError) as exc:
-        state.record_activity(f"Could not set a callback for {name}: {exc}", "error")
-        return
-    state.record_activity(f"Dropped {name}; callback set", "call")
-    from features._dialer import timing
+    lead_id = call.get("lead_id")
+    if lead_id:
+        try:
+            state.crm.append_call_log(lead_id, calls._dial_record(call, 0, answered_by), call["token"])
+        except (KeyError, ValueError, OSError) as exc:
+            state.record_activity(f"Could not log the call for {_name(call)}: {exc}", "error")
+    state.record_activity(f"Dropped {_name(call)} ({answered_by.replace('_', ' ')}); will retry later", "call")
     timing._schedule_advance(state)
-
+    return True
 
 def _pickup(state, call):
-    """Connect the first answer into the conference and callback the other lines."""
+    """Connect the first answer into the conference and drop the other lines."""
     with state.lock:
         if call["kind"] != "prospect" or call["cancelled"] or not state.running:
             return False
@@ -49,16 +63,16 @@ def _pickup(state, call):
                 add_connect(state.session)
                 call["connect_counted"] = True
                 rules._save_session(state)
-            name = (call.get("lead") or {}).get("name") or (call.get("lead") or {}).get("phone") or "prospect"
+            name = _name(call)
             caller = call.get("caller_id") or ""
             state.last_event = f"Picked up {name}" + (f" from {caller}" if caller else "")
             others = [item for item in state.in_flight.values() if item is not call]
     if lost:
-        _drop_to_callback(state, call)
+        _drop_line(state, call, calls.RACE_LOST)
         return False
     rules._flush_metrics(state)
     for other in others:
-        _drop_to_callback(state, other)
+        _drop_line(state, other, calls.RACE_LOST)
     state.record_activity(f"Pickup on the line: {name}. Stay on it or skip.", "call")
     return True
 
@@ -70,6 +84,8 @@ def _machine_result(state, call, params):
     )).lower()
     machine = any(term in result for term in ("machine", "voicemail", "fax", "answering service"))
     human = "human" in result and not machine
+    # Twilio could not decide. Connect, unless the line picked up too fast to be a person.
+    unclear_drop = not machine and not human and _answered_instantly(call)
     label = "voicemail" if machine else "human" if human else "unknown"
     with state.lock:
         if call["cancelled"] or call.get("end_processed"):
@@ -80,7 +96,7 @@ def _machine_result(state, call, params):
             if not call.get("machine_counted"):
                 call["machine_counted"] = True
                 rules._bump(state, "voicemail")
-        name = (call.get("lead") or {}).get("name") or (call.get("lead") or {}).get("phone") or "prospect"
+        name = _name(call)
         if label == "voicemail":
             state.last_event = f"Voicemail on the line: {name}"
         elif label == "human":
@@ -88,16 +104,21 @@ def _machine_result(state, call, params):
         else:
             state.last_event = f"On the line: {name}"
     rules._flush_metrics(state)
-    if label == "human":
+    if machine:
+        if not call.get("picked_up"):
+            _drop_line(state, call, "voicemail")
+        message = "Voicemail hung up"
+    elif unclear_drop:
+        if not call.get("picked_up"):
+            _drop_line(state, call, calls.UNCLEAR)
+        message = "Answered instantly with no voice; hung up"
+    else:
         if not call.get("picked_up") and _pickup(state, call):
             twilio._redirect_call(state, call.get("call_uuid"), twilio._url(state, call, "answer"))
-    elif not call.get("picked_up"):
-        _drop_to_callback(state, call)
-    kept = label == "human" and call.get("picked_up") and state.active is call
-    state.record_activity(
-        "Live voice is on the line" if kept
-        else "Voicemail hung up" if label == "voicemail"
-        else "Answer was not a person",
-        "call",
-    )
+        kept = call.get("picked_up") and state.active is call
+        if kept:
+            message = "Live voice is on the line" if human else "Answer unclear; connected you"
+        else:
+            message = "Another line was already live"
+    state.record_activity(message, "call")
     return 200, "text/plain", "OK"
