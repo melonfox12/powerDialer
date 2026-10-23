@@ -12,6 +12,13 @@ STATUSES = (
 )
 STATUS_KEYS = tuple(item["key"] for item in STATUSES)
 
+# A prospect in one of these statuses never goes back to "new" or "call" and is never dialed.
+NEVER_DIAL_STATUSES = ("booked", "disqualified", "do_not_call")
+# A callback the agent sets (outcome, skip, status menu, new prospect) comes due after this long.
+MANUAL_CALLBACK_HOURS = 12
+# A line we hang up on because another line connected first comes back after this long.
+DROPPED_CALLBACK_MINUTES = 5
+
 DISPOSITION_TO_STATUS = {
     "booked": "booked",
     "callback": "call",
@@ -105,6 +112,7 @@ SECRET_INPUTS = (
 def browser_vocabulary():
     return {
         "statuses": [dict(item) for item in STATUSES],
+        "neverDialStatuses": list(NEVER_DIAL_STATUSES),
         "dispositions": dict(DISPOSITION_TO_STATUS),
         "outcomeMetric": dict(OUTCOME_METRIC),
         "defaultOutcomeMetric": DEFAULT_OUTCOME_METRIC,

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from features._dialer import rules, twilio
 from features._prospects.csv_import import location_text
 from shared.infra import utc_now
+from shared.vocabulary import DROPPED_CALLBACK_MINUTES, MANUAL_CALLBACK_HOURS, NEVER_DIAL_STATUSES
 
 CALLER_IDS = (
     "+18607354163",
@@ -17,17 +18,19 @@ RECENT_DIAL_WINDOW = timedelta(hours=12)
 # answered_by labels written by drops we make ourselves.
 RACE_LOST = "race_lost"
 CANCELLED = "cancelled"
-UNCLEAR = "unclear"
+DEAD_LINE = "dead_line"
+DROPPED_CALLBACK = timedelta(minutes=DROPPED_CALLBACK_MINUTES)
 # How long a lead stays out of the queue after a dial that did not reach a person.
 # Any other label (connected, skipped, unlabelled) uses RECENT_DIAL_WINDOW.
 RETRY_AFTER = {
     "no_answer": timedelta(hours=3),
     "voicemail": timedelta(hours=4),
-    UNCLEAR: timedelta(hours=4),
-    RACE_LOST: timedelta(minutes=2),
-    CANCELLED: timedelta(minutes=2),
+    RACE_LOST: DROPPED_CALLBACK,
+    CANCELLED: DROPPED_CALLBACK,
+    DEAD_LINE: DROPPED_CALLBACK,
 }
-CALLBACK_HOLD = timedelta(hours=12, seconds=2)
+MANUAL_CALLBACK = timedelta(hours=MANUAL_CALLBACK_HOURS)
+CALLBACK_HOLD = MANUAL_CALLBACK + timedelta(seconds=2)
 
 def _dial_times(lead):
     """Times shown on Total dials: each call record, or the transcript when that is all we have."""
@@ -123,12 +126,59 @@ def _dialed_recently(lead, now=None):
             return True
     return False
 
+def _contact_keys(lead):
+    """What identifies one person to dial: the phone number, and name plus business plus place.
+
+    Two prospect records that share a key are the same person, however they were imported.
+    A name alone is not a key, and neither is a name in a timezone.
+    """
+    keys = set()
+    phone = twilio.normalize_phone(lead.get("phone"))
+    if phone:
+        keys.add(("phone", phone))
+    name = _folded(lead.get("name"))
+    business = _folded(lead.get("business"))
+    city = _folded(location_text(lead, "city"))
+    state_name = _folded(location_text(lead, "state"))
+    if name and (business or city or state_name):
+        keys.add(("person", name, business, city, state_name))
+    return keys
+
+
+def _busy_lead_ids(state):
+    """Leads on a line, ringing, or waiting for an outcome right now."""
+    with state.lock:
+        busy = {call["lead_id"] for call in state.in_flight.values() if call.get("lead_id")}
+        if state.active and state.active.get("lead_id"):
+            busy.add(state.active["lead_id"])
+        if state.pending_outcome:
+            busy.add(state.pending_outcome)
+    return busy
+
+
+def _off_limits_keys(leads, busy_ids, now):
+    """People who must not be dialed now, whichever record carries their number.
+
+    That is anyone with a record that is not "new" (booked, not interested, do not call,
+    interested, or in a callback), on a line right now, or dialed too recently.
+    """
+    keys = set()
+    for lead in leads:
+        if lead["status"] != "new" or lead["id"] in busy_ids or _dialed_recently(lead, now):
+            keys |= _contact_keys(lead)
+    return keys
+
+
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
     anchor_id = state.queue_anchor_id
+    now = utc_now()
+    busy_ids = _busy_lead_ids(state)
+    off_limits = _off_limits_keys(leads, busy_ids, now)
     indexed = [
         (index, lead) for index, lead in enumerate(leads)
-        if lead["status"] == "new" and not _dialed_recently(lead)
+        if lead["status"] == "new" and lead["id"] not in busy_ids
+        and not _dialed_recently(lead, now) and not (_contact_keys(lead) & off_limits)
     ]
     if state.selected_timezone:
         zone = state.selected_timezone
@@ -142,7 +192,15 @@ def _pool_leads(state, leads=None):
         held = [lead for lead in ordered if lead["id"] == anchor_id]
         rest = [lead for lead in ordered if lead["id"] != anchor_id]
         ordered = held + rest
-    return ordered
+    taken = set()
+    people = []
+    for lead in ordered:
+        keys = _contact_keys(lead)
+        if keys & taken:
+            continue
+        taken |= keys
+        people.append(lead)
+    return people
 
 def _next_caller(state):
     with state.lock:
@@ -313,8 +371,6 @@ def _new_call(state, kind, lead):
         "transcription_started": False,
         "caller_id": "",
         "answered_by": "",
-        "line_seen_at": None,
-        "answered_at": None,
         "picked_up": False,
         "connect_counted": False,
         "transcript_lines": [],
@@ -366,9 +422,12 @@ def _dialable_lead(state, lead_id):
         raise ValueError("This prospect has no phone number.")
     if lead.get("status") == "do_not_call":
         raise ValueError("This prospect is marked do not call.")
+    if lead.get("status") in NEVER_DIAL_STATUSES:
+        raise ValueError("This prospect is already closed and is never dialed again.")
     return lead
 
 def _claim_manual_lead(state, leads, active_leads):
+    """The pinned prospect, unless they are closed, already on a line, or the same person as someone who is."""
     lead_id = state.manual_lead_id
     if not lead_id:
         return None
@@ -376,9 +435,16 @@ def _claim_manual_lead(state, leads, active_leads):
     blocked = (
         not lead
         or not lead.get("phone")
-        or lead.get("status") == "do_not_call"
+        or lead.get("status") in NEVER_DIAL_STATUSES
         or lead["id"] in active_leads
     )
+    if not blocked:
+        keys = _contact_keys(lead)
+        blocked = any(
+            keys & _contact_keys(other) for other in leads
+            if other["id"] != lead["id"]
+            and (other["id"] in active_leads or other.get("status") in NEVER_DIAL_STATUSES)
+        )
     if blocked:
         state.manual_lead_id = None
         return None

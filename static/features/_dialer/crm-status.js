@@ -1,6 +1,6 @@
 import { postJson } from "../../_core/api.js";
 import { state } from "../../_core/state.js";
-import { byId } from "../../_core/format.js";
+import { byId, leavesQueueForGood } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 import { nextProspectLabel, queueProspect } from "./queue.js";
@@ -35,7 +35,7 @@ export function renderCrmStatus() {
     button.className = item.className;
     button.dataset.status = item.status;
     button.textContent = item.label;
-    button.disabled = !lead || saving;
+    button.disabled = !lead || saving || leavesQueueForGood(lead, item.status);
     button.setAttribute("aria-pressed", lead?.status === item.status ? "true" : "false");
     return button;
   }));
@@ -52,7 +52,7 @@ async function saveCrmStatus(lead, status, label) {
     });
     Object.assign(state, result.state);
     if (status === "call") showToast(`Callback started for ${name}`);
-    else if (status === "disqualified") showToast(`Removed ${name}`);
+    else if (status === "disqualified") showToast(`${name} will never be dialed again`);
     else showToast(`${name}: ${label}`);
   } catch (error) {
     showToast(errorText(error, "Could not update the CRM status."), true);

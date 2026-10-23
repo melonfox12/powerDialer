@@ -1,7 +1,6 @@
 """Webhook and browser-voice dispatch. Imports pickup, transcript, then ended."""
 
 import threading
-import time
 
 from features._dialer._call_events import ended, pickup, transcript
 from features._dialer import slots
@@ -22,13 +21,6 @@ def handle_webhook(state, token, action, params):
             call["call_uuid"] = call_uuid
             if call["kind"] == "agent":
                 state.agent_call_uuid = call_uuid
-        if call["kind"] == "prospect":
-            # Pickup.py compares these to tell a person from an instant carrier answer.
-            if action == "status" and call.get("line_seen_at") is None:
-                call["line_seen_at"] = time.monotonic()
-            elif action == "answer" and call.get("answered_at") is None:
-                call["answered_at"] = time.monotonic()
-
         state.record_activity(f"Call callback: {action}", "webhook")
     if action == "status":
         call_status = params.get("CallStatus", "").lower()

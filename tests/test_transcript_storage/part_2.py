@@ -20,6 +20,16 @@ class Part2:
         crm.snapshot()
         self.assertEqual(client.loads, 1)
 
+    def test_csv_columns_follow_the_web_crm_order(self):
+        lead = prospect()
+        lead["fields"] = {"Email": "a@b.co", "Website": "b.co", "Other Emails": "c@b.co"}
+        decoded = csv_bytes_for([lead]).decode("utf-8-sig")
+        self.assertEqual(next(csv.reader(StringIO(decoded))), [
+            "Prospect", "Company", "State", "City", "Phone Number", "Timezone", "Total Reviews", "Call status",
+            "Reviews (Last 30 Days)", "Days Since Last Review", "30-Day %", "Recency Source",
+            "Email", "Website", "Other Emails", "scheduled_until", "Call transcript",
+        ])
+
     def test_csv_transcript_field_escapes_multiline_utterances(self):
         lead = prospect()
         lead["transcript"] = [

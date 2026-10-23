@@ -3,30 +3,21 @@
 from datetime import datetime, timezone
 
 from features._dialer import calls
+from features._dialer import queue
 from features._dialer import rules
 from features._dialer import timing
 from features._dialer import twilio
 from features._dialer.rules import add_connect
 
-# A person cannot pick up this soon after Twilio starts the call. Carrier voicemail,
-# forwarding, and call screening can. Used only when Twilio could not decide.
-INSTANT_ANSWER_SECONDS = 2.0
-
 def _name(call):
     lead = call.get("lead") or {}
     return lead.get("name") or lead.get("phone") or "prospect"
 
-def _answered_instantly(call):
-    seen = call.get("line_seen_at")
-    answered = call.get("answered_at")
-    if seen is None or answered is None or answered <= seen:
-        return False
-    return answered - seen < INSTANT_ANSWER_SECONDS
-
 def _drop_line(state, call, answered_by):
     """Hang up a line that will not reach the agent and log it once.
 
-    The lead stays in the queue. calls.RETRY_AFTER decides how long it waits.
+    A line that lost the race to another pickup gets a 5-minute callback status.
+    Any other drop (voicemail) stays "new" and calls.RETRY_AFTER decides how long it waits.
     """
     with state.lock:
         if call.get("picked_up") or call.get("skip_closed"):
@@ -39,7 +30,15 @@ def _drop_line(state, call, answered_by):
             state.crm.append_call_log(lead_id, calls._dial_record(call, 0, answered_by), call["token"])
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call for {_name(call)}: {exc}", "error")
-    state.record_activity(f"Dropped {_name(call)} ({answered_by.replace('_', ' ')}); will retry later", "call")
+    if lead_id and answered_by == calls.RACE_LOST:
+        try:
+            queue.schedule_dropped_callback(state, lead_id)
+        except (KeyError, ValueError, OSError) as exc:
+            state.record_activity(f"Could not set the callback for {_name(call)}: {exc}", "error")
+        minutes = calls.DROPPED_CALLBACK.seconds // 60
+        state.record_activity(f"Dropped {_name(call)} (another line connected); callback in {minutes} min", "call")
+    else:
+        state.record_activity(f"Dropped {_name(call)} ({answered_by.replace('_', ' ')}); will retry later", "call")
     timing._schedule_advance(state)
     return True
 
@@ -84,8 +83,7 @@ def _machine_result(state, call, params):
     )).lower()
     machine = any(term in result for term in ("machine", "voicemail", "fax", "answering service"))
     human = "human" in result and not machine
-    # Twilio could not decide. Connect, unless the line picked up too fast to be a person.
-    unclear_drop = not machine and not human and _answered_instantly(call)
+    # Twilio could not decide. Connect: a person who answers instantly (a front desk) is real.
     label = "voicemail" if machine else "human" if human else "unknown"
     with state.lock:
         if call["cancelled"] or call.get("end_processed"):
@@ -108,10 +106,10 @@ def _machine_result(state, call, params):
         if not call.get("picked_up"):
             _drop_line(state, call, "voicemail")
         message = "Voicemail hung up"
-    elif unclear_drop:
-        if not call.get("picked_up"):
-            _drop_line(state, call, calls.UNCLEAR)
-        message = "Answered instantly with no voice; hung up"
+    elif label == "unknown" and not call.get("picked_up") and not twilio._call_is_live(state, call.get("call_uuid")):
+        # Twilio reports "unknown" for lines that already hung up. Do not put the agent on a dead line.
+        _drop_line(state, call, calls.DEAD_LINE)
+        message = "Line was already gone"
     else:
         if not call.get("picked_up") and _pickup(state, call):
             twilio._redirect_call(state, call.get("call_uuid"), twilio._url(state, call, "answer"))

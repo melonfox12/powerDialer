@@ -1,6 +1,6 @@
 import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
-import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, callbackStatusText, fillTimezoneSelect, initials, markCallback } from "../../_core/format.js";
+import { STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, callbackStatusText, fillTimezoneSelect, initials, leavesQueueForGood, markCallback } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { LEAD_COLUMNS, locationText } from "./query.js";
 import { openTranscript } from "./transcript.js";
@@ -45,30 +45,6 @@ export function appendLeadRows(body, leads, extras, onSelection) {
       row.append(dataCell(fieldInput(lead, "fields", lead.fields?.[column] || "", column, column)));
     }
 
-    const statusCell = document.createElement("td");
-    statusCell.className = "status-cell";
-    const select = document.createElement("select");
-    select.className = `status-select status-${STATUS_STYLES[lead.status]?.className || "neutral"}`;
-    select.setAttribute("aria-label", `Call status for ${lead.name || lead.phone}`);
-    for (const value of STATUS_KEYS) {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = value === "call" && lead.status === "call"
-        ? callbackStatusText(lead)
-        : STATUS_LABELS[value];
-      option.selected = lead.status === value;
-      if (value === "new" && state.pending_outcome?.id === lead.id) option.disabled = true;
-      select.append(option);
-    }
-    select.addEventListener("change", () => {
-      document.dispatchEvent(new CustomEvent("prospect-status", {
-        detail: { lead, status: select.value, select },
-      }));
-    });
-    markCallback(select, lead);
-    statusCell.append(select);
-    row.append(statusCell);
-
     const transcriptCell = document.createElement("td");
     const transcriptButton = document.createElement("button");
     const transcriptCount = lead.transcript?.length || 0;
@@ -84,7 +60,38 @@ export function appendLeadRows(body, leads, extras, onSelection) {
   }
 }
 
+function statusCell(lead) {
+  const cell = document.createElement("td");
+  cell.className = "status-cell";
+  const select = document.createElement("select");
+  select.className = `status-select status-${STATUS_STYLES[lead.status]?.className || "neutral"}`;
+  select.setAttribute("aria-label", `Call status for ${lead.name || lead.phone}`);
+  for (const value of STATUS_KEYS) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value === "call" && lead.status === "call"
+      ? callbackStatusText(lead)
+      : STATUS_LABELS[value];
+    option.selected = lead.status === value;
+    if (value === "new" && state.pending_outcome?.id === lead.id) option.disabled = true;
+    if (leavesQueueForGood(lead, value)) option.disabled = true;
+    select.append(option);
+  }
+  select.addEventListener("change", () => {
+    document.dispatchEvent(new CustomEvent("prospect-status", {
+      detail: { lead, status: select.value, select },
+    }));
+  });
+  markCallback(select, lead);
+  cell.append(select);
+  return cell;
+}
+
 function appendLeadColumn(row, lead, column) {
+  if (column.key === "status") {
+    row.append(statusCell(lead));
+    return;
+  }
   if (column.key === "name") {
     row.append(prospectCell(lead));
     return;

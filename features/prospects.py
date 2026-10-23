@@ -9,7 +9,7 @@ from features._prospects.backend_supabase import SupabaseBackend
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import parse_csv, update_lead_fields
 from shared.infra import utc_now
-from shared.vocabulary import STATUS_KEYS
+from shared.vocabulary import MANUAL_CALLBACK_HOURS, NEVER_DIAL_STATUSES, STATUS_KEYS
 
 
 class ProspectStore:
@@ -82,6 +82,8 @@ class ProspectStore:
             leads = self.backend.leads_locked()
             self.backend.expire_locked(leads)
             lead = _copy_of(leads, lead_id)
+            if lead.get("status") in NEVER_DIAL_STATUSES and status not in NEVER_DIAL_STATUSES:
+                raise ValueError("Booked, not interested, and do not call prospects stay out of the queue for good.")
             lead["status"] = status
             if scheduled_until:
                 try:
@@ -94,7 +96,9 @@ class ProspectStore:
                     raise ValueError("Callback time must be in the future.")
                 lead["scheduled_until"] = due.isoformat()
             else:
-                lead["scheduled_until"] = (utc_now() + timedelta(hours=24)).isoformat() if status == "call" else None
+                lead["scheduled_until"] = (
+                    (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat() if status == "call" else None
+                )
             self.backend.save_locked(lead)
             return dict(lead)
 

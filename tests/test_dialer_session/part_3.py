@@ -1,6 +1,7 @@
 import tempfile
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 from features.prospects import ProspectStore
 from features._dialer import calls
 from features._dialer.rules import new_session
@@ -107,7 +108,7 @@ class Part3:
         dialer.session = new_session()
         return crm, dialer
 
-    def test_a_line_that_loses_the_race_stays_in_the_queue_and_is_logged_once(self):
+    def test_a_line_that_loses_the_race_becomes_a_five_minute_callback_logged_once(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer_with_leads(directory, 2)
             leads = crm.snapshot()
@@ -120,47 +121,70 @@ class Part3:
             self.assertNotIn(loser["token"], dialer.in_flight)
 
             kept = crm.snapshot()[1]
-            self.assertEqual(kept["status"], "new")
-            self.assertIsNone(kept["scheduled_until"])
+            self.assertEqual(kept["status"], "call")
+            remaining = datetime.fromisoformat(kept["scheduled_until"]) - utc_now()
+            self.assertGreater(remaining, timedelta(minutes=5) - timedelta(seconds=5))
+            self.assertLessEqual(remaining, timedelta(minutes=5))
             self.assertEqual([item["answered_by"] for item in kept["call_log"]], ["race_lost"])
-            self.assertTrue(calls._dialed_recently(kept))
-            self.assertFalse(calls._dialed_recently(kept, utc_now() + timedelta(minutes=3)))
+            # Reading the state must not add a second record for the callback.
+            dialer.public_state()
+            self.assertEqual([item["answered_by"] for item in crm.snapshot()[1]["call_log"]], ["race_lost"])
+            self.assertNotIn(kept["id"], {lead["id"] for lead in calls._pool_leads(dialer)})
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()
 
-    def test_an_unclear_answer_connects_unless_the_line_picked_up_instantly(self):
+    def test_a_dropped_callback_comes_back_after_five_minutes_and_not_before(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer_with_leads(directory, 2)
             leads = crm.snapshot()
-            instant = dialer._new_call("prospect", leads[0])
-            instant["line_seen_at"], instant["answered_at"] = 100.0, 100.6
-            dialer._machine_result(instant, {"AnsweredBy": "unknown"})
-            self.assertIsNone(dialer.active)
-            self.assertTrue(instant["skip_closed"])
-            first = crm.snapshot()[0]
-            self.assertEqual(first["status"], "new")
-            self.assertEqual([item["answered_by"] for item in first["call_log"]], ["unclear"])
+            person = dialer._new_call("prospect", leads[0])
+            dialer._new_call("prospect", leads[1])
+            dialer._machine_result(person, {"AnsweredBy": "human"})
+            dialer.active = None
+            dialer.in_flight.clear()
+            self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], [])
 
-            ringing = dialer._new_call("prospect", leads[1])
-            ringing["line_seen_at"], ringing["answered_at"] = 100.0, 111.0
-            dialer._machine_result(ringing, {"AnsweredBy": "unknown"})
-            self.assertIs(dialer.active, ringing)
-            self.assertTrue(ringing["picked_up"])
-            self.assertEqual(ringing["answered_by"], "unknown")
+            def move_back(minutes):
+                lead = crm.leads[1]
+                lead["scheduled_until"] = (datetime.fromisoformat(lead["scheduled_until"]) - timedelta(minutes=minutes)).isoformat()
+                for item in lead["call_log"]:
+                    item["started_at"] = (datetime.fromisoformat(item["started_at"]) - timedelta(minutes=minutes)).isoformat()
+
+            move_back(4)
+            self.assertEqual(crm.snapshot()[1]["status"], "call")
+            self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], [])
+            move_back(2)
+            self.assertEqual(crm.snapshot()[1]["status"], "new")
+            self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], ["prospect-1"])
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()
 
-    def test_instant_answer_is_measured_from_the_first_status_callback(self):
+    def test_an_unclear_answer_connects_even_when_it_picked_up_instantly(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer_with_leads(directory, 1)
             call = dialer._new_call("prospect", crm.snapshot()[0])
             dialer.handle_webhook(call["token"], "status", {"CallStatus": "initiated"})
             dialer.handle_webhook(call["token"], "answer", {})
-            self.assertIsNotNone(call["line_seen_at"])
-            self.assertGreaterEqual(call["answered_at"], call["line_seen_at"])
-            seen = call["line_seen_at"]
-            dialer.handle_webhook(call["token"], "status", {"CallStatus": "in-progress"})
-            self.assertEqual(call["line_seen_at"], seen)
+            dialer._machine_result(call, {"AnsweredBy": "unknown"})
+            self.assertIs(dialer.active, call)
+            self.assertTrue(call["picked_up"])
+            self.assertEqual(call["answered_by"], "unknown")
+            if dialer.advance_timer:
+                dialer.advance_timer.cancel()
+
+    def test_an_unclear_answer_on_a_line_that_already_hung_up_is_not_connected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 1)
+            call = dialer._new_call("prospect", crm.snapshot()[0])
+            call["call_uuid"] = "CA-gone"
+            with patch("features._dialer.twilio._call_is_live", return_value=False):
+                dialer._machine_result(call, {"AnsweredBy": "unknown"})
+            self.assertIsNone(dialer.active)
+            self.assertFalse(call.get("picked_up"))
+            self.assertTrue(call["skip_closed"])
+            self.assertEqual([item["answered_by"] for item in crm.snapshot()[0]["call_log"]], ["dead_line"])
+            if dialer.advance_timer:
+                dialer.advance_timer.cancel()
 
     def test_retry_wait_depends_on_how_the_dial_ended(self):
         now = utc_now()
@@ -173,7 +197,8 @@ class Part3:
         self.assertTrue(calls._dialed_recently(lead("voicemail", timedelta(hours=3)), now))
         self.assertFalse(calls._dialed_recently(lead("voicemail", timedelta(hours=5)), now))
         self.assertTrue(calls._dialed_recently(lead("race_lost", timedelta(seconds=30)), now))
-        self.assertFalse(calls._dialed_recently(lead("race_lost", timedelta(minutes=3)), now))
+        self.assertTrue(calls._dialed_recently(lead("race_lost", timedelta(minutes=4)), now))
+        self.assertFalse(calls._dialed_recently(lead("race_lost", timedelta(minutes=6)), now))
         self.assertTrue(calls._dialed_recently(lead("unknown", timedelta(hours=5)), now))
         self.assertTrue(calls._dialed_recently(lead("", timedelta(hours=5)), now))
         self.assertFalse(calls._dialed_recently(lead("unknown", timedelta(hours=13)), now))

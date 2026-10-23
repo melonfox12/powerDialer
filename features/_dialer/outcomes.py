@@ -41,18 +41,36 @@ def choose_outcome(state, lead_id, status, scheduled_until=None):
         timing._schedule_advance(state)
     return result
 
+def _set_booked(state, lead_id, scheduled_until=None):
+    """Mark a prospect booked from the CRM and count the meeting once.
+
+    choose_outcome counts its own bookings. A status change from the CRM must count too,
+    or Performance never shows meetings that were booked outside a live call.
+    """
+    previous = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
+    lead = state.crm.set_status(lead_id, "booked", scheduled_until)
+    if previous is not None and previous.get("status") == "booked":
+        return lead
+    rules._bump(state, OUTCOME_METRIC["booked"])
+    with state.lock:
+        if state.session:
+            record_disposition(state.session, "booked")
+            rules._save_session(state)
+    rules._flush_metrics(state)
+    return lead
+
 def update_status(state, lead_id, status=None, scheduled_until=None, disposition=None, crm_only=False):
     if disposition and not crm_only:
         status = status_for_disposition(disposition)
     if crm_only and status == "booked":
-        lead = state.crm.set_status(lead_id, "booked", scheduled_until)
+        lead = _set_booked(state, lead_id, scheduled_until)
         name = lead.get("name") or lead.get("business") or "prospect"
         state.record_activity(f"CRM status for {name} set to booked", "web")
         return lead
     if crm_only and status == "call":
         return queue.callback_skip(state, lead_id)
     if crm_only and status == "disqualified":
-        return queue.remove_prospect(state, lead_id)
+        return queue.disqualify_prospect(state, lead_id)
     if not crm_only:
         with state.lock:
             is_outcome = live_outcome_lead_id(state) == lead_id and status in (
@@ -60,6 +78,8 @@ def update_status(state, lead_id, status=None, scheduled_until=None, disposition
             )
         if is_outcome:
             return choose_outcome(state, lead_id, status, scheduled_until)
+        if status == "booked":
+            return _set_booked(state, lead_id, scheduled_until)
         return state.crm.set_status(lead_id, status, scheduled_until)
     lead = state.crm.set_status(lead_id, status, scheduled_until)
     with state.lock:

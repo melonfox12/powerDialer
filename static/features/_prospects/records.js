@@ -23,7 +23,7 @@ export async function changeLeadStatus(lead, status, select) {
     Object.assign(state, result.state);
     byId("saveState").textContent = "All changes saved";
     render();
-    showToast(`${lead.name || lead.phone}: ${status === "call" ? "call scheduled for tomorrow" : STATUS_LABELS[status].toLowerCase()}`);
+    showToast(`${lead.name || lead.phone}: ${status === "call" ? "callback in 12 hours" : STATUS_LABELS[status].toLowerCase()}`);
   } catch (error) {
     select.value = lead.status;
     select.disabled = false;

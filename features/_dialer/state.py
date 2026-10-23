@@ -2,9 +2,8 @@
 
 A call stays a dict. `_new_call` in queue.py builds it. Keys: token, kind,
 lead_id, lead, call_uuid, state, handled, cancelled, machine, transcribing,
-transcript_partials, transcription_started, caller_id, answered_by, line_seen_at,
-answered_at, picked_up, connect_counted, transcript_lines, end_processed.
-line_seen_at and answered_at are time.monotonic() stamps. outcome_chosen and wrapping
+transcript_partials, transcription_started, caller_id, answered_by, picked_up,
+connect_counted, transcript_lines, end_processed. outcome_chosen and wrapping
 are set later by outcome and end handlers. connected_at is set on pickup.
 """
 

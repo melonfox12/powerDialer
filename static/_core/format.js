@@ -7,6 +7,9 @@ export const STATUS_STYLES = Object.fromEntries(vocabulary.statuses.map((status)
 export const STATUS_LABELS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.label]));
 export const STATUS_COLOR_VARS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.color]));
 export const STATUS_KEYS = vocabulary.statuses.map((status) => status.key);
+export const NEVER_DIAL_STATUSES = vocabulary.neverDialStatuses;
+// A prospect in a never-dial status cannot go back to "new" or "call".
+export const leavesQueueForGood = (lead, status) => NEVER_DIAL_STATUSES.includes(lead?.status) && !NEVER_DIAL_STATUSES.includes(status);
 export const TIMEZONE_NAMES = vocabulary.timezones;
 
 export function fillTimezoneSelect(select, selected = "Unknown") {

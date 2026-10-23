@@ -1,5 +1,6 @@
 import tempfile
-from datetime import timedelta
+from datetime import datetime, timedelta
+import zlib
 from pathlib import Path
 from features._dialer import calls
 from features._dialer import twilio
@@ -100,8 +101,14 @@ class Part4:
             self.assertIs(dialer.active, launched[0])
             self.assertEqual(crm.snapshot()[0]["status"], "new")
             for lead in crm.snapshot()[1:]:
-                self.assertEqual(lead["status"], "new")
-                self.assertFalse(lead.get("scheduled_until"))
+                # A dropped line becomes a 5 minute callback, with one record in the dial list.
+                self.assertEqual(lead["status"], "call")
+                remaining = datetime.fromisoformat(lead["scheduled_until"]) - utc_now()
+                self.assertGreater(remaining, timedelta(minutes=5) - timedelta(seconds=5))
+                self.assertLessEqual(remaining, timedelta(minutes=5))
+                self.assertEqual([item["answered_by"] for item in lead["call_log"]], ["race_lost"])
+            dialer.public_state()
+            for lead in crm.snapshot()[1:]:
                 self.assertEqual([item["answered_by"] for item in lead["call_log"]], ["race_lost"])
             self.assertTrue(launched[1]["skip_closed"])
             self.assertTrue(launched[2]["skip_closed"])
@@ -466,7 +473,7 @@ class Part4:
             "id": lead_id,
             "name": name,
             "business": "Shop",
-            "phone": "+12025550100",
+            "phone": f"+1202555{zlib.crc32(lead_id.encode()) % 10000:04d}",
             "timezone": timezone,
             "status": status,
             "scheduled_until": due.isoformat() if due else None,

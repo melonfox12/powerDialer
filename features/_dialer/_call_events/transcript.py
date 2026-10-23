@@ -31,7 +31,8 @@ def _start_transcription(state, response, call):
         track="both_tracks",
         inbound_track_label="prospect",
         outbound_track_label="agent",
-        partial_results=True,
+        # Interim results send one webhook every few hundred ms, which trips the tunnel's request cap.
+        partial_results=False,
         language_code="en-US",
         speech_model="telephony",
         enable_automatic_punctuation=True,
@@ -153,7 +154,9 @@ def _transcription_event(state, call, params):
             call["transcript_partials"][track or speaker] = partial
         return 200, "text/plain", "OK"
 
-    segment_id = f"{call.get('call_uuid') or call['token']}:{track}:{params.get('SequenceId', timestamp)}"
+    # SequenceId restarts at 1 whenever a new transcription session opens on the same call.
+    session_id = params.get("TranscriptionSid", "")
+    segment_id = f"{call.get('call_uuid') or call['token']}:{session_id}:{track}:{params.get('SequenceId', timestamp)}"
     if _remember_line(state, call, segment_id, timestamp, speaker, text, track):
         state.record_activity(f"Transcript updated · {speaker}", "transcription")
     return 200, "text/plain", "OK"

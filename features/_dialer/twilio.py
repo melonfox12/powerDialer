@@ -123,11 +123,24 @@ def _start_live_transcription(state, call_uuid, callback_url, name):
                        "StatusCallbackMethod": "POST",
                        "InboundTrackLabel": "prospect",
                        "OutboundTrackLabel": "agent",
-                       "PartialResults": "true",
+                       "PartialResults": "false",
                        "LanguageCode": "en-US",
                        "SpeechModel": "telephony",
                        "EnableAutomaticPunctuation": "true",
                    })
+
+_ENDED_CALL_STATUSES = ("completed", "failed", "busy", "no-answer", "canceled")
+
+def _call_is_live(state, call_uuid):
+    """False only when Twilio confirms the call already ended. Any lookup problem counts as live."""
+    if not call_uuid:
+        return True
+    try:
+        info = twilio_request(state.settings["TWILIO_ACCOUNT_SID"], state.settings["TWILIO_AUTH_TOKEN"], "GET",
+                              f"/Calls/{urllib.parse.quote(call_uuid, safe='')}.json")
+    except (TwilioError, KeyError):
+        return True
+    return str(info.get("status") or "").lower() not in _ENDED_CALL_STATUSES
 
 def _redirect_call(state, call_uuid, url):
     """Point an answered call at new TwiML once we know a person is on the line."""

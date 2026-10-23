@@ -13,25 +13,29 @@ def fill_slots(state):
 
 
 def _place_prospect_call(state):
-    leads = state.crm.snapshot()
     launches = []
     none_ready = False
     with state.lock:
         if not state.running or state.paused or not state.agent_ready or state.active or state.pending_outcome:
             return
+        # Read the prospects under the lock. A fill that waited here must see the dials
+        # another fill just placed, or it could ring the same person again.
+        leads = state.crm.snapshot()
         active_leads = {call["lead_id"] for call in state.in_flight.values()}
         open_slots = max(0, len(state.callers) - len(state.in_flight))
         selected = []
+        taken = set()
         if open_slots:
             manual = calls._claim_manual_lead(state, leads, active_leads)
             if manual:
                 selected.append(manual)
                 active_leads.add(manual["id"])
+                taken |= calls._contact_keys(manual)
                 open_slots -= 1
         if open_slots:
             pool = [
                 lead for lead in calls._pool_leads(state, leads)
-                if lead["id"] not in active_leads
+                if lead["id"] not in active_leads and not (calls._contact_keys(lead) & taken)
             ]
             selected.extend(pool[:open_slots])
         if open_slots and not selected:

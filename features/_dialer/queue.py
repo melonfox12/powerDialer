@@ -4,7 +4,7 @@ import secrets
 import threading
 import time
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from features._dialer import calls, slots, timing
 from features._dialer import projection, rules, twilio
@@ -165,15 +165,27 @@ def remember_skip(state, lead_id, when):
     except OSError as exc:
         state.record_activity(f"Could not log the skip: {exc}", "error")
 
+def _has_dial_record(log, due):
+    """True when the dial list already shows what started this callback: a skip, or a dial made around then."""
+    floor = due - calls.CALLBACK_HOLD - timedelta(hours=1)
+    for item in log:
+        if item.get("answered_by") == "skipped":
+            return True
+        try:
+            started = datetime.fromisoformat(str(item.get("started_at") or ""))
+        except ValueError:
+            continue
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+        if started >= floor:
+            return True
+    return False
+
 def remember_open_skips(state):
     """Keep a 12-hour callback that has no call record in the dial list."""
     now = utc_now()
-    horizon = timedelta(hours=12, seconds=2)
     for lead in state.crm.snapshot():
         if lead.get("status") != "call" or not lead.get("scheduled_until"):
-            continue
-        log = lead.get("call_log") or []
-        if any(item.get("answered_by") == "skipped" for item in log):
             continue
         try:
             due = datetime.fromisoformat(str(lead["scheduled_until"]))
@@ -182,15 +194,25 @@ def remember_open_skips(state):
         if due.tzinfo is None:
             continue
         remaining = due - now
-        if remaining <= timedelta(0) or remaining > horizon:
+        if remaining <= timedelta(0) or remaining > calls.CALLBACK_HOLD:
             continue
-        remember_skip(state, lead["id"], due - timedelta(hours=12))
+        if _has_dial_record(lead.get("call_log") or [], due):
+            continue
+        remember_skip(state, lead["id"], due - calls.MANUAL_CALLBACK)
 
 def _schedule_callback(state, lead_id):
-    due = utc_now().replace(microsecond=0) + timedelta(hours=12)
+    due = utc_now().replace(microsecond=0) + calls.MANUAL_CALLBACK
     lead = state.crm.set_status(lead_id, "call", due.isoformat())
-    remember_skip(state, lead_id, due - timedelta(hours=12))
+    remember_skip(state, lead_id, due - calls.MANUAL_CALLBACK)
     return lead
+
+def schedule_dropped_callback(state, lead_id):
+    """Put a line we dropped back on a short callback. The dial list already has its record."""
+    lead = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
+    if lead is None or lead.get("status") != "new":
+        return None
+    due = utc_now().replace(microsecond=0) + calls.DROPPED_CALLBACK
+    return state.crm.set_status(lead_id, "call", due.isoformat())
 
 def callback_skip(state, lead_id):
     """Skip the prospect and start the 12-hour callback timer."""
@@ -210,20 +232,23 @@ def callback_skip(state, lead_id):
         slots.fill_slots(state)
     return lead
 
-def remove_prospect(state, lead_id):
-    """Skip the prospect, then delete them from the CRM."""
+def disqualify_prospect(state, lead_id):
+    """Skip the prospect and mark them not interested.
+
+    The record stays, so a re-import of the same list finds the number and never adds them back.
+    """
     lead_id = str(lead_id or "").strip()
     leads = state.crm.snapshot()
-    lead = next((item for item in leads if item["id"] == lead_id), None)
-    if lead is None:
+    current = next((item for item in leads if item["id"] == lead_id), None)
+    if current is None:
         raise KeyError("Prospect not found")
+    lead = state.crm.set_status(lead_id, "disqualified")
     with state.lock:
         if state.queue_anchor_id == lead_id:
             state.queue_anchor_id = None
     should_fill = _drop_prospect_call(state, lead_id)
-    state.crm.remove(lead_id)
-    name = lead.get("name") or lead.get("business") or "Prospect"
-    state.record_activity(f"Removed {name}", "web")
+    name = current.get("name") or current.get("business") or "Prospect"
+    state.record_activity(f"Marked {name} not interested", "web")
     if should_fill:
         slots.fill_slots(state)
     return lead

@@ -9,6 +9,7 @@ export const LEAD_COLUMNS = [
   { label: "Phone Number", key: "phone", kind: "text" },
   { label: "Timezone", key: "timezone", kind: "text" },
   { label: "Total Reviews", key: "review_count", kind: "number" },
+  { label: "Call status", key: "status", kind: "text" },
   { label: "Reviews (Last 30 Days)", key: "reviews_last_30_days", kind: "number" },
   { label: "Days Since Last Review", key: "days_since_last_review", kind: "number" },
   { label: "30-Day %", key: "review_pct_30_days", kind: "number" },
@@ -16,7 +17,6 @@ export const LEAD_COLUMNS = [
 ];
 
 export const TRAILING_COLUMNS = [
-  { label: "Call status", key: "status", kind: "text" },
   { label: "Call transcript", key: "transcript", kind: "number" },
 ];
 

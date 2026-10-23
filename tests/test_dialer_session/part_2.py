@@ -125,7 +125,7 @@ class Part2:
             dialer._call_ended(call, {"CallStatus": "completed", "CallDuration": "8"})
             self.assertIsNone(dialer.pending_outcome)
 
-    def test_disqualified_skips_and_deletes_the_prospect(self):
+    def test_disqualified_skips_and_keeps_the_prospect_out_of_the_queue_for_good(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
             leads = []
@@ -147,9 +147,12 @@ class Part2:
             dialer.session = new_session()
             call = dialer._new_call("prospect", leads[0])
             dialer.update_status("prospect-0", "disqualified", crm_only=True)
-            self.assertEqual([lead["id"] for lead in crm.snapshot()], ["prospect-1"])
+            # The record stays so a re-import finds the number and never adds them back.
+            self.assertEqual({lead["id"]: lead["status"] for lead in crm.snapshot()},
+                             {"prospect-0": "disqualified", "prospect-1": "new"})
             view = dialer.public_state()
             self.assertEqual(view["next_lead"]["id"], "prospect-1")
+            self.assertEqual([lead["id"] for lead in view["pool"]], ["prospect-1"])
             self.assertEqual(view["in_flight"], [])
             self.assertTrue(call["cancelled"])
             self.assertTrue(call["skip_closed"])

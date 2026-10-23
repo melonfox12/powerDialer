@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from io import StringIO
 
 from shared.infra import utc_now
-from shared.vocabulary import STATUS_KEYS, TIMEZONE_ALIASES, UTC_OFFSET_ZONES
+from shared.vocabulary import MANUAL_CALLBACK_HOURS, STATUS_KEYS, TIMEZONE_ALIASES, UTC_OFFSET_ZONES
 
 STATUSES = STATUS_KEYS
 PHONE_HEADER_WORDS = ("phone", "mobile", "cell", "tel", "number", "whatsapp")
@@ -358,7 +358,7 @@ def build_manual_lead(payload, known_phones=()):
         raise ValueError("Unknown prospect status.")
     fields = _extra_fields(payload.get("fields"))
     transcript = _transcript(_text(payload.get("transcript"), "transcript"))
-    scheduled_until = (utc_now() + timedelta(hours=24)).isoformat() if status == "call" else None
+    scheduled_until = (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat() if status == "call" else None
     return {
         "id": str(uuid.uuid4()),
         "name": name,
