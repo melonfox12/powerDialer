@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script type="module" src="main.js"></script>
-</head>
+<script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"call","label":"Callback","color":"--amber","className":"callback"},{"key":"send_info","label":"Send info","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"disqualified","label":"Disqualified","color":"--red","className":"negative"}],"crmStatusKeys":["new","call","send_info","booked","disqualified"],"crmStatusLabels":{"new":"New","call":"Callback (12 hour timer)","send_info":"Send info","booked":"Booked","disqualified":"Disqualified"},"neverDialStatuses":["booked","disqualified"],"dispositions":{"booked":"booked","callback":"call","send_info":"send_info","not_interested":"disqualified","no_answer":"call","do_not_call":"disqualified"},"outcomeMetric":{"call":"call_later","send_info":"interested","booked":"booked"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":60,"defaultDailyConversationGoal":20,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"settingKeys":["SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","OPENING_SCRIPT","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"}]}</script></head>
 <body>
   <div id="loginGate" class="login-gate" hidden>
     <div class="login-card">
@@ -162,160 +162,74 @@
         <div class="dialog-actions"><button id="startNewSession" class="button button-primary" type="button">Start new session</button></div>
       </section>
     </dialog>            <section id="metricsPanel" class="metrics-panel" aria-labelledby="metricsTitle" hidden>
-              <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton" data-mode="summary">
-                <div class="section-heading perf-heading">
-                  <div>
-                    <h2 id="metricsTitle">Live metrics</h2>
-                  </div>
-                  <div class="perf-controls">
-                    <div class="performance-mode-control" role="group" aria-label="Time range">
-                      <button id="rangeTodayButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-range="today">Today</button>
-                      <button id="range7dButton" class="performance-mode-button active" type="button" aria-pressed="true" data-performance-range="7d">7 days</button>
-                      <button id="rangeAllButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-range="all">All time</button>
+              <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton">
+                <div class="performance-document dialer-document">
+                  <header class="performance-header">
+                    <h2 id="metricsTitle" class="visually-hidden">Performance</h2>
+                    <div class="performance-daily-goals" aria-label="Daily goals">
+                      <div class="performance-goal-block">
+                        <div class="performance-goal-head">
+                          <span class="performance-goal-label">Conversations today</span>
+                          <span class="performance-goal-value">
+                            <strong id="dailyConversationsValue">0</strong>
+                            <span class="performance-goal-sep">/</span>
+                            <button id="dailyConversationGoalButton" class="performance-goal-edit" type="button" aria-label="Edit conversation goal">20</button>
+                          </span>
+                        </div>
+                        <div id="dailyConversationTrack" class="performance-goal-track" role="progressbar" aria-labelledby="dailyConversationGoalButton" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0">
+                          <div id="dailyConversationFill" class="performance-goal-fill performance-goal-fill-conversations"></div>
+                        </div>
+                      </div>
+                      <div class="performance-goal-block">
+                        <div class="performance-goal-head">
+                          <span class="performance-goal-label">Talk time today</span>
+                          <span class="performance-goal-value">
+                            <strong id="dailyTalkValue">0m</strong>
+                            <span class="performance-goal-sep">/</span>
+                            <button id="dailyTalkGoalButton" class="performance-goal-edit" type="button" aria-label="Edit talk time goal in minutes">60m</button>
+                          </span>
+                        </div>
+                        <div id="dailyTalkTrack" class="performance-goal-track" role="progressbar" aria-labelledby="dailyTalkGoalButton" aria-valuemin="0" aria-valuemax="60" aria-valuenow="0">
+                          <div id="dailyTalkFill" class="performance-goal-fill performance-goal-fill-talk"></div>
+                        </div>
+                      </div>
                     </div>
-                    <div class="performance-mode-control" role="group" aria-label="Performance display mode">
-                      <button id="summaryModeButton" class="performance-mode-button active" type="button" aria-pressed="true" data-performance-mode="summary">Summary</button>
-                      <button id="allVisualsModeButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-mode="all">All visuals</button>
-                    </div>
-                  </div>
-                </div>
+                  </header>
 
-                <p id="performanceEmpty" class="perf-empty" role="status" hidden></p>
-
-                <div id="performanceBody" class="perf-body" hidden>
-                  <section class="perf-hero" aria-labelledby="heroLabel">
-                    <h3 id="heroLabel" class="perf-label">Dials per booked meeting</h3>
-                    <div class="perf-hero-line">
-                      <strong id="heroValue" class="perf-hero-value">—</strong>
-                      <span id="heroChange" class="perf-change" hidden></span>
+                  <section class="performance-chart-section" aria-labelledby="performanceChartTitle">
+                    <div class="performance-chart-toolbar">
+                      <h3 id="performanceChartTitle" class="performance-section-label">Activity</h3>
+                      <div class="performance-mode-control" role="group" aria-label="Chart time range">
+                        <button id="rangeDayButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-range="day">Day</button>
+                        <button id="rangeWeekButton" class="performance-mode-button active" type="button" aria-pressed="true" data-performance-range="week">Week</button>
+                        <button id="rangeMonthButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-range="month">Month</button>
+                      </div>
                     </div>
-                    <p id="heroMinutes" class="perf-sub"></p>
+                    <div id="performanceChartLegend" class="performance-line-legend" role="group" aria-label="Chart series"></div>
+                    <div id="performanceLineChart" class="line-chart performance-line-chart" role="img" aria-label="Dials, conversations, and booked over time"></div>
+                    <p id="performanceChartEmpty" class="performance-chart-empty" role="status" hidden>No activity in this range</p>
                   </section>
 
-                  <ol class="perf-funnel" aria-label="Call funnel: dials, connected, conversations, booked">
-                    <li id="funnelDials" class="perf-step">
-                      <span class="perf-label">Dials</span>
-                      <strong id="funnelDialsValue">0</strong>
-                      <span id="funnelDialsChange" class="perf-change" hidden></span>
-                    </li>
-                    <li class="perf-rate perf-rate-main">
-                      <strong id="rateConnectValue">—</strong>
-                      <span class="perf-rate-label">connect rate</span>
-                      <span id="rateConnectChange" class="perf-change" hidden></span>
-                    </li>
-                    <li id="funnelConnected" class="perf-step">
-                      <span class="perf-label">Connected</span>
-                      <strong id="funnelConnectedValue">0</strong>
-                      <span id="funnelConnectedChange" class="perf-change" hidden></span>
-                    </li>
-                    <li class="perf-rate">
-                      <strong id="rateConversationValue">—</strong>
-                      <span id="rateConversationLabel" class="perf-rate-label">talk 60s+</span>
-                      <span id="rateConversationChange" class="perf-change" hidden></span>
-                    </li>
-                    <li id="funnelConversations" class="perf-step">
-                      <span class="perf-label">Conversations</span>
-                      <strong id="funnelConversationsValue">0</strong>
-                      <span id="funnelConversationsChange" class="perf-change" hidden></span>
-                    </li>
-                    <li class="perf-rate">
-                      <strong id="rateBookingValue">—</strong>
-                      <span class="perf-rate-label">book rate</span>
-                      <span id="rateBookingChange" class="perf-change" hidden></span>
-                    </li>
-                    <li id="funnelBooked" class="perf-step">
-                      <span class="perf-label">Booked</span>
-                      <strong id="funnelBookedValue">0</strong>
-                      <span id="funnelBookedChange" class="perf-change" hidden></span>
-                      <span class="perf-note">Counted when a call is tagged Booked or a prospect is set to Booked.</span>
-                    </li>
-                  </ol>
-
-                  <p class="perf-fact">
-                    <span class="perf-label">Average talk time per connect</span>
-                    <strong id="factTalkValue">—</strong>
-                    <span id="factTalkChange" class="perf-change" hidden></span>
-                  </p>
-
-                  <section class="perf-section" aria-labelledby="trendTitle">
-                    <div class="chart-panel-heading"><h3 id="trendTitle">Connect rate</h3><span id="trendRange" class="eyebrow"></span></div>
-                    <div class="chart-legend perf-legend">
-                      <span class="legend-item"><i class="legend-line legend-line-connected" aria-hidden="true"></i>Connect rate</span>
-                      <span class="legend-item"><i class="perf-legend-bar" aria-hidden="true"></i>Dials</span>
-                      <span class="legend-item"><i class="perf-legend-marker" aria-hidden="true"></i>Meeting booked</span>
-                    </div>
-                    <div id="metricsLineChart" class="perf-trend" role="img" aria-label="Connect rate over time"></div>
+                  <section class="performance-funnel-row" aria-label="Funnel conversion rates">
+                    <article class="performance-funnel-card">
+                      <span class="performance-funnel-label">Dials → Connected</span>
+                      <strong id="funnelRateConnect" class="performance-funnel-value">—</strong>
+                      <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateConnectBar"></span></div>
+                    </article>
+                    <article class="performance-funnel-card">
+                      <span class="performance-funnel-label">Connected → Conversations</span>
+                      <strong id="funnelRateConversation" class="performance-funnel-value">—</strong>
+                      <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateConversationBar"></span></div>
+                    </article>
+                    <article class="performance-funnel-card">
+                      <span class="performance-funnel-label">Conversations → Booked</span>
+                      <strong id="funnelRateBooked" class="performance-funnel-value">—</strong>
+                      <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateBookedBar"></span></div>
+                    </article>
                   </section>
                 </div>
-
-                <section class="perf-section perf-goal" aria-labelledby="goalTitle">
-                  <div class="chart-panel-heading"><h3 id="goalTitle">Today's dial block</h3><span id="goalMinutesLabel" class="eyebrow"></span></div>
-                  <div id="goalTrack" class="perf-goal-track" role="progressbar" aria-labelledby="goalTitle" aria-valuemin="0" aria-valuemax="60" aria-valuenow="0">
-                    <div id="goalProgress" class="perf-goal-fill"></div>
-                  </div>
-                  <div class="perf-goal-line">
-                    <p id="goalMessage" class="perf-sub"></p>
-                    <p id="goalStreak" class="perf-streak"></p>
-                  </div>
-                  <button id="goalEditButton" class="button button-quiet perf-link" type="button" aria-expanded="false" aria-controls="goalForm">Edit goal</button>
-                  <form id="goalForm" class="perf-goal-form" hidden>
-                    <label class="form-field"><span>Daily dial block (minutes)</span><input id="goalMinutesInput" type="number" min="1" max="720" required></label>
-                    <label class="form-field"><span>Add each week (minutes, 0 is off)</span><input id="goalStepInput" type="number" min="0" max="720" required></label>
-                    <div class="dialog-actions">
-                      <button id="goalCancelButton" class="button button-quiet" type="button">Cancel</button>
-                      <button id="goalSaveButton" class="button button-primary" type="submit">Save goal</button>
-                    </div>
-                  </form>
-                </section>
-
-                <section class="perf-section perf-bookings" aria-labelledby="bookingsTitle">
-                  <div class="chart-panel-heading"><h3 id="bookingsTitle">Booked meetings</h3></div>
-                  <p id="undatedNote" class="perf-note" hidden></p>
-                  <button id="addBookingButton" class="button button-quiet perf-link" type="button">Add booked meeting</button>
-                </section>
-
-                <div id="performanceDetail" class="perf-detail" data-performance-detail="all">
-                  <section class="perf-section" aria-labelledby="outcomeTitle">
-                    <div class="chart-panel-heading"><h3 id="outcomeTitle">Call outcomes</h3><span id="outcomeRange" class="eyebrow"></span></div>
-                    <div id="outcomeBar" class="perf-outcome-bar" role="img" aria-label="Share of tagged calls by outcome"></div>
-                    <ul id="outcomeLegend" class="perf-outcome-legend"></ul>
-                    <p id="outcomeNote" class="perf-note" hidden></p>
-                  </section>
-                  <section class="perf-section" aria-labelledby="heatmapTitle">
-                    <div class="chart-panel-heading"><h3 id="heatmapTitle">Best time to call</h3><span class="eyebrow">Connect rate, your local time</span></div>
-                    <p id="heatmapNote" class="perf-note" hidden></p>
-                    <div id="heatmapGrid" class="perf-heatmap" role="group" aria-label="Connect rate by weekday and hour" hidden></div>
-                  </section>
-                </div>
-
-                <div class="performance-chart-grid">
-                  <section class="performance-chart-panel status-chart-panel" aria-labelledby="statusMixTitle" data-performance-detail="all">
-                    <div class="chart-panel-heading"><h3 id="statusMixTitle">Prospect status</h3><span class="eyebrow">Status mix</span></div>
-                    <div class="status-chart-layout">
-                      <div id="statusPieChart" class="status-pie-chart" role="img" aria-label="Prospects by call status"></div>
-                      <ul id="statusPieLegend" class="status-pie-legend"></ul>
-                    </div>
-                  </section>
-                  <section class="performance-chart-panel" aria-labelledby="connectionMixTitle" data-performance-detail="all">
-                    <div class="chart-panel-heading"><h3 id="connectionMixTitle">Dial outcomes</h3><span id="connectionRange" class="eyebrow"></span></div>
-                    <div class="status-chart-layout">
-                      <div id="connectionPieChart" class="status-pie-chart" role="img" aria-label="Connected versus unconnected dials"></div>
-                      <ul id="connectionPieLegend" class="status-pie-legend"></ul>
-                    </div>
-                  </section>
-                </div>
-
-                <dialog id="bookingDialog" class="add-prospect-dialog" aria-labelledby="bookingDialogTitle">
-                  <form id="bookingForm">
-                    <div class="dialog-heading"><div><div class="eyebrow">BOOKED MEETING</div><h2 id="bookingDialogTitle">Add booked meeting</h2></div><button id="closeBooking" class="dialog-close" type="button" aria-label="Close add booked meeting">×</button></div>
-                    <label class="form-field"><span>Prospect</span><select id="bookingLeadSelect" required></select></label>
-                    <label class="form-field"><span>Date booked</span><input id="bookingDateInput" type="date" required></label>
-                    <p id="bookingError" class="form-footnote add-prospect-error" hidden></p>
-                    <div class="dialog-actions"><button id="cancelBooking" class="button button-quiet" type="button">Cancel</button><button id="saveBooking" class="button button-primary" type="submit">Add meeting</button></div>
-                  </form>
-                </dialog>
               </div>
-              <div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
+<div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
                 <section class="pool-table-panel" aria-label="Total dials">
                   <div class="pool-table-toolbar">
                     <div><h2>Total dials</h2><span id="dialsTableSummary" class="pool-table-summary">0 dials</span></div>

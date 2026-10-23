@@ -351,7 +351,8 @@ def _dial_record(call, duration, answered_by=None):
         "answered_by": answered,
         "duration_seconds": duration,
         "transcript_lines": len(call.get("transcript_lines") or []),
-        "connected": bool(call.get("picked_up")),
+        # Connected means the agent was on the line with the prospect, not voicemail or a dead line.
+        "connected": bool(call.get("picked_up")) and str(answered) != "voicemail",
         "outcome": call.get("outcome"),
     }
 

@@ -29,6 +29,7 @@ def preferences(values):
         ("CALLING_START_HOUR", 0, 23),
         ("CALLING_END_HOUR", 1, 24),
         ("DAILY_GOAL_MINUTES", 1, DAILY_GOAL_MAX_MINUTES),
+        ("DAILY_CONVERSATION_GOAL", 1, 1000),
         ("DAILY_GOAL_WEEKLY_STEP_MINUTES", 0, DAILY_GOAL_MAX_MINUTES),
     ):
         try:
@@ -83,6 +84,7 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
         "calling_end_hour": int(parsed["CALLING_END_HOUR"]),
         "opening_script": parsed["OPENING_SCRIPT"],
         "daily_goal_minutes": int(parsed["DAILY_GOAL_MINUTES"]),
+        "daily_conversation_goal": int(parsed["DAILY_CONVERSATION_GOAL"]),
         "daily_goal_weekly_step": int(parsed["DAILY_GOAL_WEEKLY_STEP_MINUTES"]),
         "daily_goal_anchor": parsed["DAILY_GOAL_ANCHOR"],
     }
@@ -91,6 +93,8 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
 def daily_goal(parsed):
     """The goal dict features.performance reads, from parsed preferences."""
     return {
+        "conversation_goal": int(parsed["DAILY_CONVERSATION_GOAL"]),
+        "talk_minutes_goal": int(parsed["DAILY_GOAL_MINUTES"]),
         "minutes": int(parsed["DAILY_GOAL_MINUTES"]),
         "weekly_step": int(parsed["DAILY_GOAL_WEEKLY_STEP_MINUTES"]),
         "anchor": parsed["DAILY_GOAL_ANCHOR"],
@@ -101,18 +105,26 @@ def save_goal(env_path, account_values, account_user_id, data, today, save_remot
     """Save only the daily goal keys. A weekly step counts from an anchor date: today, whenever the goal changes."""
     signed_in = bool(account_user_id)
     current = values(env_path, account_values, signed_in=signed_in)
-    minutes = data.get("daily_goal_minutes", current.get("DAILY_GOAL_MINUTES"))
+    minutes = data.get("daily_goal_minutes", data.get("daily_talk_goal_minutes", current.get("DAILY_GOAL_MINUTES")))
+    conversations = data.get("daily_conversation_goal", current.get("DAILY_CONVERSATION_GOAL"))
     step = data.get("daily_goal_weekly_step", current.get("DAILY_GOAL_WEEKLY_STEP_MINUTES"))
-    if isinstance(minutes, bool) or isinstance(step, bool):
+    if isinstance(minutes, bool) or isinstance(step, bool) or isinstance(conversations, bool):
         raise ValueError("Daily goal values must be whole numbers.")
     same = (str(minutes).strip() == str(current.get("DAILY_GOAL_MINUTES") or "").strip()
+            and str(conversations).strip() == str(current.get("DAILY_CONVERSATION_GOAL") or "").strip()
             and str(step).strip() == str(current.get("DAILY_GOAL_WEEKLY_STEP_MINUTES") or "").strip())
     anchor = current.get("DAILY_GOAL_ANCHOR") or ""
     if not same or not anchor:
         anchor = today.isoformat()
-    candidate = {**current, "DAILY_GOAL_MINUTES": minutes, "DAILY_GOAL_WEEKLY_STEP_MINUTES": step, "DAILY_GOAL_ANCHOR": anchor}
+    candidate = {
+        **current,
+        "DAILY_GOAL_MINUTES": minutes,
+        "DAILY_CONVERSATION_GOAL": conversations,
+        "DAILY_GOAL_WEEKLY_STEP_MINUTES": step,
+        "DAILY_GOAL_ANCHOR": anchor,
+    }
     parsed = preferences(candidate)
-    updates = {key: parsed[key] for key in ("DAILY_GOAL_MINUTES", "DAILY_GOAL_WEEKLY_STEP_MINUTES")}
+    updates = {key: parsed[key] for key in ("DAILY_GOAL_MINUTES", "DAILY_CONVERSATION_GOAL", "DAILY_GOAL_WEEKLY_STEP_MINUTES")}
     updates["DAILY_GOAL_ANCHOR"] = parsed["DAILY_GOAL_ANCHOR"] if int(parsed["DAILY_GOAL_WEEKLY_STEP_MINUTES"]) > 0 else ""
     if signed_in:
         account_values.update(updates)

@@ -44,7 +44,11 @@ export function renderSessionMomentum() {
     showToast("Session goal reached — great work!");
     stageEffects.goalReached();
   }
-  if (Number(stats.meetings_booked || 0) > S.previousMeetings) byId("funnelBooked").classList.add("meeting-highlight");
+  if (Number(stats.meetings_booked || 0) > S.previousMeetings) {
+    const label = byId("sessionGoalLabel");
+    label.classList.add("meeting-highlight");
+    setTimeout(() => label.classList.remove("meeting-highlight"), 1200);
+  }
   S.previousMeetings = Number(stats.meetings_booked || 0);
   S.previousSessionConversations = conversations;
   const nudgeMinutes = Number(state.settings?.break_nudge_minutes || 90);

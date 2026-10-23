@@ -54,6 +54,7 @@ SETTINGS_KEYS = (
     "calling_end_hour",
     "calling_start_hour",
     "conversation_threshold",
+    "daily_conversation_goal",
     "daily_goal_anchor",
     "daily_goal_minutes",
     "daily_goal_weekly_step",

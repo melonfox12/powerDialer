@@ -82,8 +82,10 @@ CALL_OUTCOMES = (
     {"key": "booked", "label": "Booked"},
 )
 CALL_OUTCOME_KEYS = tuple(item["key"] for item in CALL_OUTCOMES)
-PERFORMANCE_RANGES = ("today", "7d", "all")
-DEFAULT_PERFORMANCE_RANGE = "7d"
+PERFORMANCE_RANGES = ("day", "week", "month")
+DEFAULT_PERFORMANCE_RANGE = "week"
+DEFAULT_DAILY_CONVERSATION_GOAL = 20
+DEFAULT_DAILY_TALK_GOAL_MINUTES = 60
 # Connect-rate heatmap: hidden below the unlock count, and a cell is muted below the bucket minimum.
 HEATMAP_UNLOCK_DIALS = 100
 HEATMAP_MIN_BUCKET_DIALS = 10
@@ -118,7 +120,7 @@ UTC_OFFSET_ZONES = {-5: "Eastern", -6: "Central", -7: "Mountain", -8: "Pacific",
 
 SETTING_DEFAULTS = {
     "SESSION_GOAL": "20",
-    "CONVERSATION_THRESHOLD_SECONDS": "30",
+    "CONVERSATION_THRESHOLD_SECONDS": str(CONVERSATION_MIN_SECONDS),
     "AUTO_ADVANCE_DELAY_SECONDS": "3",
     "SOUNDS_ENABLED": "true",
     "SOUND_VOLUME": "35",
@@ -127,6 +129,7 @@ SETTING_DEFAULTS = {
     "CALLING_END_HOUR": "21",
     "OPENING_SCRIPT": "",
     "DAILY_GOAL_MINUTES": "60",
+    "DAILY_CONVERSATION_GOAL": "20",
     # 0 turns the weekly increase off. The anchor is the local date the goal was last set.
     "DAILY_GOAL_WEEKLY_STEP_MINUTES": "0",
     "DAILY_GOAL_ANCHOR": "",
@@ -218,6 +221,8 @@ def browser_vocabulary():
         "performanceRanges": list(PERFORMANCE_RANGES),
         "defaultPerformanceRange": DEFAULT_PERFORMANCE_RANGE,
         "conversationMinSeconds": CONVERSATION_MIN_SECONDS,
+        "defaultDailyConversationGoal": DEFAULT_DAILY_CONVERSATION_GOAL,
+        "defaultDailyTalkGoalMinutes": DEFAULT_DAILY_TALK_GOAL_MINUTES,
         "heatmapUnlockDials": HEATMAP_UNLOCK_DIALS,
         "heatmapMinBucketDials": HEATMAP_MIN_BUCKET_DIALS,
         "stages": list(STAGES),

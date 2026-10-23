@@ -129,9 +129,17 @@ class ProspectStore:
             lead = _copy_of(leads, lead_id)
             if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES and status not in NEVER_DIAL_STATUSES:
                 raise ValueError("Booked and disqualified prospects stay out of the queue for good.")
+            previous = canonical_status(lead.get("status"))
+            changed_at = utc_now().isoformat()
+            if previous != status:
+                lead.setdefault("status_history", []).append({
+                    "from_status": previous,
+                    "to_status": status,
+                    "changed_at": changed_at,
+                })
             lead["status"] = status
             if status == "booked" and not lead.get("booked_at"):
-                lead["booked_at"] = utc_now().isoformat()
+                lead["booked_at"] = changed_at
             if scheduled_until:
                 try:
                     due = datetime.fromisoformat(str(scheduled_until))

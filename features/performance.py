@@ -1,9 +1,20 @@
 """Performance page numbers. Pure functions over prospects, sessions and a clock: no storage, HTTP or I/O.
 
-A call record is one `call_log` entry on a prospect. `connected` and `outcome` are stored on new
-entries; older entries have neither, so a legacy row counts as connected when a person answered.
-A booking is a prospect with `booked_at`. A prospect marked booked before `booked_at` existed is
-"undated": it is listed so the agent can date it, and it is not counted in any range.
+A call record is one `call_log` entry on a prospect (skipped rows are not dials).
+
+**Dial** — any call_log row except ``answered_by == skipped``.
+
+**Connect** — the agent was bridged to the prospect: ``connected`` is true on new rows
+(``picked_up`` at hangup), or legacy rows with ``answered_by`` human/unknown and not voicemail,
+no-answer, race_lost, etc.
+
+**Conversation** — a connect with ``duration_seconds`` ≥ ``CONVERSATION_MIN_SECONDS`` (60) and not
+voicemail. Talk time sums connected prospect seconds with the same voicemail exclusion.
+
+Bookings are counted from `status_history` transitions into ``booked``. If a prospect is moved out
+of Booked later they no longer contribute to booked totals or the chart (going forward). Each
+prospect counts at most once, at their latest into-Booked transition while they remain Booked.
+Backfilled rows use ``booked_at`` or the last dial time and are marked ``estimated``.
 """
 
 from collections import Counter
@@ -11,19 +22,34 @@ from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from shared.vocabulary import (
-    CALL_OUTCOMES,
     CALL_OUTCOME_KEYS,
     CONVERSATION_MIN_SECONDS,
-    DAILY_GOAL_MAX_MINUTES,
-    HEATMAP_MIN_BUCKET_DIALS,
-    HEATMAP_UNLOCK_DIALS,
     PERFORMANCE_RANGES,
-    TREND_DAILY_LIMIT_DAYS,
+    canonical_status,
 )
 
 LEGACY_CONNECTED_ANSWERS = ("human", "unknown")
+NOT_CONNECTED_ANSWERS = (
+    "no_answer",
+    "voicemail",
+    "skipped",
+    "race_lost",
+    "cancelled",
+    "dead_line",
+)
 SKIPPED_ANSWER = "skipped"
-UNDATED_LIST_LIMIT = 50
+BOOKED_STATUS = "booked"
+
+
+def is_connected_record(entry):
+    """A connect is a dial where the agent was bridged to the prospect (picked up)."""
+    connected = entry.get("connected")
+    if isinstance(connected, bool):
+        return connected
+    answered = str(entry.get("answered_by") or "")
+    if answered in NOT_CONNECTED_ANSWERS:
+        return False
+    return answered in LEGACY_CONNECTED_ANSWERS
 
 
 def parse_moment(value):
@@ -51,11 +77,14 @@ def rate(numerator, denominator):
     return numerator / denominator
 
 
-def percent_change(current, previous):
-    """Relative change as a ratio (0.25 is +25%), or None when it cannot be compared."""
-    if current is None or previous is None or previous == 0:
-        return None
-    return (current - previous) / previous
+def format_funnel_percent(value):
+    """Whole numbers above 10%, one decimal below, dash when unknown."""
+    if value is None or not isinstance(value, (int, float)) or not float("inf") > float(value) > float("-inf"):
+        return "—"
+    percent = value * 100
+    if percent >= 10:
+        return f"{round(percent)}%"
+    return f"{percent:.1f}%"
 
 
 def call_records(leads):
@@ -67,9 +96,7 @@ def call_records(leads):
             at = parse_moment(entry.get("started_at")) or parse_moment(entry.get("ended_at"))
             if at is None:
                 continue
-            connected = entry.get("connected")
-            if not isinstance(connected, bool):
-                connected = entry.get("answered_by") in LEGACY_CONNECTED_ANSWERS
+            connected = is_connected_record(entry)
             seconds = entry.get("duration_seconds")
             duration = int(seconds) if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and seconds > 0 else 0
             outcome = entry.get("outcome")
@@ -85,311 +112,199 @@ def call_records(leads):
     return records
 
 
+def is_talk_time(record):
+    return record["connected"] and record["answered_by"] != "voicemail"
+
+
 def is_conversation(record, minimum_seconds=CONVERSATION_MIN_SECONDS):
-    return record["connected"] and record["answered_by"] != "voicemail" and record["duration"] >= minimum_seconds
-
-
-def booking_records(leads):
-    """Dated bookings, and the prospects marked booked that have no date."""
-    dated = []
-    undated = []
-    for lead in leads:
-        at = parse_moment(lead.get("booked_at"))
-        if at is not None:
-            dated.append({"lead_id": lead.get("id"), "at": at})
-        elif lead.get("status") == "booked":
-            undated.append(lead)
-    return dated, undated
+    return is_talk_time(record) and record["duration"] >= minimum_seconds
 
 
 def in_window(moment, start, end):
     return (start is None or moment >= start) and moment <= end
 
 
+def status_history_for(lead, calls_by_lead=None):
+    """Stored history plus a single estimated into-booked row when needed."""
+    history = [dict(item) for item in (lead.get("status_history") or []) if isinstance(item, dict)]
+    if any(item.get("to_status") == BOOKED_STATUS for item in history):
+        return history
+    if canonical_status(lead.get("status")) != BOOKED_STATUS:
+        return history
+    at = parse_moment(lead.get("booked_at"))
+    if at is None and calls_by_lead:
+        lead_calls = calls_by_lead.get(lead.get("id")) or []
+        if lead_calls:
+            at = max(item["at"] for item in lead_calls)
+    if at is None:
+        return history
+    return history + [{
+        "from_status": "unknown",
+        "to_status": BOOKED_STATUS,
+        "changed_at": at.isoformat(),
+        "estimated": True,
+    }]
+
+
+def latest_into_booked(history):
+    latest = None
+    for entry in history:
+        if entry.get("to_status") != BOOKED_STATUS:
+            continue
+        at = parse_moment(entry.get("changed_at"))
+        if at is None:
+            continue
+        if latest is None or at > latest["at"]:
+            latest = {"at": at, "estimated": bool(entry.get("estimated"))}
+    return latest
+
+
+def active_booking_moment(lead, calls_by_lead=None):
+    """When this prospect counts as booked, or None if they are not Booked now."""
+    if canonical_status(lead.get("status")) != BOOKED_STATUS:
+        return None
+    return latest_into_booked(status_history_for(lead, calls_by_lead))
+
+
+def count_booked_in_pipeline(leads):
+    """Prospects whose CRM status is Booked — the pipeline view."""
+    return sum(1 for lead in leads if canonical_status(lead.get("status")) == BOOKED_STATUS)
+
+
+def count_booked_from_history(leads, calls_by_lead=None):
+    """Booked prospects using the same active-booking rule as Performance."""
+    return sum(1 for lead in leads if active_booking_moment(lead, calls_by_lead) is not None)
+
+
 def range_windows(range_key, now, zone):
-    """(start, end, previous_start, previous_end) in UTC. The previous window is as long as the current one.
-
-    Today compares with the same hours of yesterday; 7 days compares with the 7 days before.
-    All time has no start and no previous window.
-    """
+    """(start, end) in UTC for day, week, or month ranges."""
     if range_key not in PERFORMANCE_RANGES:
-        raise ValueError("Choose today, 7d, or all.")
-    now = now.astimezone(timezone.utc)
-    if range_key == "all":
-        return None, now, None, None
+        raise ValueError("Choose day, week, or month.")
+    end = now.astimezone(timezone.utc)
+    if range_key == "day":
+        return end - timedelta(hours=24), end
     local_today = now.astimezone(zone).date()
-    back = 0 if range_key == "today" else 6
-    start = datetime.combine(local_today - timedelta(days=back), time.min, tzinfo=zone).astimezone(timezone.utc)
-    previous_start = datetime.combine(local_today - timedelta(days=2 * back + 1), time.min, tzinfo=zone).astimezone(timezone.utc)
-    return start, now, previous_start, previous_start + (now - start)
+    if range_key == "week":
+        start_day = local_today - timedelta(days=6)
+    else:
+        start_day = local_today - timedelta(days=29)
+    start = datetime.combine(start_day, time.min, tzinfo=zone).astimezone(timezone.utc)
+    return start, end
 
 
-def window_counts(calls, bookings, start, end):
+def window_counts(calls, leads, calls_by_lead, start, end):
     chosen = [call for call in calls if in_window(call["at"], start, end)]
     connected = [call for call in chosen if call["connected"]]
+    booked = 0
+    for lead in leads:
+        moment = active_booking_moment(lead, calls_by_lead)
+        if moment and in_window(moment["at"], start, end):
+            booked += 1
     return {
         "dials": len(chosen),
         "connected": len(connected),
         "conversations": sum(is_conversation(call) for call in connected),
-        "talk_seconds": sum(call["duration"] for call in connected),
-        "booked": sum(in_window(booking["at"], start, end) for booking in bookings),
+        "talk_seconds": sum(call["duration"] for call in connected if is_talk_time(call)),
+        "booked": booked,
     }
 
 
-def dialing_minutes(sessions, start, end, now, live_session_id=None):
-    """Minutes inside [start, end] that fall in a dial session.
-
-    A session with no end counts only when it is the live one; otherwise it was cut off and its length is unknown.
-    """
-    seconds = 0.0
-    for session in sessions:
-        began = parse_moment(session.get("started_at"))
-        if began is None:
-            continue
-        finished = parse_moment(session.get("ended_at"))
-        if finished is None:
-            if session.get("id") != live_session_id:
-                continue
-            finished = now
-        low = began if start is None else max(began, start)
-        high = min(finished, end)
-        if high > low:
-            seconds += (high - low).total_seconds()
-    return seconds / 60
-
-
-def derived_metrics(counts):
+def funnel_rates(counts):
     return {
-        **counts,
-        "connect_rate": rate(counts["connected"], counts["dials"]),
-        "conversation_rate": rate(counts["conversations"], counts["connected"]),
-        "booking_rate": rate(counts["booked"], counts["conversations"]),
-        "avg_talk_seconds": rate(counts["talk_seconds"], counts["connected"]),
-        "dials_per_meeting": rate(counts["dials"], counts["booked"]),
+        "dials_to_connected": rate(counts["connected"], counts["dials"]),
+        "connected_to_conversations": rate(counts["conversations"], counts["connected"]),
+        "conversations_to_booked": rate(counts["booked"], counts["conversations"]),
     }
 
 
-def compared(current, previous, has_prior):
-    """Each metric as {value, change}. change is None unless the previous window had dials."""
-    result = {}
-    for key, value in current.items():
-        before = previous.get(key) if has_prior else None
-        result[key] = {"value": value, "change": percent_change(value, before)}
-    return result
-
-
-def _monday(day):
-    return day - timedelta(days=day.weekday())
-
-
-def trend_buckets(calls, bookings, range_key, start, now, zone):
-    """Connect rate, dials and bookings per hour (today), day (7 days) or day/week (all time)."""
+def today_bounds(now, zone):
     local_today = now.astimezone(zone).date()
-    chosen = [call for call in calls if in_window(call["at"], start, now)]
-    dated = [booking for booking in bookings if in_window(booking["at"], start, now)]
-    if range_key == "all":
-        moments = [item["at"] for item in chosen + dated]
-        if not moments:
-            return "day", []
-        first = min(moments).astimezone(zone).date()
-        grain = "day" if (local_today - first).days + 1 <= TREND_DAILY_LIMIT_DAYS else "week"
-    else:
-        grain = "hour" if range_key == "today" else "day"
-        first = local_today - timedelta(days=0 if range_key == "today" else 6)
+    start = datetime.combine(local_today, time.min, tzinfo=zone).astimezone(timezone.utc)
+    return start, now.astimezone(timezone.utc)
 
-    def key_for(moment):
-        local = moment.astimezone(zone)
-        if grain == "hour":
-            return (local.date(), local.hour)
-        return (_monday(local.date()) if grain == "week" else local.date(), None)
 
+def daily_totals(calls, leads, calls_by_lead, now, zone):
+    start, end = today_bounds(now, zone)
+    counts = window_counts(calls, leads, calls_by_lead, start, end)
+    return {
+        "conversations": counts["conversations"],
+        "talk_seconds": counts["talk_seconds"],
+        "talk_minutes": counts["talk_seconds"] / 60,
+    }
+
+
+def trend_buckets(calls, leads, calls_by_lead, range_key, start, end, now, zone):
+    """Dials, conversations, and booked per hour (day) or per day (week/month)."""
+    chosen = [call for call in calls if in_window(call["at"], start, end)]
+    grain = "hour" if range_key == "day" else "day"
     keys = []
     if grain == "hour":
-        keys = [(local_today, hour) for hour in range(now.astimezone(zone).hour + 1)]
+        local_end = end.astimezone(zone).replace(minute=0, second=0, microsecond=0)
+        for offset in range(23, -1, -1):
+            keys.append((local_end - timedelta(hours=offset)).astimezone(timezone.utc))
     else:
-        day = _monday(first) if grain == "week" else first
-        step = 7 if grain == "week" else 1
-        while day <= local_today:
-            keys.append((day, None))
-            day += timedelta(days=step)
-    buckets = {key: {"dials": 0, "connected": 0, "booked": 0} for key in keys}
-    for call in chosen:
-        bucket = buckets.get(key_for(call["at"]))
-        if bucket is not None:
-            bucket["dials"] += 1
-            bucket["connected"] += call["connected"]
-    for booking in dated:
-        bucket = buckets.get(key_for(booking["at"]))
-        if bucket is not None:
-            bucket["booked"] += 1
-    return grain, [
-        {
-            "date": day.isoformat(),
-            "hour": hour,
-            "dials": bucket["dials"],
-            "connected": bucket["connected"],
-            "rate": rate(bucket["connected"], bucket["dials"]),
-            "booked": bucket["booked"],
-        }
-        for (day, hour), bucket in buckets.items()
-    ]
+        local_end = end.astimezone(zone).date()
+        days = 7 if range_key == "week" else 30
+        first_day = local_end - timedelta(days=days - 1)
+        day = first_day
+        while day <= local_end:
+            keys.append(day)
+            day += timedelta(days=1)
 
-
-def outcome_breakdown(calls, start, end):
-    counts = Counter(
-        call["outcome"] for call in calls
-        if call["connected"] and call["outcome"] and in_window(call["at"], start, end)
-    )
-    tagged = sum(counts.values())
-    return {
-        "tagged": tagged,
-        "items": [
-            {"key": item["key"], "label": item["label"], "count": counts[item["key"]], "share": counts[item["key"]] / tagged}
-            for item in CALL_OUTCOMES if counts[item["key"]]
-        ],
-    }
-
-
-def heatmap(calls, start, end, zone):
-    """Connect rate by weekday (Monday is 0) and local hour. Empty until enough dials exist."""
-    chosen = [call for call in calls if in_window(call["at"], start, end)]
-    result = {
-        "unlocked": len(chosen) >= HEATMAP_UNLOCK_DIALS,
-        "total_dials": len(chosen),
-        "unlock_at": HEATMAP_UNLOCK_DIALS,
-        "min_bucket_dials": HEATMAP_MIN_BUCKET_DIALS,
-        "cells": [],
-    }
-    if not result["unlocked"]:
-        return result
-    buckets = {}
-    for call in chosen:
-        local = call["at"].astimezone(zone)
-        counts = buckets.setdefault((local.weekday(), local.hour), [0, 0])
-        counts[0] += 1
-        counts[1] += call["connected"]
-    result["cells"] = [
-        {
-            "weekday": weekday,
-            "hour": hour,
-            "dials": dials,
-            "connects": connects,
-            "rate": rate(connects, dials),
-            "qualified": dials >= HEATMAP_MIN_BUCKET_DIALS,
-        }
-        for (weekday, hour), (dials, connects) in sorted(buckets.items())
-    ]
-    return result
-
-
-def activity_days(calls, sessions, zone):
-    """Local dates with at least one dial: a call record, or a session that dialed."""
-    days = {call["at"].astimezone(zone).date() for call in calls}
-    for session in sessions:
-        began = parse_moment(session.get("started_at"))
-        if began is not None and int(session.get("dials") or 0) > 0:
-            days.add(began.astimezone(zone).date())
-    return days
-
-
-def streak(days, today):
-    """Consecutive active days. It stays alive through today until the first dial of the day."""
-    def run_ending(day):
-        length = 0
-        while day in days:
-            length += 1
-            day -= timedelta(days=1)
-        return length
-
-    active_today = today in days
-    best = 0
-    length = 0
-    previous = None
-    for day in sorted(days):
-        length = length + 1 if previous is not None and day - previous == timedelta(days=1) else 1
-        best = max(best, length)
-        previous = day
-    return {
-        "current": run_ending(today if active_today else today - timedelta(days=1)),
-        "best": best,
-        "active_today": active_today,
-    }
-
-
-def daily_target(base_minutes, weekly_step, anchor, today):
-    """Today's dial-block target: the base plus the weekly step for each full week since the anchor."""
-    if weekly_step <= 0 or anchor is None or today < anchor:
-        return base_minutes
-    return min(base_minutes + weekly_step * ((today - anchor).days // 7), DAILY_GOAL_MAX_MINUTES)
-
-
-def parse_anchor(value):
-    try:
-        return date.fromisoformat(str(value or ""))
-    except ValueError:
-        return None
-
-
-def goal_progress(sessions, calls, goal, now, zone, live_session_id):
-    local_today = now.astimezone(zone).date()
-    day_start = datetime.combine(local_today, time.min, tzinfo=zone).astimezone(timezone.utc)
-    target = daily_target(goal["minutes"], goal["weekly_step"], parse_anchor(goal["anchor"]), local_today)
-    minutes = dialing_minutes(sessions, day_start, now, now, live_session_id)
-    return {
-        "target_minutes": target,
-        "base_minutes": goal["minutes"],
-        "weekly_step": goal["weekly_step"],
-        "minutes_today": minutes,
-        "reached": minutes >= target,
-        **streak(activity_days(calls, sessions, zone), local_today),
-    }
-
-
-def undated_bookings(undated, calls_by_lead):
-    rows = []
-    for lead in undated[:UNDATED_LIST_LIMIT]:
-        last = max((call["at"] for call in calls_by_lead.get(lead.get("id"), [])), default=None)
-        rows.append({
-            "id": lead.get("id"),
-            "name": lead.get("name") or "",
-            "business": lead.get("business") or "",
-            "last_dial": last.isoformat() if last else "",
+    buckets = []
+    for key in keys:
+        if grain == "hour":
+            bucket_start = key
+            bucket_end = key + timedelta(hours=1) - timedelta(microseconds=1)
+            label = {"at": key.isoformat(), "hour": key.astimezone(zone).hour}
+        else:
+            bucket_start = datetime.combine(key, time.min, tzinfo=zone).astimezone(timezone.utc)
+            bucket_end = datetime.combine(key, time.max, tzinfo=zone).astimezone(timezone.utc)
+            label = {"date": key.isoformat(), "hour": None}
+        bucket_calls = [call for call in chosen if in_window(call["at"], bucket_start, min(bucket_end, end))]
+        connected = [call for call in bucket_calls if call["connected"]]
+        booked = 0
+        for lead in leads:
+            moment = active_booking_moment(lead, calls_by_lead)
+            if moment and in_window(moment["at"], bucket_start, min(bucket_end, end)):
+                booked += 1
+        buckets.append({
+            **label,
+            "dials": len(bucket_calls),
+            "conversations": sum(is_conversation(call) for call in connected),
+            "booked": booked,
         })
-    return rows
+    return grain, buckets
 
 
 def build_performance(leads, sessions, goal, range_key, tz_name, now, live_session_id=None):
-    """Everything the Performance page shows, as JSON-ready numbers.
-
-    `goal` is {"minutes", "weekly_step", "anchor"} from the saved preferences.
-    """
+    """JSON-ready payload for the simplified Performance page."""
     zone = local_zone(tz_name)
     calls = call_records(leads)
-    bookings, undated = booking_records(leads)
-    start, end, previous_start, previous_end = range_windows(range_key, now, zone)
-    current = window_counts(calls, bookings, start, end)
-    previous = window_counts(calls, bookings, previous_start, previous_end) if previous_start else None
-    has_prior = bool(previous and previous["dials"])
-    now_utc = now.astimezone(timezone.utc)
-    minutes = dialing_minutes(sessions, start, end, now_utc, live_session_id)
-    metrics = derived_metrics(current)
-    before = derived_metrics(previous) if previous else {}
-    metrics["minutes_per_meeting"] = rate(minutes, current["booked"]) if minutes else None
-    before["minutes_per_meeting"] = None
-    grain, buckets = trend_buckets(calls, bookings, range_key, start, now_utc, zone)
     calls_by_lead = {}
     for call in calls:
         calls_by_lead.setdefault(call["lead_id"], []).append(call)
+    start, end = range_windows(range_key, now, zone)
+    counts = window_counts(calls, leads, calls_by_lead, start, end)
+    grain, buckets = trend_buckets(calls, leads, calls_by_lead, range_key, start, end, now.astimezone(timezone.utc), zone)
+    today = daily_totals(calls, leads, calls_by_lead, now, zone)
+    has_activity = counts["dials"] > 0 or counts["booked"] > 0 or any(
+        bucket["dials"] or bucket["booked"] for bucket in buckets
+    )
     return {
         "range": range_key,
         "timezone": getattr(zone, "key", "UTC"),
         "conversation_min_seconds": CONVERSATION_MIN_SECONDS,
-        "has_dials": current["dials"] > 0,
-        "metrics": compared(metrics, before, has_prior),
-        "dialing_minutes": minutes,
+        "has_activity": has_activity,
+        "counts": counts,
+        "funnel": funnel_rates(counts),
         "trend": {"grain": grain, "buckets": buckets},
-        "outcomes": outcome_breakdown(calls, start, end),
-        "heatmap": heatmap(calls, None, now_utc, zone),
-        "goal": goal_progress(sessions, calls, goal, now_utc, zone, live_session_id),
-        "bookings": {"undated_count": len(undated), "undated": undated_bookings(undated, calls_by_lead)},
+        "daily": {
+            "conversations": today["conversations"],
+            "conversation_goal": int(goal.get("conversation_goal") or 20),
+            "talk_minutes": today["talk_minutes"],
+            "talk_minutes_goal": int(goal.get("talk_minutes_goal") or goal.get("minutes") or 60),
+        },
+        "pipeline_booked": count_booked_in_pipeline(leads),
+        "metrics_booked": count_booked_from_history(leads, calls_by_lead),
     }

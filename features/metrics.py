@@ -242,9 +242,13 @@ def get_metrics(request):
         request.report_storage_error(exc)
 
 
+LEGACY_PERFORMANCE_RANGES = {"today": "day", "7d": "week", "all": "month"}
+
+
 def get_performance(request):
     query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.path).query)
     range_key = (query.get("range") or [DEFAULT_PERFORMANCE_RANGE])[-1]
+    range_key = LEGACY_PERFORMANCE_RANGES.get(range_key, range_key)
     dialer = request.account.dialer
     sessions = request.account.metrics.recent_sessions(100)
     with dialer.lock:
