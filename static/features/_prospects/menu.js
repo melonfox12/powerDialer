@@ -30,12 +30,12 @@ export function bindProspectMenu() {
 
   function openMenu(nextLead, x, y, row) {
     lead = nextLead;
-    const blocked = nextLead.status === "do_not_call";
+    const blocked = nextLead.status === "disqualified";
     const missing = !nextLead.phone;
     button.disabled = blocked || missing;
-    label.textContent = blocked ? "Do not call" : "Dial";
+    label.textContent = blocked ? "Disqualified" : "Dial";
     phone.textContent = missing ? "No number" : formatPhoneNumber(nextLead.phone);
-    button.setAttribute("aria-label", blocked ? "Do not call" : missing ? "No number to dial" : `Dial ${formatPhoneNumber(nextLead.phone)}`);
+    button.setAttribute("aria-label", blocked ? "Disqualified" : missing ? "No number to dial" : `Dial ${formatPhoneNumber(nextLead.phone)}`);
     document.querySelectorAll(".prospect-menu-target").forEach((item) => item.classList.remove("prospect-menu-target"));
     row.classList.add("prospect-menu-target");
     const sortMenu = document.getElementById("columnSortMenu");

@@ -5,6 +5,12 @@ import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 
+function mergeLeadPatch(leads, patch) {
+  if (!patch?.id) return;
+  const index = leads.findIndex((lead) => lead.id === patch.id);
+  if (index >= 0) leads[index] = patch;
+}
+
 export function processSensoryActivity(activity) {
   const keyFor = (entry) => `${entry.timestamp || ""}:${entry.source || ""}:${entry.message || ""}`;
   if (!S.sensoryActivityPrimed) {
@@ -40,14 +46,8 @@ export async function refreshState() {
       Object.assign(state, live);
       state.leads = leads;
       state.pool = pool;
-      if (live.active_lead) {
-        const index = leads.findIndex((lead) => lead.id === live.active_lead.id);
-        if (index >= 0) leads[index] = live.active_lead;
-      }
-      if (live.pending_outcome) {
-        const index = leads.findIndex((lead) => lead.id === live.pending_outcome.id);
-        if (index >= 0) leads[index] = live.pending_outcome;
-      }
+      mergeLeadPatch(leads, live.active_lead);
+      mergeLeadPatch(leads, live.pending_outcome);
     }
     if (Date.now() - S.metricsFetchedAt > 15000) {
       S.metricsFetchedAt = Date.now();

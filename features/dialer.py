@@ -6,6 +6,7 @@ slots imports calls and rules. timing imports slots and projection. queue import
 """
 
 import urllib.parse
+from datetime import date
 
 from features import settings as settings_feature
 from features._dialer import call_events, outcomes, projection, queue, twilio
@@ -27,6 +28,7 @@ class Dialer(DialerState):
 
     def public_state(self):
         queue.remember_open_skips(self)
+        queue.maybe_enforce_dial_caps(self)
         return projection.public_state(self)
 
     def live_state(self):
@@ -88,11 +90,14 @@ class Dialer(DialerState):
     def _call_ended(self, call, params):
         return ended._call_ended(self, call, params)
 
-    def choose_outcome(self, lead_id, status, scheduled_until=None):
-        return outcomes.choose_outcome(self, lead_id, status, scheduled_until)
-
     def update_status(self, lead_id, status=None, scheduled_until=None, disposition=None, crm_only=False):
         return outcomes.update_status(self, lead_id, status, scheduled_until, disposition, crm_only)
+
+    def tag_call(self, lead_id, outcome):
+        return outcomes.tag_call(self, lead_id, outcome)
+
+    def log_booking(self, lead_id, booked_at):
+        return outcomes.log_booking(self, lead_id, booked_at)
 
     def validate_webhook(self, url, signature, params):
         return twilio.validate_webhook(self, url, signature, params)
@@ -121,6 +126,20 @@ class Dialer(DialerState):
         with self.lock:
             self.settings.update(parsed)
         return self.settings_state()
+
+    def save_goal(self, data):
+        save_remote = None
+        saver = getattr(self, "settings_saver", None)
+        if saver:
+            def save_remote(_stored, saver=saver):
+                saver(self)
+        parsed = settings_feature.save_goal(
+            self.env_path, self.account_values, self.account_user_id, data,
+            date.today(), save_remote,
+        )
+        with self.lock:
+            self.settings.update(parsed)
+        return settings_feature.daily_goal(parsed)
 
 
 def get_state(request):
@@ -189,10 +208,21 @@ def post_dial(request):
 def post_status(request, data):
     lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/").removesuffix("/status"))
     dialer = request.account.dialer
-    lead = dialer.update_status(
+    dialer.update_status(
         lead_id, data.get("status"), data.get("scheduled_until"), data.get("disposition"),
         crm_only=bool(data.get("crm_only")),
     )
+    state = dialer.public_state()
+    lead = next((item for item in state.get("leads") or [] if item.get("id") == lead_id), None)
+    if lead is None:
+        raise KeyError("Prospect not found")
+    request.send_json(200, {"lead": lead, "state": state})
+
+
+def post_call_outcome(request, data):
+    lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/").removesuffix("/call-outcome"))
+    dialer = request.account.dialer
+    lead = dialer.tag_call(lead_id, data.get("outcome"))
     request.send_json(200, {"lead": lead, "state": dialer.public_state()})
 
 
@@ -211,4 +241,5 @@ ROUTES = [
     ("POST", "/api/dials/scan", post_scan_crm, "POST"),
     ("POST", "/api/leads/{id}/dial", post_dial, "POST"),
     ("POST", "/api/leads/{id}/status", post_status, "POST"),
+    ("POST", "/api/leads/{id}/call-outcome", post_call_outcome, "POST"),
 ]

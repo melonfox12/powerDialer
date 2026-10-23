@@ -25,9 +25,9 @@
 .status-pie-swatch { width: 7px; height: 7px; border-radius: 50%; }
 .status-pie-new { background: var(--muted); }
 .status-pie-call { background: var(--amber); }
-.status-pie-booked, .status-pie-interested { background: var(--success); }
+.status-pie-send_info { background: var(--blue); }
+.status-pie-booked { background: var(--success); }
 .status-pie-disqualified { background: var(--red); }
-.status-pie-do_not_call { background: var(--red); }
 .connection-connected { background: var(--success); }
 .connection-unconnected { background: var(--amber); }
 .pie-empty-label { fill: var(--muted); font-family: var(--mono); font-size: 9px; text-anchor: middle; }

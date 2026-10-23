@@ -1,7 +1,15 @@
 """Preference validation, settings view, and env or account persistence."""
 
+from datetime import date
+
 from shared.config import read_env, write_env
-from shared.vocabulary import REMOTE_SETTING_KEYS, SETTING_DEFAULTS, SETTINGS_ROW_ID, TWILIO_ACCOUNT_KEYS
+from shared.vocabulary import (
+    DAILY_GOAL_MAX_MINUTES,
+    REMOTE_SETTING_KEYS,
+    SETTING_DEFAULTS,
+    SETTINGS_ROW_ID,
+    TWILIO_ACCOUNT_KEYS,
+)
 
 
 def preferences(values):
@@ -20,6 +28,8 @@ def preferences(values):
         ("BREAK_NUDGE_MINUTES", 1, 720),
         ("CALLING_START_HOUR", 0, 23),
         ("CALLING_END_HOUR", 1, 24),
+        ("DAILY_GOAL_MINUTES", 1, DAILY_GOAL_MAX_MINUTES),
+        ("DAILY_GOAL_WEEKLY_STEP_MINUTES", 0, DAILY_GOAL_MAX_MINUTES),
     ):
         try:
             value = int(result[key])
@@ -30,6 +40,11 @@ def preferences(values):
         result[key] = str(value)
     if int(result["CALLING_START_HOUR"]) >= int(result["CALLING_END_HOUR"]):
         raise ValueError("Calling-hours end must be later than its start.")
+    if result["DAILY_GOAL_ANCHOR"]:
+        try:
+            date.fromisoformat(result["DAILY_GOAL_ANCHOR"])
+        except ValueError as exc:
+            raise ValueError("Daily goal start date must be a valid date.") from exc
     if result["SOUNDS_ENABLED"].lower() not in ("true", "false"):
         raise ValueError("Sounds enabled must be true or false.")
     if len(result["OPENING_SCRIPT"]) > 2000:
@@ -67,13 +82,55 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
         "calling_start_hour": int(parsed["CALLING_START_HOUR"]),
         "calling_end_hour": int(parsed["CALLING_END_HOUR"]),
         "opening_script": parsed["OPENING_SCRIPT"],
+        "daily_goal_minutes": int(parsed["DAILY_GOAL_MINUTES"]),
+        "daily_goal_weekly_step": int(parsed["DAILY_GOAL_WEEKLY_STEP_MINUTES"]),
+        "daily_goal_anchor": parsed["DAILY_GOAL_ANCHOR"],
     }
+
+
+def daily_goal(parsed):
+    """The goal dict features.performance reads, from parsed preferences."""
+    return {
+        "minutes": int(parsed["DAILY_GOAL_MINUTES"]),
+        "weekly_step": int(parsed["DAILY_GOAL_WEEKLY_STEP_MINUTES"]),
+        "anchor": parsed["DAILY_GOAL_ANCHOR"],
+    }
+
+
+def save_goal(env_path, account_values, account_user_id, data, today, save_remote=None):
+    """Save only the daily goal keys. A weekly step counts from an anchor date: today, whenever the goal changes."""
+    signed_in = bool(account_user_id)
+    current = values(env_path, account_values, signed_in=signed_in)
+    minutes = data.get("daily_goal_minutes", current.get("DAILY_GOAL_MINUTES"))
+    step = data.get("daily_goal_weekly_step", current.get("DAILY_GOAL_WEEKLY_STEP_MINUTES"))
+    if isinstance(minutes, bool) or isinstance(step, bool):
+        raise ValueError("Daily goal values must be whole numbers.")
+    same = (str(minutes).strip() == str(current.get("DAILY_GOAL_MINUTES") or "").strip()
+            and str(step).strip() == str(current.get("DAILY_GOAL_WEEKLY_STEP_MINUTES") or "").strip())
+    anchor = current.get("DAILY_GOAL_ANCHOR") or ""
+    if not same or not anchor:
+        anchor = today.isoformat()
+    candidate = {**current, "DAILY_GOAL_MINUTES": minutes, "DAILY_GOAL_WEEKLY_STEP_MINUTES": step, "DAILY_GOAL_ANCHOR": anchor}
+    parsed = preferences(candidate)
+    updates = {key: parsed[key] for key in ("DAILY_GOAL_MINUTES", "DAILY_GOAL_WEEKLY_STEP_MINUTES")}
+    updates["DAILY_GOAL_ANCHOR"] = parsed["DAILY_GOAL_ANCHOR"] if int(parsed["DAILY_GOAL_WEEKLY_STEP_MINUTES"]) > 0 else ""
+    if signed_in:
+        account_values.update(updates)
+        if save_remote:
+            save_remote(values(env_path, account_values, signed_in=True))
+    else:
+        write_env(env_path, updates)
+    return {**parsed, **updates}
 
 
 def save_settings(env_path, account_values, account_user_id, data, save_remote=None):
     signed_in = bool(account_user_id)
+    existing = values(env_path, account_values, signed_in=signed_in)
     parsed = preferences({
-        **values(env_path, account_values, signed_in=signed_in),
+        **existing,
+        "DAILY_GOAL_MINUTES": data.get("daily_goal_minutes", existing.get("DAILY_GOAL_MINUTES")),
+        "DAILY_GOAL_WEEKLY_STEP_MINUTES": data.get("daily_goal_weekly_step", existing.get("DAILY_GOAL_WEEKLY_STEP_MINUTES")),
+        "DAILY_GOAL_ANCHOR": data.get("daily_goal_anchor", existing.get("DAILY_GOAL_ANCHOR")),
         "SESSION_GOAL": data.get("session_goal", SETTING_DEFAULTS["SESSION_GOAL"]),
         "CONVERSATION_THRESHOLD_SECONDS": data.get("conversation_threshold", SETTING_DEFAULTS["CONVERSATION_THRESHOLD_SECONDS"]),
         "AUTO_ADVANCE_DELAY_SECONDS": data.get("auto_advance_delay", SETTING_DEFAULTS["AUTO_ADVANCE_DELAY_SECONDS"]),

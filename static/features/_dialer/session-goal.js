@@ -44,7 +44,7 @@ export function renderSessionMomentum() {
     showToast("Session goal reached — great work!");
     stageEffects.goalReached();
   }
-  if (Number(stats.meetings_booked || 0) > S.previousMeetings) byId("statBookedToday").classList.add("meeting-highlight");
+  if (Number(stats.meetings_booked || 0) > S.previousMeetings) byId("funnelBooked").classList.add("meeting-highlight");
   S.previousMeetings = Number(stats.meetings_booked || 0);
   S.previousSessionConversations = conversations;
   const nudgeMinutes = Number(state.settings?.break_nudge_minutes || 90);

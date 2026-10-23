@@ -2,6 +2,7 @@ import csv
 from io import StringIO
 
 from features._prospects.csv_import import location_text
+from shared.vocabulary import canonical_status
 
 # Column order matches the Prospects table in the web CRM (static/features/_prospects/query.js):
 # LEAD_COLUMNS, then imported columns, then scheduled_until and the transcript.
@@ -44,7 +45,7 @@ def csv_bytes_for(leads):
             "Phone Number": lead.get("phone", ""),
             "Timezone": lead.get("timezone", ""),
             "Total Reviews": _csv_number(lead.get("review_count")),
-            "Call status": lead.get("status", "new"),
+            "Call status": canonical_status(lead.get("status", "new")),
             "Reviews (Last 30 Days)": _csv_number(lead.get("reviews_last_30_days")),
             "Days Since Last Review": _csv_number(lead.get("days_since_last_review")),
             "30-Day %": _csv_number(lead.get("review_pct_30_days")),

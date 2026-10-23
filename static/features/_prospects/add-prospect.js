@@ -1,6 +1,6 @@
 import { postJson } from "../../_core/api.js";
 import { state } from "../../_core/state.js";
-import { STATUS_KEYS, STATUS_LABELS, byId, fillTimezoneSelect } from "../../_core/format.js";
+import { CRM_STATUS_KEYS, CRM_STATUS_LABELS, byId, fillTimezoneSelect } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { importedColumns } from "./query.js";
 import { render } from "../../core.js";
@@ -93,10 +93,11 @@ function statusField() {
   const select = document.createElement("select");
   select.name = "status";
   select.dataset.prospectField = "status";
-  for (const value of STATUS_KEYS) {
+  for (const value of CRM_STATUS_KEYS) {
     const option = document.createElement("option");
     option.value = value;
-    option.textContent = STATUS_LABELS[value];
+    option.textContent = CRM_STATUS_LABELS[value];
+    option.selected = value === "new";
     select.append(option);
   }
   wrap.append(title, select);
@@ -126,7 +127,7 @@ async function saveProspect() {
       city: fieldValue("city"),
       phone: fieldValue("phone"),
       timezone: fieldValue("timezone"),
-      status: fieldValue("status") || "new",
+      status: fieldValue("status"),
       transcript: fieldValue("transcript"),
       fields,
     });

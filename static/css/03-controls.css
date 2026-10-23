@@ -36,6 +36,7 @@ td:has(.cell-editor) { overflow: visible; }
 .status-select { max-width: 188px; min-width: 115px; height: 27px; padding: 0 25px 0 9px; border: 1px solid transparent; border-radius: var(--radius-full); appearance: auto; font-size: 11px; font-weight: 510; cursor: pointer; }
 .status-select.status-neutral { background: rgba(138, 143, 152, .14); color: var(--ink-secondary); }
 .status-select.status-callback { background: var(--amber-soft); color: var(--amber); }
+.status-select.status-info { background: var(--blue-soft); color: var(--blue); }
 .status-select.status-positive { background: var(--success-soft); color: var(--success); }
 .status-select.status-negative { background: var(--red-soft); color: var(--red); }
 .status-select:focus { border-color: currentColor; outline: none; }

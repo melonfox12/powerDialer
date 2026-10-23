@@ -58,6 +58,7 @@ def _pickup(state, call):
             call["state"] = "live"
             call["connected_at"] = datetime.now(timezone.utc).isoformat()
             state.active = call
+            state.taggable_call = call
             if state.session and not call.get("connect_counted"):
                 add_connect(state.session)
                 call["connect_counted"] = True

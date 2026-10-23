@@ -216,9 +216,9 @@ class SupabaseCacheTests(unittest.TestCase):
         crm.set_status("prospect-1", "do_not_call")
         crm.append_transcript("prospect-1", {"id": "s1", "speaker": "Agent", "text": "Hello"})
         cached = crm.snapshot()[0]
-        self.assertEqual(cached["status"], "do_not_call")
+        self.assertEqual(cached["status"], "disqualified")
         self.assertEqual(cached["transcript"][0]["text"], "Hello")
-        self.assertEqual(client.leads["prospect-1"]["status"], "do_not_call")
+        self.assertEqual(client.leads["prospect-1"]["status"], "disqualified")
 
     def test_csv_import_totals_match_between_backends(self):
         csv_body = b"Name,Phone\nBea,2025550112\nCy,2025550113\n"
@@ -231,6 +231,44 @@ class SupabaseCacheTests(unittest.TestCase):
         supabase_info = supabase.add_csv(csv_body)
         self.assertEqual(local_info["total"], 3)
         self.assertEqual(supabase_info, local_info)
+
+
+class DialCapTests(unittest.TestCase):
+    def test_second_call_log_entry_disqualifies_the_prospect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = [prospect()]
+            crm.append_call_log("prospect-1", {"id": "dial-1", "started_at": "2026-01-01T12:00:00+00:00"})
+            self.assertEqual(crm.snapshot()[0]["status"], "new")
+            crm.append_call_log("prospect-1", {"id": "dial-2", "started_at": "2026-01-02T12:00:00+00:00"})
+            self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
+
+    def test_enforce_dial_caps_backfills_prospects_already_at_two_dials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            lead = prospect()
+            lead["call_log"] = [
+                {"id": "dial-1", "started_at": "2026-01-01T12:00:00+00:00"},
+                {"id": "dial-2", "started_at": "2026-01-02T12:00:00+00:00"},
+            ]
+            crm.leads = [lead]
+            self.assertEqual(crm.enforce_dial_caps(), 1)
+            self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
+            self.assertEqual(crm.enforce_dial_caps(), 0)
+
+    def test_booked_prospects_are_not_moved_to_disqualified_by_the_cap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            lead = prospect()
+            lead["status"] = "booked"
+            lead["booked_at"] = "2026-01-01T12:00:00+00:00"
+            lead["call_log"] = [
+                {"id": "dial-1", "started_at": "2026-01-01T12:00:00+00:00"},
+                {"id": "dial-2", "started_at": "2026-01-02T12:00:00+00:00"},
+            ]
+            crm.leads = [lead]
+            self.assertEqual(crm.enforce_dial_caps(), 0)
+            self.assertEqual(crm.snapshot()[0]["status"], "booked")
 
 
 if __name__ == "__main__":

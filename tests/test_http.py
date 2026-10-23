@@ -37,6 +37,7 @@ STATE_KEYS = (
     "session_stats",
     "settings",
     "stage",
+    "tag_call",
     "timezone_groups",
 )
 
@@ -53,6 +54,9 @@ SETTINGS_KEYS = (
     "calling_end_hour",
     "calling_start_hour",
     "conversation_threshold",
+    "daily_goal_anchor",
+    "daily_goal_minutes",
+    "daily_goal_weekly_step",
     "has_api_secret",
     "has_auth_token",
     "opening_script",
@@ -262,7 +266,7 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assert_keys(payload, ("error",))
 
-        status, payload, _type = self.json_request("POST", f"/api/leads/{lead_id}/status", {"status": "interested"})
+        status, payload, _type = self.json_request("POST", f"/api/leads/{lead_id}/status", {"status": "send_info"})
         self.assertEqual(status, 200)
         self.assert_keys(payload, ("lead", "state"))
         self.assert_keys(payload["state"], STATE_KEYS)
@@ -427,6 +431,10 @@ EXPECTED_ROUTES = {
     ("POST", "/api/dials/scan"),
     ("POST", "/api/leads/{id}/dial"),
     ("POST", "/api/leads/{id}/status"),
+    ("POST", "/api/leads/{id}/call-outcome"),
+    ("GET", "/api/performance"),
+    ("POST", "/api/performance/goal"),
+    ("POST", "/api/bookings"),
 }
 
 

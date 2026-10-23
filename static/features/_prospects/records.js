@@ -1,7 +1,7 @@
 import { postJson, request } from "../../_core/api.js";
 import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
-import { STATUS_LABELS, byId } from "../../_core/format.js";
+import { CRM_STATUS_KEYS, CRM_STATUS_LABELS, STATUS_LABELS, byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 
@@ -16,16 +16,25 @@ export function bindProspects() {
 }
 
 export async function changeLeadStatus(lead, status, select) {
+  const next = String(status || "").trim();
+  if (!CRM_STATUS_KEYS.includes(next)) {
+    showToast(`Choose a valid call status (${next || "empty"}).`, true);
+    select.value = lead.status || "new";
+    return;
+  }
   select.disabled = true;
   byId("saveState").textContent = "Saving…";
   try {
-    const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/status`, { status });
+    const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/status`, { status: next });
     Object.assign(state, result.state);
     byId("saveState").textContent = "All changes saved";
     render();
-    showToast(`${lead.name || lead.phone}: ${status === "call" ? "callback in 12 hours" : STATUS_LABELS[status].toLowerCase()}`);
+    const label = next === "call"
+      ? "callback in 12 hours"
+      : (CRM_STATUS_LABELS[next] || STATUS_LABELS[next] || next).toLowerCase();
+    showToast(`${lead.name || lead.phone}: ${label}`);
   } catch (error) {
-    select.value = lead.status;
+    select.value = lead.status || "new";
     select.disabled = false;
     byId("saveState").textContent = "Save failed";
     showToast(error.message, true);

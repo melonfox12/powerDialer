@@ -1,19 +1,22 @@
 import { state } from "../../_core/state.js";
-import { byId, callbackStatusText, markCallback, setText } from "../../_core/format.js";
+import { appendStatusPill, byId, setText } from "../../_core/format.js";
 import { openTranscript } from "../../_core/transcript.js";
+import { focusProspect } from "../_prospects/table.js";
 
 export function renderDials() {
   const rows = dialRows(state.leads);
   setText("dialsTabCount", String(rows.length));
   setText("dialsTableSummary", `${rows.length} dial${rows.length === 1 ? "" : "s"}`);
   const body = byId("dialsTableBody");
-  body.replaceChildren(...rows.map(({ lead, entry }) => {
+  body.replaceChildren(...rows.map(({ leadId, entry }) => {
+    const lead = prospectFor(leadId);
     const row = document.createElement("tr");
+    row.dataset.leadId = leadId;
     row.append(cell(dialWhen(entry.ended_at || entry.started_at)));
-    row.append(cell(lead.name || "Unnamed prospect"));
-    row.append(cell(lead.business || "—"));
+    row.append(prospectCell(leadId, lead));
+    row.append(cell(lead?.business || "—"));
     row.append(cell(reviewText(lead)));
-    row.append(transcriptCell(lead));
+    row.append(transcriptCell(leadId, lead));
     row.append(statusCell(lead));
     return row;
   }));
@@ -21,15 +24,20 @@ export function renderDials() {
   byId("dialsTableEmpty").classList.toggle("visible", rows.length === 0);
 }
 
+function prospectFor(leadId) {
+  return state.leads.find((item) => item.id === leadId) || null;
+}
+
 function dialRows(leads) {
   const rows = [];
   for (const lead of leads || []) {
+    if (!lead?.id) continue;
     const log = lead.call_log || [];
-    for (const entry of log) rows.push({ lead, entry });
+    for (const entry of log) rows.push({ leadId: lead.id, entry });
     if (!log.length && lead.transcript?.length) {
       const stamps = lead.transcript.map((line) => line.timestamp).filter(Boolean).sort();
       rows.push({
-        lead,
+        leadId: lead.id,
         entry: { started_at: stamps[0] || "", ended_at: stamps.at(-1) || stamps[0] || "" },
       });
     }
@@ -54,29 +62,45 @@ function dialWhen(iso) {
 }
 
 function reviewText(lead) {
-  const count = lead.review_count;
+  const count = lead?.review_count;
   if (count === 0 || count) return String(count);
   return "—";
 }
 
-function transcriptCell(lead) {
+function prospectCell(leadId, lead) {
   const cell = document.createElement("td");
   const button = document.createElement("button");
-  const count = lead.transcript?.length || 0;
+  button.type = "button";
+  button.className = "dial-prospect-link";
+  button.textContent = lead?.name || "Unnamed prospect";
+  button.title = "Open in Prospects";
+  button.addEventListener("click", () => focusProspect(leadId));
+  cell.append(button);
+  return cell;
+}
+
+function transcriptCell(leadId, lead) {
+  const cell = document.createElement("td");
+  const button = document.createElement("button");
+  const count = lead?.transcript?.length || 0;
   button.type = "button";
   button.className = "transcript-view-button";
   button.textContent = count ? `View · ${count}` : "No transcript";
   button.disabled = count === 0;
-  button.addEventListener("click", () => openTranscript(lead));
+  button.addEventListener("click", () => {
+    const current = prospectFor(leadId);
+    if (current) openTranscript(current);
+  });
   cell.append(button);
   return cell;
 }
 
 function statusCell(lead) {
-  const item = document.createElement("td");
-  item.textContent = callbackStatusText(lead);
-  markCallback(item, lead);
-  return item;
+  const cell = document.createElement("td");
+  cell.className = "status-cell";
+  if (lead) appendStatusPill(cell, lead);
+  else cell.textContent = "—";
+  return cell;
 }
 
 function cell(text) {

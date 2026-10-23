@@ -172,7 +172,7 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
             self.send_json(401, {"error": "Sign in with Google to continue."})
             return
         dialer_session = account.dialer
-        if path.startswith("/api/") and path not in ("/api/state", "/api/live", "/api/metrics", "/api/health"):
+        if path.startswith("/api/") and path not in ("/api/state", "/api/live", "/api/metrics", "/api/performance", "/api/health"):
             dialer_session.record_activity(f"GET {path}", "web")
         found = match_route("GET", path)
         if found is None:
@@ -218,7 +218,8 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
                 self.send_json(404, {"error": "Not found"})
                 return
             handler, _profile, _params = found
-            if handler in (prospects.post_lead, prospects.post_fields, settings.post_settings, dialer.post_timezone, dialer.post_status, dialer.post_pass_next):
+            if handler in (prospects.post_lead, prospects.post_fields, settings.post_settings, dialer.post_timezone, dialer.post_status, dialer.post_pass_next,
+                           dialer.post_call_outcome, metrics.post_goal, metrics.post_booking):
                 handler(self, self.read_json(body))
             elif handler is prospects.post_import:
                 handler(self, body)

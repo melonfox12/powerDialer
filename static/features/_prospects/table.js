@@ -1,10 +1,23 @@
 import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
 import { byId, setText } from "../../_core/format.js";
+import { setDashboardTab } from "../../core.js";
 import { appendLeadRows } from "./rows.js";
 import { LEAD_COLUMNS, TRAILING_COLUMNS, crmTableSignature, currentColumnSort, filteredLeads, importedColumns, setColumnSort, syncStateFilter, toggleColumnSort } from "./query.js";
 
 let lastCrmTableSignature = null;
+
+export function focusProspect(leadId) {
+  if (!leadId) return;
+  setDashboardTab("prospects");
+  queueMicrotask(() => {
+    const row = document.querySelector(`#tableBody tr[data-lead-id="${leadId}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    row.classList.add("prospect-menu-target");
+    setTimeout(() => row.classList.remove("prospect-menu-target"), 2000);
+  });
+}
 
 export function renderTableIfStale() {
   if (fieldEditorFocused()) return;

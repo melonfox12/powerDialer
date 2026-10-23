@@ -1,12 +1,13 @@
 import { postJson } from "../../_core/api.js";
 import { state } from "../../_core/state.js";
-import { byId, leavesQueueForGood } from "../../_core/format.js";
+import { CRM_STATUS_KEYS, byId, leavesQueueForGood } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 import { nextProspectLabel, queueProspect } from "./queue.js";
 
 const DIALER_STATUSES = [
   { status: "call", label: "Callback", className: "outcome-btn outcome-btn-call" },
+  { status: "send_info", label: "Send info", className: "outcome-btn outcome-btn-send-info" },
   { status: "booked", label: "Booked", className: "outcome-btn outcome-btn-booked" },
   { status: "disqualified", label: "Disqualified", className: "outcome-btn outcome-btn-disqualified" },
 ];
@@ -17,10 +18,12 @@ export function bindCrmStatus() {
   byId("crmStatusButtons").addEventListener("click", (event) => {
     const button = event.target.closest("[data-status]");
     if (!button || saving) return;
+    const status = String(button.dataset.status || "").trim();
+    if (!CRM_STATUS_KEYS.includes(status)) return;
     const lead = queueProspect();
     if (!lead) return;
-    if (button.dataset.status === "booked" && lead.status === "booked") return;
-    saveCrmStatus(lead, button.dataset.status, button.textContent);
+    if (status === "booked" && lead.status === "booked") return;
+    saveCrmStatus(lead, status, button.textContent);
   });
 }
 
@@ -48,10 +51,13 @@ async function saveCrmStatus(lead, status, label) {
   try {
     const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/status`, {
       status,
+      // Every one of these buttons ends the call and sets the prospect's status everywhere.
       crm_only: true,
     });
     Object.assign(state, result.state);
     if (status === "call") showToast(`Callback started for ${name}`);
+    else if (status === "send_info") showToast(`${name}: Send info`);
+    else if (status === "booked") showToast(`${name}: Meeting booked!`);
     else if (status === "disqualified") showToast(`${name} will never be dialed again`);
     else showToast(`${name}: ${label}`);
   } catch (error) {

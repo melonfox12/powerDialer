@@ -53,7 +53,7 @@ class Part5:
                     with self.assertRaises(ValueError):
                         crm.set_status(lead_id, status)
             self.assertEqual({lead["id"]: lead["status"] for lead in crm.snapshot()},
-                             {"booked": "booked", "closed": "disqualified", "dnc": "do_not_call"})
+                             {"booked": "booked", "closed": "disqualified", "dnc": "disqualified"})
             crm.set_status("booked", "disqualified")
             self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
 

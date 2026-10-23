@@ -159,8 +159,8 @@ def _busy_lead_ids(state):
 def _off_limits_keys(leads, busy_ids, now):
     """People who must not be dialed now, whichever record carries their number.
 
-    That is anyone with a record that is not "new" (booked, not interested, do not call,
-    interested, or in a callback), on a line right now, or dialed too recently.
+    That is anyone with a record that is not "new" (booked, disqualified, send info,
+    or in a callback), on a line right now, or dialed too recently.
     """
     keys = set()
     for lead in leads:
@@ -351,6 +351,8 @@ def _dial_record(call, duration, answered_by=None):
         "answered_by": answered,
         "duration_seconds": duration,
         "transcript_lines": len(call.get("transcript_lines") or []),
+        "connected": bool(call.get("picked_up")),
+        "outcome": call.get("outcome"),
     }
 
 def _new_call(state, kind, lead):
@@ -420,8 +422,6 @@ def _dialable_lead(state, lead_id):
         raise KeyError("Prospect not found")
     if not str(lead.get("phone") or "").strip():
         raise ValueError("This prospect has no phone number.")
-    if lead.get("status") == "do_not_call":
-        raise ValueError("This prospect is marked do not call.")
     if lead.get("status") in NEVER_DIAL_STATUSES:
         raise ValueError("This prospect is already closed and is never dialed again.")
     return lead

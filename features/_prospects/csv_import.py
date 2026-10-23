@@ -8,7 +8,7 @@ from decimal import Decimal, InvalidOperation
 from io import StringIO
 
 from shared.infra import utc_now
-from shared.vocabulary import MANUAL_CALLBACK_HOURS, STATUS_KEYS, TIMEZONE_ALIASES, UTC_OFFSET_ZONES
+from shared.vocabulary import MANUAL_CALLBACK_HOURS, STATUS_KEYS, TIMEZONE_ALIASES, UTC_OFFSET_ZONES, parse_prospect_status
 
 STATUSES = STATUS_KEYS
 PHONE_HEADER_WORDS = ("phone", "mobile", "cell", "tel", "number", "whatsapp")
@@ -353,13 +353,13 @@ def build_manual_lead(payload, known_phones=()):
     if phone in set(known_phones):
         raise ValueError("A prospect with that phone number already exists.")
     timezone = _timezone(_text(payload.get("timezone"), "timezone")) or "Unknown"
-    status = str(payload.get("status") or "new").strip() or "new"
+    status = parse_prospect_status(str(payload.get("status") or "new").strip() or "new")
     if status not in STATUSES:
         raise ValueError("Unknown prospect status.")
     fields = _extra_fields(payload.get("fields"))
     transcript = _transcript(_text(payload.get("transcript"), "transcript"))
     scheduled_until = (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat() if status == "call" else None
-    return {
+    lead = {
         "id": str(uuid.uuid4()),
         "name": name,
         "business": business,
@@ -378,6 +378,9 @@ def build_manual_lead(payload, known_phones=()):
         "fields": fields,
         "created_at": utc_now().isoformat(),
     }
+    if status == "booked":
+        lead["booked_at"] = utc_now().isoformat()
+    return lead
 
 
 def update_lead_fields(lead, payload, known_phones=()):

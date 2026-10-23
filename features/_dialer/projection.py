@@ -50,6 +50,11 @@ def public_state(state):
             "advance_at": state.advance_at,
             "active_call_started_at": active_call.get("connected_at") if active_call else None,
             "manual_lead_id": state.manual_lead_id,
+            "tag_call": {
+                "lead_id": state.taggable_call.get("lead_id"),
+                "outcome": state.taggable_call.get("outcome"),
+                "connected_at": state.taggable_call.get("connected_at"),
+            } if state.taggable_call else None,
         }
     by_id = {lead["id"]: lead for lead in leads}
     view["active_lead"] = by_id.get(active_id)

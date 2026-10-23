@@ -30,9 +30,10 @@ class Part1:
         expected = {
             "booked": "booked",
             "callback": "call",
+            "send_info": "send_info",
             "not_interested": "disqualified",
             "no_answer": "call",
-            "do_not_call": "do_not_call",
+            "do_not_call": "disqualified",
         }
         for disposition, status in expected.items():
             with self.subTest(disposition=disposition):

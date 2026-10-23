@@ -3,11 +3,13 @@
 import json
 import threading
 import time
+import urllib.parse
 from datetime import timedelta
 from pathlib import Path
 
+from features import performance, settings
 from shared.infra import debug_event, utc_now
-from shared.vocabulary import METRIC_KEYS
+from shared.vocabulary import DEFAULT_PERFORMANCE_RANGE, METRIC_KEYS
 
 
 class MetricsStore:
@@ -240,6 +242,46 @@ def get_metrics(request):
         request.report_storage_error(exc)
 
 
+def get_performance(request):
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.path).query)
+    range_key = (query.get("range") or [DEFAULT_PERFORMANCE_RANGE])[-1]
+    dialer = request.account.dialer
+    sessions = request.account.metrics.recent_sessions(100)
+    with dialer.lock:
+        live = dict(dialer.session) if dialer.session and dialer.running else None
+    if live:
+        sessions = [item for item in sessions if item.get("id") != live.get("id")] + [live]
+    try:
+        payload = performance.build_performance(
+            request.account.crm.snapshot(),
+            sessions,
+            settings.daily_goal(dialer.read_settings()),
+            range_key,
+            (query.get("tz") or [""])[-1],
+            utc_now(),
+            live.get("id") if live else None,
+        )
+    except ValueError as exc:
+        request._trace_error = str(exc)
+        request.send_json(400, {"error": str(exc)})
+        return
+    request.send_json(200, payload)
+
+
+def post_goal(request, data):
+    goal = request.account.dialer.save_goal(data)
+    request.send_json(200, {"goal": goal})
+
+
+def post_booking(request, data):
+    dialer = request.account.dialer
+    lead = dialer.log_booking(str(data.get("lead_id") or ""), data.get("booked_at"))
+    request.send_json(200, {"lead": lead, "state": dialer.public_state()})
+
+
 ROUTES = [
     ("GET", "/api/metrics", get_metrics, "GET reads"),
+    ("GET", "/api/performance", get_performance, "GET reads"),
+    ("POST", "/api/performance/goal", post_goal, "POST"),
+    ("POST", "/api/bookings", post_booking, "POST"),
 ]

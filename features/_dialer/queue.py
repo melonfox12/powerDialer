@@ -21,10 +21,28 @@ def scan_crm(state):
         except ValueError:
             continue
         synced += 1
+    disqualified = state.crm.enforce_dial_caps()
     if synced:
         noun = "prospect" if synced == 1 else "prospects"
         state.record_activity(f"Scan CRM synced {synced} {noun}", "web")
-    return {"synced": synced, "state": projection.public_state(state)}
+    if disqualified:
+        noun = "prospect" if disqualified == 1 else "prospects"
+        state.record_activity(f"Marked {disqualified} {noun} disqualified (2+ dials)", "web")
+    return {"synced": synced, "disqualified": disqualified, "state": projection.public_state(state)}
+
+
+def maybe_enforce_dial_caps(state):
+    """Backfill dial-cap disqualifications at most once a minute while the app is open."""
+    now = time.time()
+    with state.lock:
+        if now - state.dial_cap_enforced_at < 60:
+            return 0
+        state.dial_cap_enforced_at = now
+    disqualified = state.crm.enforce_dial_caps()
+    if disqualified:
+        noun = "prospect" if disqualified == 1 else "prospects"
+        state.record_activity(f"Marked {disqualified} {noun} disqualified (2+ dials)", "web")
+    return disqualified
 
 
 def set_timezone_filter(state, timezone):
@@ -84,6 +102,7 @@ def start(state, priority_lead_id=None):
         state.caller_index = 0
         state.conference = "crm-" + secrets.token_hex(8)
         state.session = new_session(goal=int(values["SESSION_GOAL"]))
+        state.taggable_call = None
         state.manual_lead_id = priority["id"] if priority else None
         state.queue_anchor_id = None
         pinned_extra = 1 if priority and all(item["id"] != priority["id"] for item in eligible) else 0
@@ -117,16 +136,27 @@ def _current_queue_id(state, leads):
     pool = calls._pool_leads(state, leads)
     return pool[0]["id"] if pool else ""
 
-def _drop_prospect_call(state, lead_id):
+def drop_prospect_call(state, lead_id):
+    """Hang up every line to this prospect. Returns True when the dialer should dial the next one now.
+
+    A line the agent was talking on ends through the normal call-ended path, so its duration, call log
+    entry, and tag are kept and the auto-advance countdown starts. A line that never connected is closed
+    silently.
+    """
     hung = []
+    talked = False
     with state.lock:
         for token, call in list(state.in_flight.items()):
             if call.get("kind") == "agent" or call.get("lead_id") != lead_id:
                 continue
             call["handled"] = True
             call["cancelled"] = True
-            call["skip_closed"] = True
-            call["state"] = "skipped"
+            if call.get("picked_up"):
+                talked = True
+                call["outcome_chosen"] = True
+            else:
+                call["skip_closed"] = True
+                call["state"] = "skipped"
             state.in_flight.pop(token, None)
             if state.active is call:
                 state.active = None
@@ -136,8 +166,12 @@ def _drop_prospect_call(state, lead_id):
         if active and active.get("kind") != "agent" and active.get("lead_id") == lead_id:
             active["handled"] = True
             active["cancelled"] = True
-            active["skip_closed"] = True
-            active["state"] = "skipped"
+            if active.get("picked_up"):
+                talked = True
+                active["outcome_chosen"] = True
+            else:
+                active["skip_closed"] = True
+                active["state"] = "skipped"
             if active.get("call_uuid"):
                 hung.append(active["call_uuid"])
             state.active = None
@@ -145,8 +179,9 @@ def _drop_prospect_call(state, lead_id):
             state.pending_outcome = None
         if state.manual_lead_id == lead_id:
             state.manual_lead_id = None
+        # After a talked call the call-ended path starts the auto-advance countdown.
         should_fill = (
-            state.running and not state.paused and state.agent_ready
+            not talked and state.running and not state.paused and state.agent_ready
             and not state.active and not state.pending_outcome and not state.in_flight
         )
     for call_uuid in hung:
@@ -200,10 +235,13 @@ def remember_open_skips(state):
             continue
         remember_skip(state, lead["id"], due - calls.MANUAL_CALLBACK)
 
-def _schedule_callback(state, lead_id):
-    due = utc_now().replace(microsecond=0) + calls.MANUAL_CALLBACK
-    lead = state.crm.set_status(lead_id, "call", due.isoformat())
-    remember_skip(state, lead_id, due - calls.MANUAL_CALLBACK)
+def schedule_callback(state, lead_id, scheduled_until=None, log_skip=True):
+    """Set the callback timer (12 hours unless a time is given). log_skip adds the dial-list entry for it."""
+    now = utc_now().replace(microsecond=0)
+    due = scheduled_until or (now + calls.MANUAL_CALLBACK).isoformat()
+    lead = state.crm.set_status(lead_id, "call", due)
+    if log_skip:
+        remember_skip(state, lead_id, now)
     return lead
 
 def schedule_dropped_callback(state, lead_id):
@@ -214,45 +252,6 @@ def schedule_dropped_callback(state, lead_id):
     due = utc_now().replace(microsecond=0) + calls.DROPPED_CALLBACK
     return state.crm.set_status(lead_id, "call", due.isoformat())
 
-def callback_skip(state, lead_id):
-    """Skip the prospect and start the 12-hour callback timer."""
-    lead_id = str(lead_id or "").strip()
-    leads = state.crm.snapshot()
-    current = next((item for item in leads if item["id"] == lead_id), None)
-    if current is None:
-        raise KeyError("Prospect not found")
-    lead = _schedule_callback(state, lead_id)
-    with state.lock:
-        if state.queue_anchor_id == lead_id:
-            state.queue_anchor_id = None
-    should_fill = _drop_prospect_call(state, lead_id)
-    name = current.get("name") or current.get("business") or "Prospect"
-    state.record_activity(f"Callback set for {name}", "web")
-    if should_fill:
-        slots.fill_slots(state)
-    return lead
-
-def disqualify_prospect(state, lead_id):
-    """Skip the prospect and mark them not interested.
-
-    The record stays, so a re-import of the same list finds the number and never adds them back.
-    """
-    lead_id = str(lead_id or "").strip()
-    leads = state.crm.snapshot()
-    current = next((item for item in leads if item["id"] == lead_id), None)
-    if current is None:
-        raise KeyError("Prospect not found")
-    lead = state.crm.set_status(lead_id, "disqualified")
-    with state.lock:
-        if state.queue_anchor_id == lead_id:
-            state.queue_anchor_id = None
-    should_fill = _drop_prospect_call(state, lead_id)
-    name = current.get("name") or current.get("business") or "Prospect"
-    state.record_activity(f"Marked {name} not interested", "web")
-    if should_fill:
-        slots.fill_slots(state)
-    return lead
-
 def pass_next(state, lead_id=None):
     lead_id = str(lead_id or "").strip() or _current_queue_id(state, state.crm.snapshot())
     if not lead_id:
@@ -262,13 +261,13 @@ def pass_next(state, lead_id=None):
     if lead is None:
         raise KeyError("Prospect not found")
     if lead.get("status") == "new":
-        lead = _schedule_callback(state, lead_id)
+        lead = schedule_callback(state, lead_id)
     else:
         remember_skip(state, lead_id, utc_now())
     with state.lock:
         if state.queue_anchor_id == lead_id:
             state.queue_anchor_id = None
-    should_fill = _drop_prospect_call(state, lead_id)
+    should_fill = drop_prospect_call(state, lead_id)
     name = lead.get("name") or lead.get("business") or "Prospect"
     state.record_activity(f"Skipped {name}", "web")
     if should_fill:

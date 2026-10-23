@@ -67,18 +67,19 @@
 .activity-source-error { color: var(--red); }
 .activity-source-transcription { color: var(--success); }
 .activity-message { min-width: 0; overflow-wrap: anywhere; }
+.dial-prospect-link { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.dial-prospect-link:hover { color: var(--blue); text-decoration: underline; }
 .transcript-view-button { max-width: 140px; padding: 5px 0; border: 0; background: transparent; color: var(--blue); font-size: 10px; text-align: left; cursor: pointer; }
 .transcript-view-button:hover:not(:disabled) { color: var(--ink); text-decoration: underline; }
 .transcript-view-button:disabled { color: var(--muted); cursor: default; }
 
 .outcome-row { display: grid; gap: 8px; margin-top: 8px; }
 .outcome-row[hidden] { display: none; }
-.outcome-buttons { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
-.outcome-buttons .outcome-btn:nth-child(-n+3) { grid-column: span 2; }
-.outcome-buttons .outcome-btn:nth-child(n+4) { grid-column: span 3; }
+.outcome-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .outcome-btn { min-height: 52px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: transparent; color: var(--ink-secondary); font-size: 15px; font-weight: 510; cursor: pointer; transition: border-color .15s ease, background-color .15s ease, color .15s ease; }
 .outcome-btn:disabled { opacity: .4; cursor: not-allowed; }
 .outcome-btn-call:hover:not(:disabled) { border-color: var(--amber); background: var(--amber-soft); color: var(--amber); }
+.outcome-btn-send-info:hover:not(:disabled) { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
 .outcome-btn-booked, .outcome-btn-booked:hover:not(:disabled) { border-color: var(--success); background: var(--success-soft); color: var(--success); }
 .outcome-btn-disqualified:hover:not(:disabled) { border-color: var(--red); background: var(--red-soft); color: var(--red); }
 .outcome-btn.outcome-pressed { border-color: var(--ink); color: var(--ink); }

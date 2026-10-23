@@ -9,7 +9,6 @@ import { selectTimezone } from "./pool.js";
 import { bindDialerTimezoneMenu } from "./pool-view.js";
 import { startDialing } from "./session.js";
 import { bindCrmStatus } from "./crm-status.js";
-
 async function scanCrm() {
   const button = byId("scanCrmButton");
   if (button.disabled) return;
@@ -19,8 +18,16 @@ async function scanCrm() {
     const result = await postJson("/api/dials/scan");
     Object.assign(state, result.state);
     render();
-    const count = result.synced || 0;
-    showToast(count ? `Synced ${count} prospect${count === 1 ? "" : "s"} from Total dials` : "No unsynced prospects");
+    const synced = result.synced || 0;
+    const capped = result.disqualified || 0;
+    if (synced || capped) {
+      const parts = [];
+      if (synced) parts.push(`synced ${synced}`);
+      if (capped) parts.push(`disqualified ${capped} (2+ dials)`);
+      showToast(parts.join(", "));
+    } else {
+      showToast("No unsynced prospects");
+    }
   }
   catch (error) { showToast(error.message, true); }
   finally {

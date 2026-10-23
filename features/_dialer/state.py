@@ -5,6 +5,8 @@ lead_id, lead, call_uuid, state, handled, cancelled, machine, transcribing,
 transcript_partials, transcription_started, caller_id, answered_by, picked_up,
 connect_counted, transcript_lines, end_processed. outcome_chosen and wrapping
 are set later by outcome and end handlers. connected_at is set on pickup.
+outcome is the agent's tag for a connected call (shared.vocabulary.CALL_OUTCOMES).
+taggable_call is the most recent connected call, which stays taggable until the next session starts.
 """
 
 import threading
@@ -38,11 +40,13 @@ class DialerState:
         self.callers = []
         self.caller_index = 0
         self.active = None
+        self.taggable_call = None
         self.pending_outcome = None
         self.calls = {}
         self.in_flight = {}
         self.last_error = ""
         self.last_event = "Ready"
+        self.dial_cap_enforced_at = 0.0
         self.public_base_url = ""
         self.settings = {}
         self.selected_timezone = None

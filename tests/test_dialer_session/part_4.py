@@ -193,7 +193,7 @@ class Part4:
             }
             chosen = {
                 "id": "chosen", "name": "Chosen", "business": "Studio",
-                "phone": "+12025550199", "timezone": "Unknown", "status": "interested",
+                "phone": "+12025550199", "timezone": "Unknown", "status": "send_info",
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
             blocked = {

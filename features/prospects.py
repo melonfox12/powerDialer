@@ -9,7 +9,35 @@ from features._prospects.backend_supabase import SupabaseBackend
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import parse_csv, update_lead_fields
 from shared.infra import utc_now
-from shared.vocabulary import MANUAL_CALLBACK_HOURS, NEVER_DIAL_STATUSES, STATUS_KEYS
+from shared.vocabulary import (
+    CALL_OUTCOME_KEYS,
+    MANUAL_CALLBACK_HOURS,
+    MAX_DIAL_ATTEMPTS_BEFORE_DISQUALIFY,
+    NEVER_DIAL_STATUSES,
+    STATUS_KEYS,
+    canonical_status,
+    parse_prospect_status,
+)
+
+
+def total_dial_count(lead):
+    """Rows on Total dials: one per call_log entry."""
+    return len(lead.get("call_log") or [])
+
+
+def dial_cap_reached(lead):
+    return total_dial_count(lead) >= MAX_DIAL_ATTEMPTS_BEFORE_DISQUALIFY
+
+
+def apply_dial_cap_to_lead(lead):
+    """Mark the prospect disqualified when Total dials shows the max attempts. Returns True when changed."""
+    if not dial_cap_reached(lead):
+        return False
+    if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES:
+        return False
+    lead["status"] = "disqualified"
+    lead["scheduled_until"] = None
+    return True
 
 
 class ProspectStore:
@@ -36,7 +64,23 @@ class ProspectStore:
         return self.backend.revision
 
     def snapshot(self):
-        return self.backend.snapshot()
+        """Every prospect with a current status. Stored records are not rewritten."""
+        leads = self.backend.snapshot()
+        for lead in leads:
+            lead["status"] = canonical_status(lead.get("status"))
+        return leads
+
+    def enforce_dial_caps(self):
+        """Persist disqualified for any prospect already at the dial cap (backfill)."""
+        updated = 0
+        for lead in self.snapshot():
+            if not dial_cap_reached(lead):
+                continue
+            if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES:
+                continue
+            self.set_status(lead["id"], "disqualified")
+            updated += 1
+        return updated
 
     def timezone_groups(self, leads=None):
         return self.backend.timezone_groups(leads)
@@ -76,15 +120,18 @@ class ProspectStore:
             return dict(lead)
 
     def set_status(self, lead_id, status, scheduled_until=None):
+        status = parse_prospect_status(status)
         if status not in STATUS_KEYS:
             raise ValueError("Unknown prospect status")
         with self.lock:
             leads = self.backend.leads_locked()
             self.backend.expire_locked(leads)
             lead = _copy_of(leads, lead_id)
-            if lead.get("status") in NEVER_DIAL_STATUSES and status not in NEVER_DIAL_STATUSES:
-                raise ValueError("Booked, not interested, and do not call prospects stay out of the queue for good.")
+            if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES and status not in NEVER_DIAL_STATUSES:
+                raise ValueError("Booked and disqualified prospects stay out of the queue for good.")
             lead["status"] = status
+            if status == "booked" and not lead.get("booked_at"):
+                lead["booked_at"] = utc_now().isoformat()
             if scheduled_until:
                 try:
                     due = datetime.fromisoformat(str(scheduled_until))
@@ -131,16 +178,53 @@ class ProspectStore:
             "answered_by": str(entry.get("answered_by") or ""),
             "duration_seconds": int(entry.get("duration_seconds") or 0),
             "transcript_lines": int(entry.get("transcript_lines") or 0),
+            # None means unknown, the value older entries have.
+            "connected": entry["connected"] if isinstance(entry.get("connected"), bool) else None,
+            "outcome": entry.get("outcome") if entry.get("outcome") in CALL_OUTCOME_KEYS else None,
         }
         with self.lock:
             leads = self.backend.leads_locked()
             lead = _copy_of(leads, lead_id)
             log = lead.setdefault("call_log", [])
             if replace_id:
+                replaced = [item for item in log if item.get("id") == str(replace_id)]
+                # A tag put on the dial-time entry survives the entry that replaces it.
+                record["outcome"] = record["outcome"] or next((item.get("outcome") for item in replaced if item.get("outcome")), None)
                 log[:] = [item for item in log if item.get("id") != str(replace_id)]
             if record["id"] and any(item.get("id") == record["id"] for item in log):
                 return dict(lead)
             log.append(record)
+            apply_dial_cap_to_lead(lead)
+            self.backend.save_locked(lead)
+            return dict(lead)
+
+    def set_call_outcome(self, lead_id, call_ids, outcome):
+        """Tag the call-log entry stored under any of call_ids. Returns False when no entry has been written yet."""
+        if outcome not in CALL_OUTCOME_KEYS:
+            raise ValueError("Unknown call outcome")
+        wanted = {str(item) for item in call_ids if item}
+        with self.lock:
+            leads = self.backend.leads_locked()
+            lead = _copy_of(leads, lead_id)
+            entries = [item for item in lead.get("call_log") or [] if item.get("id") in wanted]
+            if not entries:
+                return False
+            for item in entries:
+                item["outcome"] = outcome
+            self.backend.save_locked(lead)
+            return True
+
+    def set_booked_at(self, lead_id, booked_at, replace_existing=False):
+        """Date a booked prospect that has no booking date. A dated booking is never moved,
+        unless the caller just stamped it itself (replace_existing)."""
+        with self.lock:
+            leads = self.backend.leads_locked()
+            lead = _copy_of(leads, lead_id)
+            if lead.get("status") != "booked":
+                raise ValueError("Mark the prospect booked before dating the booking.")
+            if lead.get("booked_at") and not replace_existing:
+                raise ValueError("That booking already has a date and is counted.")
+            lead["booked_at"] = booked_at
             self.backend.save_locked(lead)
             return dict(lead)
 
