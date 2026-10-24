@@ -16,6 +16,12 @@ from shared.vocabulary import (
     canonical_status,
 )
 
+def maintain_crm(state):
+    """CRM backfill and callback dial-list repair. Never call from GET /api/state or /api/live."""
+    remember_open_skips(state)
+    maybe_enforce_dial_caps(state)
+
+
 def scan_crm(state):
     """Copy an open callback onto new prospects with the same name and location."""
     plan = calls.callback_sync_plan(state.crm.snapshot(), utc_now())
@@ -38,6 +44,7 @@ def scan_crm(state):
     if capped:
         noun = "prospect" if capped == 1 else "prospects"
         state.record_activity(f"Marked {capped} {noun} no answer (disqualified) (5+ dials)", "web")
+    remember_open_skips(state)
     return {
         "synced": synced,
         "repaired": dial_caps,

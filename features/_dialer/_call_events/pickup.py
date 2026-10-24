@@ -27,6 +27,7 @@ def _drop_line(state, call, answered_by):
     if lead_id:
         try:
             state.crm.append_call_log(lead_id, calls._dial_record(call, 0, answered_by), call["token"])
+            queue.maybe_enforce_dial_caps(state)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call for {_name(call)}: {exc}", "error")
     if lead_id and answered_by in ("voicemail", calls.RACE_LOST, calls.DEAD_LINE, calls.CANCELLED):
@@ -44,6 +45,7 @@ def _pickup(state, call):
     with state.lock:
         if call["kind"] != "prospect" or call["cancelled"] or not state.running:
             return False
+        rules.clear_stale_active(state)
         if call.get("picked_up"):
             return state.active is call
         if state.active and state.active is not call:

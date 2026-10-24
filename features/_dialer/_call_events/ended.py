@@ -72,6 +72,7 @@ def _call_ended(state, call, params):
     if log_entry and call.get("lead_id"):
         try:
             state.crm.append_call_log(call["lead_id"], log_entry, call.get("token"))
+            queue.maybe_enforce_dial_caps(state)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call: {exc}", "error")
     if should_schedule_advance:

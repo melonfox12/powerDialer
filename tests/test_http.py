@@ -2,96 +2,28 @@ import json
 import re
 import tempfile
 import unittest
+from datetime import timedelta
 from pathlib import Path
 
+from shared.api_contract import (
+    DIALER_SETTINGS_KEYS,
+    DIALER_STATE_KEYS,
+    LEADS_CATALOG_KEYS,
+    LIVE_STATE_KEYS,
+    METRICS_DAILY_ROW_KEYS,
+    PERFORMANCE_DAILY_KEYS,
+    PERFORMANCE_PAYLOAD_KEYS,
+    SETTINGS_VIEW_KEYS,
+)
+from shared.infra import utc_now
 from tests.local_server import LocalServers
 
 ROOT = Path(__file__).resolve().parent.parent
 
-STATE_KEYS = (
-    "active_call_started_at",
-    "active_lead",
-    "active_lead_id",
-    "activity_log",
-    "advance_at",
-    "agent_ready",
-    "caller_ids",
-    "counts",
-    "current_caller_id",
-    "in_flight",
-    "last_error",
-    "last_event",
-    "leads_version",
-    "live_transcript",
-    "manual_lead_id",
-    "next_lead",
-    "paused",
-    "pending_outcome",
-    "pending_outcome_id",
-    "pickup_answered_by",
-    "pool",
-    "queue_count",
-    "running",
-    "selected_timezone",
-    "dial_pool_status",
-    "session_stats",
-    "settings",
-    "stage",
-    "tag_call",
-    "timezone_groups",
-)
-
-LIVE_KEYS = tuple(key for key in STATE_KEYS if key not in ("pool"))
-
-LEADS_CATALOG_KEYS = ("counts", "leads", "leads_version", "pool", "timezone_groups")
-
-SETTINGS_KEYS = (
-    "account_email",
-    "account_sid",
-    "api_key",
-    "api_secret",
-    "auth_token",
-    "auto_advance_delay",
-    "break_nudge_minutes",
-    "calling_end_hour",
-    "calling_start_hour",
-    "conversation_threshold",
-    "daily_conversation_goal",
-    "daily_goal_anchor",
-    "daily_goal_minutes",
-    "daily_goal_weekly_step",
-    "has_api_secret",
-    "has_auth_token",
-    "opening_script",
-    "public_base_url",
-    "session_goal",
-    "sound_volume",
-    "sounds_enabled",
-    "storage",
-    "twiml_app_sid",
-)
-
-DAILY_METRIC_KEYS = ("booked", "connected", "date", "dials")
-
-PERFORMANCE_PAYLOAD_KEYS = (
-    "conversation_min_seconds",
-    "counts",
-    "daily",
-    "funnel",
-    "has_activity",
-    "metrics_booked",
-    "pipeline_booked",
-    "range",
-    "timezone",
-    "trend",
-)
-
-PERFORMANCE_DAILY_KEYS = (
-    "conversations",
-    "conversation_goal",
-    "talk_minutes",
-    "talk_minutes_goal",
-)
+STATE_KEYS = DIALER_STATE_KEYS
+LIVE_KEYS = LIVE_STATE_KEYS
+SETTINGS_KEYS = SETTINGS_VIEW_KEYS
+DAILY_METRIC_KEYS = METRICS_DAILY_ROW_KEYS
 
 
 class HttpContractTests(unittest.TestCase):
@@ -420,6 +352,37 @@ class HttpContractTests(unittest.TestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(raw.decode("utf-8"))["import"]["added"], 1)
+
+    def test_get_reads_do_not_repair_crm(self):
+        due = (utc_now() + timedelta(hours=2)).replace(microsecond=0).isoformat()
+        status, created, _type = self.json_request("POST", "/api/leads", {
+            "name": "Callback",
+            "business": "Shop",
+            "phone": "2025550199",
+            "timezone": "Eastern",
+        })
+        self.assertEqual(status, 200)
+        lead_id = created["lead"]["id"]
+        dialer = self.servers.runtime.local.dialer
+        dialer.crm.set_status(lead_id, "call", due)
+        logs_before = len(next(lead for lead in dialer.crm.snapshot() if lead["id"] == lead_id).get("call_log") or [])
+        revision_before = dialer.crm.revision
+
+        for _ in range(3):
+            status, _payload, _type = self.json_request("GET", "/api/live")
+            self.assertEqual(status, 200)
+        status, _payload, _type = self.json_request("GET", "/api/state")
+        self.assertEqual(status, 200)
+        status, catalog, _type = self.json_request("GET", "/api/leads")
+        self.assertEqual(status, 200)
+        lead = next(item for item in catalog["leads"] if item["id"] == lead_id)
+        self.assertEqual(len(lead.get("call_log") or []), logs_before)
+        self.assertEqual(dialer.crm.revision, revision_before)
+
+        status, _scan, _type = self.json_request("POST", "/api/dials/scan", {})
+        self.assertEqual(status, 200)
+        lead_after = next(item for item in dialer.crm.snapshot() if item["id"] == lead_id)
+        self.assertGreater(len(lead_after.get("call_log") or []), logs_before)
 
 
 class DebugRedactionTests(unittest.TestCase):

@@ -1,7 +1,7 @@
 """Public and live snapshots."""
 
 from features._dialer import calls
-from features._dialer.rules import dialer_stage, new_session, recent_streak
+from features._dialer.rules import clear_stale_active, dialer_stage, new_session, recent_streak
 from shared.dial_policy import leads_for_timezone_counts, resolve_pool_status
 from shared.infra import utc_now
 
@@ -37,8 +37,8 @@ def leads_catalog(state):
 def public_state(state, include_leads=False):
     leads = state.crm.snapshot()
     with state.lock:
-        active_id = state.active.get("lead_id") if state.active else None
-        active_call = state.active
+        active_call = clear_stale_active(state)
+        active_id = active_call.get("lead_id") if active_call else None
         prospect_calls = [call for call in state.in_flight.values() if call["kind"] == "prospect"]
         transcript_call = active_call or next(
             (call for call in prospect_calls if call.get("picked_up") or call["state"] == "live"),

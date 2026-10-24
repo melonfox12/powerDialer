@@ -124,6 +124,7 @@ export function renderCallStage(stage, target) {
   if (stage === "connected" && S.previousStage !== "connected") S.connectedAt = Date.now();
   if (stage === "connected" && S.previousStage !== "connected") stageEffects.match(state.active_lead);
   if (S.previousStage === "connected" && stage === "wrapup") stageEffects.reset(true);
+  if (S.previousStage === "connected" && (stage === "ringing" || stage === "dialing")) stageEffects.reset(true);
   if (S.previousStage === "ringing" && stage === "dialing") stageEffects.reset();
   if ((stage === "idle" || stage === "paused") && stage !== S.previousStage) stageEffects.stop();
   if (stage === "dialing" || stage === "ringing") {

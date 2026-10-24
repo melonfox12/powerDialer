@@ -7,11 +7,37 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from shared.vocabulary import DISPOSITION_TO_STATUS, STAGES, TIMEZONE_NAMES
 
 
+def stale_active_call(call):
+    """True when a finished line still referenced by state.active must not block the next connect."""
+    if not isinstance(call, dict):
+        return True
+    if call.get("wrapping"):
+        return False
+    if call.get("end_processed"):
+        return True
+    if call.get("state") in ("ended", "cancelled", "skipped"):
+        return True
+    if call.get("cancelled") and not call.get("picked_up"):
+        return True
+    return False
+
+
+def clear_stale_active(state):
+    """Clear state.active when it still points at a finished call. Caller must hold state.lock."""
+    active = state.active
+    if active is not None and stale_active_call(active):
+        state.active = None
+        return None
+    return active
+
+
 def dialer_stage(running, paused, active, pending_outcome, in_flight):
     if not running:
         return "idle"
     if paused:
         return "paused"
+    if isinstance(active, dict) and stale_active_call(active):
+        active = None
     wrapping = isinstance(active, dict) and active.get("wrapping")
     if pending_outcome or wrapping:
         return "wrapup"

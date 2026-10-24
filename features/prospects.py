@@ -269,6 +269,7 @@ def post_fields(request, data):
 
 def post_import(request, data):
     result = request.account.crm.add_csv(data)
+    request.account.dialer.maintain_crm()
     try:
         state = request.ctx.state()
     except Exception as exc:

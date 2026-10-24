@@ -49,12 +49,13 @@ def handle_webhook(state, token, action, params):
         threading.Thread(target=slots.fill_slots, args=(state,), daemon=True).start()
         xml = ("<Response><Say>Dialer connected. Stay on the line.</Say><Dial>"
                '<Conference beep="false" startConferenceOnEnter="true" '
-               f'endConferenceOnExit="true">{escape_xml(state.conference)}</Conference></Dial></Response>')
+               f'endConferenceOnExit="false">{escape_xml(state.conference)}</Conference></Dial></Response>')
         return 200, "application/xml", xml
     if action == "answer":
         if call["kind"] != "prospect" or call["cancelled"] or not state.running:
             return 200, "application/xml", "<Response><Hangup/></Response>"
         with state.lock:
+            rules.clear_stale_active(state)
             lost = call.get("skip_closed") or (state.active is not None and state.active is not call)
             joined = call.get("picked_up") and state.active is call
         if lost:
@@ -90,7 +91,7 @@ def handle_client_voice(state, params):
     threading.Thread(target=slots.fill_slots, args=(state,), daemon=True).start()
     xml = (
         f'<Response><Dial action="{escape_xml(twilio._url(state, call, "agent-ended"))}" method="POST">'
-        '<Conference beep="false" startConferenceOnEnter="true" endConferenceOnExit="true">'
+        '<Conference beep="false" startConferenceOnEnter="true" endConferenceOnExit="false">'
         f'{escape_xml(state.conference)}</Conference></Dial></Response>'
     )
     return 200, "application/xml", xml

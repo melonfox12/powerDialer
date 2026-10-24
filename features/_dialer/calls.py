@@ -196,6 +196,8 @@ def _cancel_call(state, call):
         call["cancelled"] = True
         call["state"] = "cancelled"
         state.in_flight.pop(call["token"], None)
+        if state.active is call:
+            state.active = None
         call_uuid = call.get("call_uuid")
     if call_uuid:
         threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()

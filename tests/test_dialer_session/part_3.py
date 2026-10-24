@@ -188,6 +188,41 @@ class Part3:
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()
 
+    def test_stale_active_does_not_block_the_next_pickup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 2)
+            leads = crm.snapshot()
+            first = dialer._new_call("prospect", leads[0])
+            first["call_uuid"] = "CA-first"
+            dialer._pickup(first)
+            first["end_processed"] = True
+            first["state"] = "ended"
+            dialer.active = first
+
+            second = dialer._new_call("prospect", leads[1])
+            second["call_uuid"] = "CA-second"
+            dialer._machine_result(second, {"AnsweredBy": "human"})
+            self.assertIs(dialer.active, second)
+            self.assertTrue(second["picked_up"])
+
+            _, _, twiml = dialer.handle_webhook(second["token"], "answer", {"CallSid": "CA-second"})
+            self.assertIn("<Conference", twiml)
+            self.assertNotIn("<Hangup", twiml)
+            view = dialer.public_state()
+            self.assertEqual(view["stage"], "connected")
+            self.assertEqual(view["active_lead"]["id"], leads[1]["id"])
+            if dialer.advance_timer:
+                dialer.advance_timer.cancel()
+
+    def test_cancel_call_clears_active_when_it_was_live(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 1)
+            call = dialer._new_call("prospect", crm.snapshot()[0])
+            dialer._pickup(call)
+            calls._cancel_call(dialer, call)
+            self.assertIsNone(dialer.active)
+            self.assertTrue(call["cancelled"])
+
     def test_retry_wait_depends_on_how_the_dial_ended(self):
         now = utc_now()
 

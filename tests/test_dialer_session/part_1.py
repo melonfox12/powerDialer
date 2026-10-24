@@ -2,7 +2,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from features.prospects import ProspectStore
-from features._dialer.rules import add_connect, dialer_stage, local_time, new_session, record_conversation, record_disposition, recent_streak, session_summary, status_for_disposition, within_calling_window
+from features._dialer.rules import add_connect, dialer_stage, local_time, new_session, record_conversation, record_disposition, recent_streak, session_summary, stale_active_call, status_for_disposition, within_calling_window
 from features.dialer import Dialer, TokenIndex
 
 class Part1:
@@ -25,6 +25,9 @@ class Part1:
         self.assertEqual(dialer_stage(True, False, object(), False, []), "connected")
         self.assertEqual(dialer_stage(True, False, None, True, []), "wrapup")
         self.assertEqual(dialer_stage(True, True, None, False, []), "paused")
+        ended = {"state": "ended", "end_processed": True}
+        self.assertTrue(stale_active_call(ended))
+        self.assertEqual(dialer_stage(True, False, ended, False, [{"state": "ringing"}]), "ringing")
 
     def test_disposition_mapping(self):
         expected = {

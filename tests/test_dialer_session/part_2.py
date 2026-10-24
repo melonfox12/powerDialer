@@ -293,7 +293,7 @@ class Part2:
                 "fields": {},
             }]
             dialer = Dialer(crm, str(Path(directory) / ".env"))
-            dialer.public_state()
+            dialer.maintain_crm()
             kept = crm.snapshot()[0]
             self.assertEqual(kept["call_log"][0]["answered_by"], "skipped")
             self.assertEqual(kept["call_log"][0]["started_at"], (due - timedelta(hours=6)).isoformat())

@@ -27,14 +27,13 @@ class Dialer(DialerState):
         return {**current, **settings_feature.preferences(current)}
 
     def public_state(self, include_leads=False):
-        queue.remember_open_skips(self)
-        queue.maybe_enforce_dial_caps(self)
         return projection.public_state(self, include_leads=include_leads)
 
     def leads_catalog(self):
-        queue.remember_open_skips(self)
-        queue.maybe_enforce_dial_caps(self)
         return projection.leads_catalog(self)
+
+    def maintain_crm(self):
+        return queue.maintain_crm(self)
 
     def live_state(self):
         return projection.live_state(self)
