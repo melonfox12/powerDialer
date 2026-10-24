@@ -48,28 +48,7 @@ NOT_CONNECTED_CALL_ANSWERS = (
     "cancelled",
     "dead_line",
 )
-
-
-def is_connected_call_log_entry(entry):
-    """True when the agent was bridged to the prospect on this dial (picked up)."""
-    connected = entry.get("connected")
-    if isinstance(connected, bool):
-        return connected
-    answered = str(entry.get("answered_by") or "")
-    if answered in NOT_CONNECTED_CALL_ANSWERS:
-        return False
-    return answered in LEGACY_CONNECTED_ANSWERS
-
-
-def lead_has_live_contact(lead):
-    """Transcript text or any connected call_log row counts as live contact."""
-    for segment in lead.get("transcript") or []:
-        if str(segment.get("text") or "").strip():
-            return True
-    for entry in lead.get("call_log") or []:
-        if is_connected_call_log_entry(entry):
-            return True
-    return False
+# Connect, pool, and cap rules: shared.dial_policy (imports these constants).
 # Callback set on the live line (CRM Callback button or disposition) comes due after this long.
 MANUAL_CALLBACK_HOURS = 6
 # No pickup (no answer, voicemail, dropped line) gets this callback timer in CRM.

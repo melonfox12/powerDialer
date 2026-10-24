@@ -1,4 +1,5 @@
 import { postJson } from "../../_core/api.js";
+import { applyMutationPayload } from "../../_core/sync-state.js";
 import { state } from "../../_core/state.js";
 import { CRM_STATUS_KEYS, byId, leavesQueueForGood } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
@@ -54,7 +55,7 @@ async function saveCrmStatus(lead, status, label) {
       // Every one of these buttons ends the call and sets the prospect's status everywhere.
       crm_only: true,
     });
-    Object.assign(state, result.state);
+    await applyMutationPayload(result);
     if (status === "call") showToast(`Callback started for ${name}`);
     else if (status === "send_info") showToast(`${name}: Send info`);
     else if (status === "booked") showToast(`${name}: Meeting booked!`);

@@ -8,56 +8,21 @@ from features._prospects.backend_local import LocalBackend
 from features._prospects.backend_supabase import SupabaseBackend
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import parse_csv, update_lead_fields
+from shared.dial_policy import (
+    apply_dial_cap_to_lead,
+    dial_cap_reached,
+    lead_has_live_contact,
+    repair_dial_status_for_lead,
+)
 from shared.infra import utc_now
 from shared.vocabulary import (
     CALL_OUTCOME_KEYS,
     MANUAL_CALLBACK_HOURS,
-    MAX_DIAL_ATTEMPTS_BEFORE_DISQUALIFY,
     NEVER_DIAL_STATUSES,
     STATUS_KEYS,
     canonical_status,
-    lead_has_live_contact,
     parse_prospect_status,
 )
-
-
-def total_dial_count(lead):
-    """Rows on Total dials: one per call_log entry."""
-    return len(lead.get("call_log") or [])
-
-
-def dial_cap_reached(lead):
-    return total_dial_count(lead) >= MAX_DIAL_ATTEMPTS_BEFORE_DISQUALIFY
-
-
-def apply_dial_cap_to_lead(lead):
-    """Mark no_answer_disqualified after enough dials with no live contact. Returns True when changed."""
-    if not dial_cap_reached(lead):
-        return False
-    if lead_has_live_contact(lead):
-        return False
-    if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES:
-        return False
-    lead["status"] = "no_answer_disqualified"
-    lead["scheduled_until"] = None
-    return True
-
-
-def repair_dial_status_for_lead(lead):
-    """Fix auto-disqualified statuses mistaken for sales DQ. Returns a repair key or None."""
-    status = canonical_status(lead.get("status"))
-    has_live = lead_has_live_contact(lead)
-    at_cap = dial_cap_reached(lead)
-    if status == "disqualified":
-        if has_live:
-            return None
-        return "no_answer_disqualified" if at_cap else "new"
-    if status == "no_answer_disqualified":
-        if has_live:
-            return "disqualified"
-        if not at_cap:
-            return "new"
-    return None
 
 
 class ProspectStore:

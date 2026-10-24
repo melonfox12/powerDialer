@@ -21,13 +21,13 @@ from collections import Counter
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from shared.dial_policy import is_connected_call_log_entry
 from shared.vocabulary import (
     CALL_OUTCOME_KEYS,
     CONVERSATION_MIN_SECONDS,
     NOT_CONNECTED_CALL_ANSWERS,
     PERFORMANCE_RANGES,
     canonical_status,
-    is_connected_call_log_entry,
 )
 
 NOT_CONNECTED_ANSWERS = NOT_CONNECTED_CALL_ANSWERS

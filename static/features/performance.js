@@ -52,8 +52,8 @@ function talkLabel(minutes) {
 }
 
 function paintDailyGoals(daily) {
-  if (!daily) return;
-  const conversations = daily.conversations;
+  if (!daily || typeof daily !== "object") return;
+  const conversations = Number(daily.conversations ?? 0);
   const conversationGoal = daily.conversation_goal;
   const talkMinutes = daily.talk_minutes;
   const talkGoal = daily.talk_minutes_goal;
@@ -91,7 +91,11 @@ function paint(data) {
   if (!data) return;
   paintDailyGoals(data.daily);
   paintFunnel(data.funnel);
-  buildPerformanceLineChart(data.trend || { grain: "day", buckets: [] });
+  const trend = data.trend || { grain: "day", buckets: [] };
+  buildPerformanceLineChart(trend);
+  requestAnimationFrame(() => {
+    if (S.dashboardTab === "performance") buildPerformanceLineChart(trend);
+  });
 }
 
 function paintIfNew() {

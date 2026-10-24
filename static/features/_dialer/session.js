@@ -1,4 +1,5 @@
-import { postJson, request } from "../../_core/api.js";
+import { postJson } from "../../_core/api.js";
+import { loadAppState } from "../../_core/sync-state.js";
 import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
@@ -23,7 +24,7 @@ export async function startDialing() {
     S.voiceDevice = null;
     S.voiceCall = null;
     stopProspectWaveform();
-    Object.assign(state, await request("/api/state").catch(() => ({})));
+    await loadAppState().catch(() => {});
     render();
     showToast(errorText(error, "Could not start dialing."), true);
     if (!sessionStarted) openSettings();

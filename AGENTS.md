@@ -5,7 +5,8 @@
 - No folders for 1-2 files. No re-export-only files or barrel `__init__.py`/`index.js` files that import siblings.
 - No mixins, multiple inheritance, `__getattribute__`, method registries, or `getattr`/`hasattr` duck-typing between our own modules. Dependencies are explicit imports or constructor arguments.
 - Pure logic (rules) is separate from I/O (storage, Twilio, HTTP). Business rules live in exactly one place.
-- Constants (statuses, timezones, API paths, required keys) are defined once and imported.
+- Constants (statuses, timezones, API paths, required keys) are defined once in `shared/vocabulary.py` and imported.
+- Dial and CRM queue rules (pool, caps, repair, live contact, callback sync) live only in `shared/dial_policy.py`.
 - Dependency direction: web -> dialer -> leads, settings -> storage -> shared. Lower layers never import higher ones.
 - Before deleting anything, search the repo (`.py`, `.js`, `.html`, tests, string references) to confirm zero references.
 - Never touch `.env` or `crm_data/`.

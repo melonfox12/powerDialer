@@ -3,13 +3,13 @@ import { arcadeSensory } from "../arcade.js";
 import { S, seenSensoryActivity, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
+import {
+  applyLeadsCatalog,
+  fetchLeadsCatalog,
+  mergeLeadPatch,
+  mergeLiveState,
+} from "../../_core/sync-state.js";
 import { render } from "../../core.js";
-
-function mergeLeadPatch(leads, patch) {
-  if (!patch?.id) return;
-  const index = leads.findIndex((lead) => lead.id === patch.id);
-  if (index >= 0) leads[index] = patch;
-}
 
 export function processSensoryActivity(activity) {
   const keyFor = (entry) => `${entry.timestamp || ""}:${entry.source || ""}:${entry.message || ""}`;
@@ -37,17 +37,13 @@ export async function refreshState() {
   S.pollBusy = true;
   try {
     const live = await request("/api/live");
-    const needTable = live.leads_version !== state.leads_version || !Array.isArray(state.leads);
-    if (needTable) {
-      Object.assign(state, await request("/api/state"));
-    } else {
-      const leads = state.leads;
-      const pool = state.pool;
-      Object.assign(state, live);
-      state.leads = leads;
-      state.pool = pool;
-      mergeLeadPatch(leads, live.active_lead);
-      mergeLeadPatch(leads, live.pending_outcome);
+    const prevVersion = state.leads_version;
+    mergeLiveState(live);
+    if (!Array.isArray(state.leads) || live.leads_version !== prevVersion) {
+      applyLeadsCatalog(await fetchLeadsCatalog());
+    } else if (Array.isArray(state.leads)) {
+      mergeLeadPatch(state.leads, live.active_lead);
+      mergeLeadPatch(state.leads, live.pending_outcome);
     }
     if (Date.now() - S.metricsFetchedAt > 15000) {
       S.metricsFetchedAt = Date.now();

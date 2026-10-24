@@ -31,6 +31,7 @@ function bucketAxisLabel(bucket, grain, count) {
 
 function paintLegend(onToggle) {
   const legend = byId("performanceChartLegend");
+  if (!legend) return;
   legend.replaceChildren(...SERIES.map((series) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -47,9 +48,19 @@ function paintLegend(onToggle) {
   }));
 }
 
+function chartSize(container) {
+  const hidden = container.closest("[hidden]") || container.hidden;
+  if (hidden) return { width: 640, height: 220 };
+  const rect = container.getBoundingClientRect();
+  const width = Math.round(rect.width) || container.clientWidth || 640;
+  const height = Math.round(rect.height) || container.clientHeight || 220;
+  return { width: Math.max(width, 280), height: Math.max(height, 120) };
+}
+
 export function buildPerformanceLineChart(trend) {
   const container = byId("performanceLineChart");
   const empty = byId("performanceChartEmpty");
+  if (!container || !empty) return;
   const buckets = trend?.buckets || [];
   lastBuckets = buckets;
   lastGrain = trend?.grain || "day";
@@ -61,8 +72,7 @@ export function buildPerformanceLineChart(trend) {
     container.setAttribute("aria-label", "No activity in this range");
     return;
   }
-  const height = container.clientHeight || 220;
-  const width = container.clientWidth || 640;
+  const { width, height } = chartSize(container);
   const left = 36;
   const right = 12;
   const top = 14;
@@ -111,4 +121,9 @@ export function bindPerformanceChart() {
     if (lastBuckets.length) buildPerformanceLineChart({ grain: lastGrain, buckets: lastBuckets });
   };
   window.addEventListener("resize", resize);
+  const container = byId("performanceLineChart");
+  if (container && typeof ResizeObserver !== "undefined") {
+    const observer = new ResizeObserver(() => resize());
+    observer.observe(container);
+  }
 }

@@ -1,5 +1,5 @@
 import { request } from "../../_core/api.js";
-import { state } from "../../_core/state.js";
+import { applyMutationPayload } from "../../_core/sync-state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { render, setDashboardTab } from "../../core.js";
@@ -17,7 +17,7 @@ export async function importCsv(file) {
       headers: { "Content-Type": "application/octet-stream" },
       body: file,
     });
-    Object.assign(state, result.state || {});
+    await applyMutationPayload(result);
     setDashboardTab("prospects");
     render();
     const imported = result.import || {};

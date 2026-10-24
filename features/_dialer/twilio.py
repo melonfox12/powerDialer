@@ -11,6 +11,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from shared.dial_policy import normalize_phone
+
 TWILIO_API = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}"
 
 class TwilioError(Exception):
@@ -39,17 +41,6 @@ def twilio_request(account_sid, auth_token, method, path, data=None, params=None
         raise TwilioError(f"Twilio error {exc.code}: {message}") from exc
     except urllib.error.URLError as exc:
         raise TwilioError(f"Could not reach Twilio: {exc.reason}") from exc
-
-def normalize_phone(raw):
-    text = str(raw or "").strip()
-    digits = "".join(char for char in text if char.isdigit())
-    if text.startswith("+") and 8 <= len(digits) <= 15:
-        return "+" + digits
-    if len(digits) == 10:
-        return "+1" + digits
-    if len(digits) == 11 and digits.startswith("1"):
-        return "+" + digits
-    return None
 
 def escape_xml(value):
     return (str(value).replace("&", "&amp;").replace("<", "&lt;")

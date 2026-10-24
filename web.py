@@ -172,7 +172,7 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
             self.send_json(401, {"error": "Sign in with Google to continue."})
             return
         dialer_session = account.dialer
-        if path.startswith("/api/") and path not in ("/api/state", "/api/live", "/api/metrics", "/api/performance", "/api/health"):
+        if path.startswith("/api/") and path not in ("/api/state", "/api/live", "/api/leads", "/api/metrics", "/api/performance", "/api/health"):
             dialer_session.record_activity(f"GET {path}", "web")
         found = match_route("GET", path)
         if found is None:

@@ -26,10 +26,15 @@ class Dialer(DialerState):
         current = self.read_values()
         return {**current, **settings_feature.preferences(current)}
 
-    def public_state(self):
+    def public_state(self, include_leads=False):
         queue.remember_open_skips(self)
         queue.maybe_enforce_dial_caps(self)
-        return projection.public_state(self)
+        return projection.public_state(self, include_leads=include_leads)
+
+    def leads_catalog(self):
+        queue.remember_open_skips(self)
+        queue.maybe_enforce_dial_caps(self)
+        return projection.leads_catalog(self)
 
     def live_state(self):
         return projection.live_state(self)
@@ -147,7 +152,14 @@ class Dialer(DialerState):
 
 def get_state(request):
     try:
-        request.send_json(200, request.account.dialer.public_state())
+        request.send_json(200, request.account.dialer.public_state(include_leads=False))
+    except OSError as exc:
+        request.report_storage_error(exc)
+
+
+def get_leads(request):
+    try:
+        request.send_json(200, request.account.dialer.leads_catalog())
     except OSError as exc:
         request.report_storage_error(exc)
 
@@ -221,8 +233,8 @@ def post_status(request, data):
         lead_id, data.get("status"), data.get("scheduled_until"), data.get("disposition"),
         crm_only=bool(data.get("crm_only")),
     )
-    state = dialer.public_state()
-    lead = next((item for item in state.get("leads") or [] if item.get("id") == lead_id), None)
+    state = dialer.public_state(include_leads=False)
+    lead = next((item for item in dialer.crm.snapshot() if item.get("id") == lead_id), None)
     if lead is None:
         raise KeyError("Prospect not found")
     request.send_json(200, {"lead": lead, "state": state})
@@ -232,11 +244,12 @@ def post_call_outcome(request, data):
     lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/").removesuffix("/call-outcome"))
     dialer = request.account.dialer
     lead = dialer.tag_call(lead_id, data.get("outcome"))
-    request.send_json(200, {"lead": lead, "state": dialer.public_state()})
+    request.send_json(200, {"lead": lead, "state": dialer.public_state(include_leads=False)})
 
 
 ROUTES = [
     ("GET", "/api/state", get_state, "GET reads"),
+    ("GET", "/api/leads", get_leads, "GET reads"),
     ("GET", "/api/live", get_live, "GET reads"),
     ("GET", "/api/voice-token", get_voice_token, "voice-token"),
     ("POST", "/api/timezone", post_timezone, "POST"),

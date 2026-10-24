@@ -118,8 +118,15 @@ main {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  height: auto;
   flex: 1 1 auto;
+  min-height: 0;
+}
+.dialer-run-panel { height: auto; }
+.metrics-panel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
 }
 .dialer-run-panel[hidden],
 .metrics-panel[hidden] { display: none; }

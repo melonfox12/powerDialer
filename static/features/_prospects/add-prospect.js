@@ -1,5 +1,5 @@
 import { postJson } from "../../_core/api.js";
-import { state } from "../../_core/state.js";
+import { applyMutationPayload } from "../../_core/sync-state.js";
 import { CRM_STATUS_KEYS, CRM_STATUS_LABELS, byId, fillTimezoneSelect } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { importedColumns } from "./query.js";
@@ -131,7 +131,7 @@ async function saveProspect() {
       transcript: fieldValue("transcript"),
       fields,
     });
-    Object.assign(state, result.state || {});
+    await applyMutationPayload(result);
     closeAddProspectDialog();
     render();
     const lead = result.lead || {};

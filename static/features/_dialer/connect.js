@@ -2,6 +2,7 @@ import { debugEvent, postJson, request } from "../../_core/api.js";
 import { createVoiceDevice, takeLatestVoiceError } from "./_voice/connect.js";
 import { applyVoiceAudioDevices, refreshAudioDevices } from "./_voice/devices.js";
 import { S, state } from "../../_core/state.js";
+import { loadAppState, mergeLiveState, refreshLeadsIfStale } from "../../_core/sync-state.js";
 import { render } from "../../core.js";
 import { byId } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
@@ -47,7 +48,8 @@ export async function connectBrowserCall(clientCallToken) {
 }
 
 export async function connectAndCleanup(clientCallToken, sessionState) {
-  Object.assign(state, sessionState);
+  mergeLiveState(sessionState);
+  await refreshLeadsIfStale(sessionState.leads_version);
   render();
   try {
     await connectBrowserCall(clientCallToken);
@@ -57,13 +59,13 @@ export async function connectAndCleanup(clientCallToken, sessionState) {
     S.voiceDevice = null;
     S.voiceCall = null;
     stopProspectWaveform();
-    Object.assign(state, await request("/api/state").catch(() => ({})));
+    await loadAppState().catch(() => {});
     render();
     const signaled = errorText(takeLatestVoiceError(), "");
     showToast(errorText(error, "") || signaled || "The browser call could not connect.", true);
     return error;
   }
-  Object.assign(state, await request("/api/state"));
+  await loadAppState();
   render();
   return null;
 }

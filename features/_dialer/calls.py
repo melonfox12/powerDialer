@@ -5,150 +5,41 @@ import threading
 from datetime import datetime, timedelta, timezone
 
 from features._dialer import rules, twilio
-from features._prospects.csv_import import location_text
-from shared.infra import utc_now
-from shared.vocabulary import (
-    DEFAULT_DIAL_POOL_STATUS,
-    DIAL_POOL_STATUSES,
-    MANUAL_CALLBACK_HOURS,
-    NEVER_DIAL_STATUSES,
-    NO_PICKUP_CALLBACK_HOURS,
-    canonical_status,
+from shared.dial_policy import (
+    CALLBACK_HOLD,
+    CANCELLED,
+    DEAD_LINE,
+    MANUAL_CALLBACK,
+    NO_PICKUP_CALLBACK,
+    RACE_LOST,
+    RECENT_DIAL_WINDOW,
+    RETRY_AFTER,
+    callback_due,
+    callback_sync_plan,
+    contact_keys,
+    dialed_recently,
+    is_never_dial_status,
+    manual_lead_blocked,
+    pool_leads,
+    resolve_pool_status,
 )
-
+from shared.infra import utc_now
 CALLER_IDS = (
     "+18607354163",
     "+18607521887",
     "+18607824999",
 )
-RECENT_DIAL_WINDOW = timedelta(hours=12)
-# answered_by labels written by drops we make ourselves.
-RACE_LOST = "race_lost"
-CANCELLED = "cancelled"
-DEAD_LINE = "dead_line"
-NO_PICKUP_CALLBACK = timedelta(hours=NO_PICKUP_CALLBACK_HOURS)
-# How long a lead stays out of the auto-dial pool after a dial that did not reach a person.
-RETRY_AFTER = {
-    "no_answer": NO_PICKUP_CALLBACK,
-    "voicemail": NO_PICKUP_CALLBACK,
-    RACE_LOST: NO_PICKUP_CALLBACK,
-    CANCELLED: NO_PICKUP_CALLBACK,
-    DEAD_LINE: NO_PICKUP_CALLBACK,
-}
-MANUAL_CALLBACK = timedelta(hours=MANUAL_CALLBACK_HOURS)
-CALLBACK_HOLD = max(MANUAL_CALLBACK, NO_PICKUP_CALLBACK) + timedelta(seconds=2)
-
-def _dial_times(lead):
-    """Times shown on Total dials: each call record, or the transcript when that is all we have."""
-    log = lead.get("call_log") or []
-    if log:
-        return [item.get("started_at") or item.get("ended_at") or "" for item in log]
-    return [line.get("timestamp") or "" for line in (lead.get("transcript") or [])]
-
-def _folded(value):
-    return " ".join(str(value or "").split()).casefold()
-
-
-def _identity(lead):
-    """Name plus location. City and state are the location; timezone is used when both are blank."""
-    name = _folded(lead.get("name"))
-    if not name:
-        return None
-    city = _folded(location_text(lead, "city"))
-    state_name = _folded(location_text(lead, "state"))
-    if city or state_name:
-        place = (city, state_name)
-    else:
-        place = ("", _folded(lead.get("timezone")))
-    return (name, place)
-
 
 def _callback_due(lead):
-    try:
-        moment = datetime.fromisoformat(str(lead.get("scheduled_until") or ""))
-    except (TypeError, ValueError):
-        return None
-    if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
-    return moment
-
-
-def callback_sync_plan(leads, now):
-    """New prospects that match a Total dials prospect still inside a 12-hour callback.
-
-    The copy keeps that prospect's callback time, so a delete-and-reimport does not
-    put someone back in the queue while the original callback is still running.
-    """
-    sources = {}
-    for lead in leads or []:
-        if lead.get("status") != "call" or not _dial_times(lead):
-            continue
-        due = _callback_due(lead)
-        if due is None:
-            continue
-        remaining = due - now
-        if remaining <= timedelta(0) or remaining > CALLBACK_HOLD:
-            continue
-        key = _identity(lead)
-        if key is None:
-            continue
-        current = sources.get(key)
-        if current is None or due > current[0]:
-            sources[key] = (due, due.isoformat(), lead.get("id"))
-    copies = []
-    for lead in leads or []:
-        if lead.get("status") != "new":
-            continue
-        key = _identity(lead)
-        source = sources.get(key)
-        if source is None or lead.get("id") == source[2]:
-            continue
-        copies.append({"id": lead["id"], "scheduled_until": source[1]})
-    return copies
-
-
-def _dial_windows(lead):
-    """(time, wait) for each dial: the wait depends on how that dial ended."""
-    log = lead.get("call_log") or []
-    if log:
-        return [
-            (item.get("started_at") or item.get("ended_at") or "",
-             RETRY_AFTER.get(item.get("answered_by"), RECENT_DIAL_WINDOW))
-            for item in log
-        ]
-    return [(raw, RECENT_DIAL_WINDOW) for raw in _dial_times(lead)]
+    return callback_due(lead)
 
 
 def _dialed_recently(lead, now=None):
-    moment_now = now or utc_now()
-    for raw, wait in _dial_windows(lead):
-        try:
-            moment = datetime.fromisoformat(str(raw))
-        except (TypeError, ValueError):
-            continue
-        if moment.tzinfo is None:
-            moment = moment.replace(tzinfo=timezone.utc)
-        if moment > moment_now - wait:
-            return True
-    return False
+    return dialed_recently(lead, now)
+
 
 def _contact_keys(lead):
-    """What identifies one person to dial: the phone number, and name plus business plus place.
-
-    Two prospect records that share a key are the same person, however they were imported.
-    A name alone is not a key, and neither is a name in a timezone.
-    """
-    keys = set()
-    phone = twilio.normalize_phone(lead.get("phone"))
-    if phone:
-        keys.add(("phone", phone))
-    name = _folded(lead.get("name"))
-    business = _folded(lead.get("business"))
-    city = _folded(location_text(lead, "city"))
-    state_name = _folded(location_text(lead, "state"))
-    if name and (business or city or state_name):
-        keys.add(("person", name, business, city, state_name))
-    return keys
+    return contact_keys(lead)
 
 
 def _busy_lead_ids(state):
@@ -162,60 +53,16 @@ def _busy_lead_ids(state):
     return busy
 
 
-def _dial_pool_status(state):
-    status = canonical_status(getattr(state, "dial_pool_status", None) or DEFAULT_DIAL_POOL_STATUS)
-    return status if status in DIAL_POOL_STATUSES else DEFAULT_DIAL_POOL_STATUS
-
-
-def _off_limits_keys(leads, busy_ids, now, pool_status):
-    """People who must not be dialed now, whichever record carries their number.
-
-    That is anyone not in the active pool status, on a line right now, or dialed too recently.
-    """
-    keys = set()
-    for lead in leads:
-        if (
-            canonical_status(lead.get("status")) != pool_status
-            or lead["id"] in busy_ids
-            or _dialed_recently(lead, now)
-        ):
-            keys |= _contact_keys(lead)
-    return keys
-
-
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
-    pool_status = _dial_pool_status(state)
-    anchor_id = state.queue_anchor_id
-    now = utc_now()
-    busy_ids = _busy_lead_ids(state)
-    off_limits = _off_limits_keys(leads, busy_ids, now, pool_status)
-    indexed = [
-        (index, lead) for index, lead in enumerate(leads)
-        if canonical_status(lead.get("status")) == pool_status and lead["id"] not in busy_ids
-        and not _dialed_recently(lead, now) and not (_contact_keys(lead) & off_limits)
-    ]
-    if state.selected_timezone:
-        zone = state.selected_timezone
-        indexed = [
-            (index, lead) for index, lead in indexed
-            if lead["id"] == anchor_id or (lead.get("timezone") or "Unknown") == zone
-        ]
-    indexed.sort(key=lambda item: (bool(item[1].get("passed_at")), item[1].get("passed_at") or "", item[0]))
-    ordered = [lead for _index, lead in indexed]
-    if anchor_id:
-        held = [lead for lead in ordered if lead["id"] == anchor_id]
-        rest = [lead for lead in ordered if lead["id"] != anchor_id]
-        ordered = held + rest
-    taken = set()
-    people = []
-    for lead in ordered:
-        keys = _contact_keys(lead)
-        if keys & taken:
-            continue
-        taken |= keys
-        people.append(lead)
-    return people
+    return pool_leads(
+        leads,
+        pool_status=resolve_pool_status(getattr(state, "dial_pool_status", None)),
+        busy_ids=_busy_lead_ids(state),
+        now=utc_now(),
+        selected_timezone=state.selected_timezone,
+        anchor_id=state.queue_anchor_id,
+    )
 
 def _next_caller(state):
     with state.lock:
@@ -438,7 +285,7 @@ def _dialable_lead(state, lead_id):
         raise KeyError("Prospect not found")
     if not str(lead.get("phone") or "").strip():
         raise ValueError("This prospect has no phone number.")
-    if lead.get("status") in NEVER_DIAL_STATUSES:
+    if is_never_dial_status(lead.get("status")):
         raise ValueError("This prospect is already closed and is never dialed again.")
     return lead
 
@@ -448,19 +295,7 @@ def _claim_manual_lead(state, leads, active_leads):
     if not lead_id:
         return None
     lead = next((item for item in leads if item["id"] == lead_id), None)
-    blocked = (
-        not lead
-        or not lead.get("phone")
-        or lead.get("status") in NEVER_DIAL_STATUSES
-        or lead["id"] in active_leads
-    )
-    if not blocked:
-        keys = _contact_keys(lead)
-        blocked = any(
-            keys & _contact_keys(other) for other in leads
-            if other["id"] != lead["id"]
-            and (other["id"] in active_leads or other.get("status") in NEVER_DIAL_STATUSES)
-        )
+    blocked = manual_lead_blocked(lead, leads, active_leads)
     if blocked:
         state.manual_lead_id = None
         return None

@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script type="module" src="main.js"></script>
-<script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"call","label":"Callback","color":"--amber","className":"callback"},{"key":"send_info","label":"Send info","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"disqualified","label":"Disqualified","color":"--red","className":"negative"}],"crmStatusKeys":["new","call","send_info","booked","disqualified"],"crmStatusLabels":{"new":"New","call":"Callback (12 hour timer)","send_info":"Send info","booked":"Booked","disqualified":"Disqualified"},"neverDialStatuses":["booked","disqualified"],"dispositions":{"booked":"booked","callback":"call","send_info":"send_info","not_interested":"disqualified","no_answer":"call","do_not_call":"disqualified"},"outcomeMetric":{"call":"call_later","send_info":"interested","booked":"booked"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":60,"defaultDailyConversationGoal":20,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"settingKeys":["SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","OPENING_SCRIPT","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"}]}</script></head>
+<script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"call","label":"Callback","color":"--amber","className":"callback"},{"key":"send_info","label":"Send info","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"disqualified","label":"Disqualified","color":"--red","className":"negative"},{"key":"no_answer_disqualified","label":"No answer (disqualified)","color":"--red","className":"no-answer-dq"}],"crmStatusKeys":["new","call","send_info","booked","disqualified","no_answer_disqualified"],"crmStatusLabels":{"new":"New","call":"Callback","send_info":"Send info","booked":"Booked","disqualified":"Disqualified","no_answer_disqualified":"No answer (disqualified)"},"neverDialStatuses":["booked","disqualified","no_answer_disqualified"],"dialPoolStatuses":["new","send_info"],"dialPoolStatusLabels":{"new":"New","send_info":"Send info"},"defaultDialPoolStatus":"new","dispositions":{"booked":"booked","callback":"call","send_info":"send_info","not_interested":"disqualified","no_answer":"call","do_not_call":"disqualified"},"outcomeMetric":{"call":"call_later","send_info":"interested","booked":"booked"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":60,"defaultDailyConversationGoal":20,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"settingKeys":["SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","OPENING_SCRIPT","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"}]}</script></head>
 <body>
   <div id="loginGate" class="login-gate" hidden>
     <div class="login-card">
@@ -162,7 +162,7 @@
         <div class="dialog-actions"><button id="startNewSession" class="button button-primary" type="button">Start new session</button></div>
       </section>
     </dialog>            <section id="metricsPanel" class="metrics-panel" aria-labelledby="metricsTitle" hidden>
-              <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton">
+              <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton" hidden>
                 <div class="performance-document dialer-document">
                   <header class="performance-header">
                     <h2 id="metricsTitle" class="visually-hidden">Performance</h2>
@@ -229,6 +229,7 @@
                   </section>
                 </div>
               </div>
+            </section>
 <div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
                 <section class="pool-table-panel" aria-label="Total dials">
                   <div class="pool-table-toolbar">
@@ -298,7 +299,6 @@
                   </div>
                 </section>
               </div>
-            </section>
           </div>
         </div>
       </section>

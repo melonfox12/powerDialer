@@ -2,8 +2,39 @@
 
 from features._dialer import calls
 from features._dialer.rules import dialer_stage, new_session, recent_streak
+from shared.dial_policy import leads_for_timezone_counts, resolve_pool_status
+from shared.infra import utc_now
 
-def public_state(state):
+def crm_catalog(state, leads=None):
+    """Lead rows plus derived pool, timezone counts, and summary counts."""
+    leads = leads if leads is not None else state.crm.snapshot()
+    pool_status = resolve_pool_status(getattr(state, "dial_pool_status", None))
+    groups = state.crm.timezone_groups(leads_for_timezone_counts(leads, pool_status, utc_now()))
+    pool = calls._pool_leads(state, leads)
+    return {
+        "leads_version": getattr(state.crm, "revision", 0),
+        "leads": leads,
+        "pool": pool,
+        "timezone_groups": [{"name": name, "count": count} for name, count in groups],
+        "counts": {
+            "total": len(leads),
+            "new": sum(lead["status"] == "new" for lead in leads),
+            "calling": 0,
+            "booked": sum(lead["status"] == "booked" for lead in leads),
+        },
+    }
+
+
+def leads_catalog(state):
+    """Full CRM table payload for GET /api/leads."""
+    catalog = crm_catalog(state)
+    with state.lock:
+        in_flight = len([call for call in state.in_flight.values() if call["kind"] == "prospect"])
+    catalog["counts"]["calling"] = in_flight
+    return catalog
+
+
+def public_state(state, include_leads=False):
     leads = state.crm.snapshot()
     with state.lock:
         active_id = state.active.get("lead_id") if state.active else None
@@ -59,17 +90,16 @@ def public_state(state):
     by_id = {lead["id"]: lead for lead in leads}
     view["active_lead"] = by_id.get(active_id)
     view["pending_outcome"] = by_id.get(pending_id)
-    view["leads"] = leads
-    pool_status = calls._dial_pool_status(state)
-    groups = state.crm.timezone_groups([
-        lead for lead in leads
-        if lead.get("status") == pool_status and not calls._dialed_recently(lead)
-    ])
-    view["timezone_groups"] = [{"name": name, "count": count} for name, count in groups]
-    view["leads_version"] = getattr(state.crm, "revision", 0)
+    catalog = crm_catalog(state, leads)
+    view["leads_version"] = catalog["leads_version"]
+    view["timezone_groups"] = catalog["timezone_groups"]
+    view["counts"] = dict(catalog["counts"])
+    view["counts"]["calling"] = len(view["in_flight"])
     view["selected_timezone"] = state.selected_timezone
-    view["dial_pool_status"] = pool_status
-    view["pool"] = calls._pool_leads(state, leads)
+    view["dial_pool_status"] = resolve_pool_status(getattr(state, "dial_pool_status", None))
+    view["pool"] = catalog["pool"]
+    if include_leads:
+        view["leads"] = leads
     preferences = state.read_settings()
     view["settings"] = {
         "session_goal": int(preferences["SESSION_GOAL"]),
@@ -98,16 +128,10 @@ def public_state(state):
     view["in_flight"] = [
         {**item, "lead": by_id.get(item["lead_id"])} for item in view["in_flight"]
     ]
-    view["counts"] = {
-        "total": len(leads),
-        "new": sum(lead["status"] == "new" for lead in leads),
-        "calling": len(view["in_flight"]),
-        "booked": sum(lead["status"] == "booked" for lead in leads),
-    }
     return view
 
+
 def live_state(state):
-    view = public_state(state)
-    view.pop("leads", None)
+    view = public_state(state, include_leads=False)
     view.pop("pool", None)
     return view

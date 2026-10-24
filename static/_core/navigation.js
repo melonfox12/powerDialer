@@ -1,5 +1,6 @@
 import { byId, setText } from "./format.js";
 import { renderCallerPool, renderTable } from "./registry.js";
+import { render } from "./render.js";
 import { S } from "./state.js";
 
 const DASHBOARD_TABS = ["dialer", "performance", "prospects", "pool", "dials"];
@@ -116,11 +117,16 @@ export function setDashboardTab(name, moveFocus = false) {
     button.tabIndex = selected ? 0 : -1;
   }
   byId("dialerTabPanel").hidden = S.dashboardTab !== "dialer";
-  byId("metricsPanel").hidden = S.dashboardTab === "dialer";
+  byId("metricsPanel").hidden = S.dashboardTab !== "performance";
   for (const tab of ["performance", "prospects", "pool", "dials"]) byId(`${tab}TabPanel`).hidden = S.dashboardTab !== tab;
   setText("pageTitle", TAB_TITLES[S.dashboardTab]);
+  if (S.dashboardTab === "performance") {
+    S.performanceFetchedAt = 0;
+    S.performancePainted = null;
+  }
   if (S.dashboardTab === "prospects") renderTable();
   if (S.dashboardTab === "pool") renderCallerPool();
+  render();
   if (moveFocus) selectedButton.focus();
 }
 
@@ -135,6 +141,7 @@ export function setPerformanceMode(mode) {
 }
 
 export function bindNavigation() {
+  setPerformanceMode(S.performanceMode);
   bindTabReorder();
   for (const tabButton of sidebarTabs()) {
     tabButton.title = "Drag to reorder";

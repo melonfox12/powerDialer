@@ -1,4 +1,5 @@
-import { postJson, request } from "../../_core/api.js";
+import { postJson } from "../../_core/api.js";
+import { loadAppState, mergeLiveState } from "../../_core/sync-state.js";
 import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
@@ -25,7 +26,7 @@ export async function dialLead(lead) {
         throw failure;
       }
     } else {
-      Object.assign(state, session);
+      mergeLiveState(session);
       render();
     }
     const name = prospectLabel(lead);
@@ -44,7 +45,7 @@ export async function dialLead(lead) {
         S.voiceCall = null;
         stopProspectWaveform();
       }
-      Object.assign(state, await request("/api/state").catch(() => ({})));
+      await loadAppState().catch(() => {});
       render();
       showToast(error.message, true);
       if (!sessionStarted && /settings/i.test(error.message || "")) openSettings();

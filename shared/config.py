@@ -19,7 +19,7 @@ PUBLIC_API_PATHS = {"/api/health", "/api/auth/config", "/api/debug"}
 QUIET_HTTP = {
     "/", "/index.html", "/static/", "/static/index.html",
     "/app.css", "/app.js", "/static/app.css", "/static/app.js",
-    "/api/live", "/api/state", "/api/metrics", "/api/performance", "/api/health", "/api/debug",
+    "/api/live", "/api/state", "/api/leads", "/api/metrics", "/api/performance", "/api/health", "/api/debug",
 }
 
 

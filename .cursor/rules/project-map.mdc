@@ -13,7 +13,7 @@ Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_pa
 - `features/` — routes and rules (`dialer.py`, `metrics.py`, `prospects.py`, `settings.py`, `accounts.py`)
 - `features/_dialer/` — server session, queue, Twilio, outcomes, projection
 - `features/_prospects/` — CSV import/export and local/Supabase storage
-- `shared/` — `config.py`, `vocabulary.py`, `infra.py`; `shared/_infra/` is Supabase and file helpers
+- `shared/` — `config.py`, `vocabulary.py` (constants only), `dial_policy.py` (pool, caps, connect, callbacks), `infra.py`; `shared/_infra/` is Supabase and file helpers
 - `_web/` — `respond.py` (page, static, JSON) and `hooks.py` (Twilio webhook)
 - `static/` — `main.js` boot, `core.js` re-exports, shell partials
 - `static/_core/` — browser `state`, API client, navigation, format helpers
@@ -27,7 +27,7 @@ Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_pa
 - Dialer: `static/features/dialer.html` `#dialerTabPanel`; JS `static/features/dialer.js` and `static/features/_dialer/`
 - Prospects: `static/features/prospects.html` `#prospectsTabPanel`; JS `static/features/prospects.js` and `static/features/_prospects/`
 - Caller pool: `#poolTabPanel` is in `static/features/prospects.html`; render `static/features/_dialer/pool-view.js`; timezone `static/features/_dialer/pool.js`
-- Performance and Live metrics are one panel: `static/features/performance.html` `#metricsPanel` (heading "Live metrics") wraps `#performanceTabPanel`. JS `static/features/performance.js`. `setDashboardTab` hides `#metricsPanel` on the Dialer tab.
+- Performance: `static/features/performance.html` `#metricsPanel` wraps only `#performanceTabPanel`. JS `static/features/performance.js`. `setDashboardTab` shows `#metricsPanel` only on the Performance tab; Prospects/Pool/Dials panels are siblings in `#dashboard-top-row`.
 
 ## Layout, tokens, charts
 
@@ -43,7 +43,7 @@ Plain CSS. Link order in `static/shell.html` is the cascade: `01-tokens.css` thr
 ## Dialer and metrics state
 
 - Snapshot: `static/_core/state.js` `state` (`leads`, `pool`, `metrics`, dialer flags) and `S` (poll clock, tab, voice, session UI).
-- Fetch: `static/features/_dialer/poller.js` `refreshState` every 1.5s — `GET /api/live`, `GET /api/state` when `leads_version` changes, `GET /api/metrics` every 15s into `state.metrics`. Then `render()` in `static/_core/render.js`.
+- Fetch: `static/features/_dialer/poller.js` `refreshState` every 1.5s — `GET /api/live`, `GET /api/leads` when `leads_version` changes (not full `/api/state`), `GET /api/metrics` every 15s into `state.metrics`. Client merge helpers: `static/_core/sync-state.js`. Then `render()` in `static/_core/render.js`.
 - Dialer paint: `static/features/_dialer/render-dialer.js`, registered from `static/features/dialer.js`.
 - Metrics paint: `static/features/performance.js` `renderMetrics`.
-- Server: `features/dialer.py` `GET /api/state`, `GET /api/live`. `features/metrics.py` `GET /api/metrics`.
+- Server: `features/dialer.py` `GET /api/state` (dialer snapshot, no lead rows), `GET /api/leads` (CRM table + pool), `GET /api/live`. `features/metrics.py` `GET /api/metrics`.

@@ -1,4 +1,5 @@
 import { postJson } from "../../_core/api.js";
+import { applyMutationPayload, mergeLiveState } from "../../_core/sync-state.js";
 import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
@@ -16,7 +17,7 @@ async function scanCrm() {
   button.textContent = "Scanning…";
   try {
     const result = await postJson("/api/dials/scan");
-    Object.assign(state, result.state);
+    await applyMutationPayload({ state: result.state });
     render();
     const synced = result.synced || 0;
     const repaired = result.repaired?.to_new || 0;
@@ -45,7 +46,7 @@ export function bindDialer() {
   byId("stopButton").addEventListener("click", async () => {
     try {
       const result = await postJson("/api/stop");
-      Object.assign(state, result);
+      mergeLiveState(result);
       S.voiceDevice?.destroy();
       S.voiceDevice = null;
       S.voiceCall = null;

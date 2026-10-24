@@ -7,6 +7,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from io import StringIO
 
+from shared.dial_policy import location_text
 from shared.infra import utc_now
 from shared.vocabulary import MANUAL_CALLBACK_HOURS, STATUS_KEYS, TIMEZONE_ALIASES, UTC_OFFSET_ZONES, parse_prospect_status
 
@@ -424,16 +425,6 @@ def _header_column(header, used, pattern):
     if not header:
         return None
     return next((index for index, value in enumerate(header) if index not in used and pattern.search(value)), None)
-
-
-def location_text(lead, key):
-    direct = str((lead or {}).get(key) or "").strip()
-    if direct:
-        return direct
-    for name, value in ((lead or {}).get("fields") or {}).items():
-        if str(name).strip().lower() == key:
-            return str(value or "").strip()
-    return ""
 
 
 def _forget_location_alias(lead, key):

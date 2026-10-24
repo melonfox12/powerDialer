@@ -21,7 +21,6 @@ STATE_KEYS = (
     "in_flight",
     "last_error",
     "last_event",
-    "leads",
     "leads_version",
     "live_transcript",
     "manual_lead_id",
@@ -42,7 +41,9 @@ STATE_KEYS = (
     "timezone_groups",
 )
 
-LIVE_KEYS = tuple(key for key in STATE_KEYS if key not in ("leads", "pool"))
+LIVE_KEYS = tuple(key for key in STATE_KEYS if key not in ("pool"))
+
+LEADS_CATALOG_KEYS = ("counts", "leads", "leads_version", "pool", "timezone_groups")
 
 SETTINGS_KEYS = (
     "account_email",
@@ -71,6 +72,26 @@ SETTINGS_KEYS = (
 )
 
 DAILY_METRIC_KEYS = ("booked", "connected", "date", "dials")
+
+PERFORMANCE_PAYLOAD_KEYS = (
+    "conversation_min_seconds",
+    "counts",
+    "daily",
+    "funnel",
+    "has_activity",
+    "metrics_booked",
+    "pipeline_booked",
+    "range",
+    "timezone",
+    "trend",
+)
+
+PERFORMANCE_DAILY_KEYS = (
+    "conversations",
+    "conversation_goal",
+    "talk_minutes",
+    "talk_minutes_goal",
+)
 
 
 class HttpContractTests(unittest.TestCase):
@@ -152,6 +173,11 @@ class HttpContractTests(unittest.TestCase):
         status, payload, _type = self.json_request("GET", "/api/state")
         self.assertEqual(status, 200)
         self.assert_keys(payload, STATE_KEYS)
+        self.assertNotIn("leads", payload)
+
+        status, payload, _type = self.json_request("GET", "/api/leads")
+        self.assertEqual(status, 200)
+        self.assert_keys(payload, LEADS_CATALOG_KEYS)
 
         status, payload, _type = self.json_request("GET", "/api/live")
         self.assertEqual(status, 200)
@@ -165,6 +191,18 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(len(payload["daily"]), 7)
         for day in payload["daily"]:
             self.assert_keys(day, DAILY_METRIC_KEYS)
+
+        status, payload, _type = self.json_request("GET", "/api/performance?range=week&tz=America/New_York")
+        self.assertEqual(status, 200)
+        self.assert_keys(payload, PERFORMANCE_PAYLOAD_KEYS)
+        self.assert_keys(payload["daily"], PERFORMANCE_DAILY_KEYS)
+        self.assert_keys(payload["funnel"], (
+            "dials_to_connected",
+            "connected_to_conversations",
+            "conversations_to_booked",
+        ))
+        self.assert_keys(payload["trend"], ("grain", "buckets"))
+        self.assertIsInstance(payload["trend"]["buckets"], list)
 
         status, payload, _type = self.json_request("GET", "/api/settings")
         self.assertEqual(status, 200)
@@ -206,8 +244,10 @@ class HttpContractTests(unittest.TestCase):
         status, payload, _type = self.json_request("POST", "/api/next/skip", {"id": lead_id})
         self.assertEqual(status, 200)
         self.assert_keys(payload, STATE_KEYS)
+        self.assertNotIn("leads", payload)
         self.assertIsNone(payload["next_lead"])
-        skipped = next(lead for lead in payload["leads"] if lead["id"] == lead_id)
+        _, catalog, _type = self.json_request("GET", "/api/leads")
+        skipped = next(lead for lead in catalog["leads"] if lead["id"] == lead_id)
         self.assertEqual(skipped["status"], "call")
         self.assertEqual(skipped["call_log"][0]["answered_by"], "skipped")
 
@@ -420,6 +460,7 @@ EXPECTED_ROUTES = {
     ("GET", "/api/export.csv"),
     ("DELETE", "/api/leads/{id}"),
     ("GET", "/api/state"),
+    ("GET", "/api/leads"),
     ("GET", "/api/live"),
     ("GET", "/api/voice-token"),
     ("POST", "/api/timezone"),

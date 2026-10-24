@@ -1,4 +1,5 @@
 import { postJson, request } from "../../_core/api.js";
+import { applyMutationPayload, loadAppState } from "../../_core/sync-state.js";
 import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
 import { CRM_STATUS_KEYS, CRM_STATUS_LABELS, STATUS_LABELS, byId } from "../../_core/format.js";
@@ -26,7 +27,7 @@ export async function changeLeadStatus(lead, status, select) {
   byId("saveState").textContent = "Saving…";
   try {
     const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/status`, { status: next });
-    Object.assign(state, result.state);
+    await applyMutationPayload(result);
     byId("saveState").textContent = "All changes saved";
     render();
     const label = next === "call"
@@ -47,7 +48,7 @@ async function saveLeadField({ lead, field, value, previous, extra, input }) {
   byId("saveState").textContent = "Saving…";
   try {
     const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/fields`, payload);
-    Object.assign(state, result.state);
+    await applyMutationPayload(result);
     byId("saveState").textContent = "All changes saved";
     input.blur();
     render();
@@ -72,7 +73,7 @@ export async function deleteSelectedProspects() {
   byId("saveState").textContent = "Deleting…";
   const results = await Promise.allSettled(ids.map((id) => request(`/api/leads/${encodeURIComponent(id)}`, { method: "DELETE" })));
   try {
-    Object.assign(state, await request("/api/state"));
+    await loadAppState();
     const failed = results.filter((result) => result.status === "rejected");
     if (failed.length === 0) {
       selectedLeadIds.clear();

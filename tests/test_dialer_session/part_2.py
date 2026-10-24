@@ -84,7 +84,7 @@ class Part2:
                 self.assertEqual(dialer.in_flight, {})
                 self.assertIsNone(dialer.pending_outcome)
                 # The prospect's status is the one the button names, and the call carries its tag.
-                shown = {lead["id"]: lead for lead in dialer.public_state()["leads"]}
+                shown = {lead["id"]: lead for lead in dialer.leads_catalog()["leads"]}
                 self.assertEqual(shown["prospect-0"]["status"], status)
                 self.assertEqual(shown["prospect-1"]["status"], "new")
                 self.assertEqual(shown["prospect-0"]["call_log"][0]["outcome"], tag)
