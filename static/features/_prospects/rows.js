@@ -9,7 +9,8 @@ export function appendLeadRows(body, leads, extras, onSelection) {
   for (const lead of leads) {
     const row = document.createElement("tr");
     row.dataset.leadId = lead.id;
-    row.title = lead.status === "disqualified" ? "Disqualified" : lead.phone ? "Right-click to dial" : "No phone number";
+    const blocked = lead.status === "disqualified" || lead.status === "no_answer_disqualified";
+    row.title = blocked ? "Will not be dialed" : lead.phone ? "Right-click to dial" : "No phone number";
     row.classList.toggle("selected", selectedLeadIds.has(lead.id));
     const selectionCell = document.createElement("td");
     selectionCell.className = "selection-cell";

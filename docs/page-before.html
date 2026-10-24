@@ -74,7 +74,7 @@
                   <span class="live-indicator"><i></i><span id="liveLabel">Standby</span></span>
                   <span id="lineCount" class="line-count">0 of 0 dialed</span>
                   <div id="callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
-                  <div class="dialer-pool-filter"><span class="visually-hidden" id="dialerTimezoneLabel">Dial from</span><select id="dialerTimezoneFilter" aria-labelledby="dialerTimezoneLabel" aria-hidden="true" tabindex="-1"><option value="">All time zones</option></select><div class="timezone-menu"><button id="dialerTimezoneButton" class="timezone-menu-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="dialerTimezoneList">All time zones</button><ul id="dialerTimezoneList" class="timezone-menu-list" role="listbox" aria-labelledby="dialerTimezoneLabel" hidden></ul></div></div>
+                  <div class="dialer-pool-filter"><select id="dialerPoolStatusFilter" class="dialer-pool-status-select" aria-label="Dial prospects with CRM status"></select><span class="visually-hidden" id="dialerTimezoneLabel">Dial from</span><select id="dialerTimezoneFilter" aria-labelledby="dialerTimezoneLabel" aria-hidden="true" tabindex="-1"><option value="">All time zones</option></select><div class="timezone-menu"><button id="dialerTimezoneButton" class="timezone-menu-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="dialerTimezoneList">All time zones</button><ul id="dialerTimezoneList" class="timezone-menu-list" role="listbox" aria-labelledby="dialerTimezoneLabel" hidden></ul></div></div>
                 </div>
 
                 <section class="queue-strip" aria-label="Call queue">
@@ -256,6 +256,7 @@
                         <option value="send_info">Send info</option>
                         <option value="booked">Booked</option>
                         <option value="disqualified">Disqualified</option>
+                        <option value="no_answer_disqualified">No answer (disqualified)</option>
                       </select>
                       <select id="stateFilter" class="filter-select" aria-label="Filter by state">
                         <option value="">All states</option>
@@ -288,11 +289,12 @@
                 <section class="pool-table-panel" aria-label="Eligible new prospects">
                   <div class="pool-table-toolbar">
                     <div><h2>Caller pool</h2><span id="poolTableSummary" class="pool-table-summary">0 new prospects</span></div>
+                    <label class="pool-status-filter"><span>Pool</span><select id="poolStatusFilter" aria-label="Filter caller pool by CRM status"></select></label>
                     <label class="pool-timezone-filter"><span>Timezone</span><select id="poolTimezoneFilter" aria-label="Filter caller pool by timezone"><option value="">All time zones</option></select></label>
                   </div>
                   <div class="table-scroll pool-table-scroll" role="region" aria-label="New prospect pool table" tabindex="0">
                     <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
-                    <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p>Only prospects marked New appear in this pool.</p></div>
+                    <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p id="poolTableEmptyHint">Only prospects in the selected pool status appear here.</p></div>
                   </div>
                 </section>
               </div>

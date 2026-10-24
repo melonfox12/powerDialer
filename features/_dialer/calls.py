@@ -7,7 +7,14 @@ from datetime import datetime, timedelta, timezone
 from features._dialer import rules, twilio
 from features._prospects.csv_import import location_text
 from shared.infra import utc_now
-from shared.vocabulary import DROPPED_CALLBACK_MINUTES, MANUAL_CALLBACK_HOURS, NEVER_DIAL_STATUSES
+from shared.vocabulary import (
+    DEFAULT_DIAL_POOL_STATUS,
+    DIAL_POOL_STATUSES,
+    MANUAL_CALLBACK_HOURS,
+    NEVER_DIAL_STATUSES,
+    NO_PICKUP_CALLBACK_HOURS,
+    canonical_status,
+)
 
 CALLER_IDS = (
     "+18607354163",
@@ -19,18 +26,17 @@ RECENT_DIAL_WINDOW = timedelta(hours=12)
 RACE_LOST = "race_lost"
 CANCELLED = "cancelled"
 DEAD_LINE = "dead_line"
-DROPPED_CALLBACK = timedelta(minutes=DROPPED_CALLBACK_MINUTES)
-# How long a lead stays out of the queue after a dial that did not reach a person.
-# Any other label (connected, skipped, unlabelled) uses RECENT_DIAL_WINDOW.
+NO_PICKUP_CALLBACK = timedelta(hours=NO_PICKUP_CALLBACK_HOURS)
+# How long a lead stays out of the auto-dial pool after a dial that did not reach a person.
 RETRY_AFTER = {
-    "no_answer": timedelta(hours=3),
-    "voicemail": timedelta(hours=4),
-    RACE_LOST: DROPPED_CALLBACK,
-    CANCELLED: DROPPED_CALLBACK,
-    DEAD_LINE: DROPPED_CALLBACK,
+    "no_answer": NO_PICKUP_CALLBACK,
+    "voicemail": NO_PICKUP_CALLBACK,
+    RACE_LOST: NO_PICKUP_CALLBACK,
+    CANCELLED: NO_PICKUP_CALLBACK,
+    DEAD_LINE: NO_PICKUP_CALLBACK,
 }
 MANUAL_CALLBACK = timedelta(hours=MANUAL_CALLBACK_HOURS)
-CALLBACK_HOLD = MANUAL_CALLBACK + timedelta(seconds=2)
+CALLBACK_HOLD = max(MANUAL_CALLBACK, NO_PICKUP_CALLBACK) + timedelta(seconds=2)
 
 def _dial_times(lead):
     """Times shown on Total dials: each call record, or the transcript when that is all we have."""
@@ -156,28 +162,37 @@ def _busy_lead_ids(state):
     return busy
 
 
-def _off_limits_keys(leads, busy_ids, now):
+def _dial_pool_status(state):
+    status = canonical_status(getattr(state, "dial_pool_status", None) or DEFAULT_DIAL_POOL_STATUS)
+    return status if status in DIAL_POOL_STATUSES else DEFAULT_DIAL_POOL_STATUS
+
+
+def _off_limits_keys(leads, busy_ids, now, pool_status):
     """People who must not be dialed now, whichever record carries their number.
 
-    That is anyone with a record that is not "new" (booked, disqualified, send info,
-    or in a callback), on a line right now, or dialed too recently.
+    That is anyone not in the active pool status, on a line right now, or dialed too recently.
     """
     keys = set()
     for lead in leads:
-        if lead["status"] != "new" or lead["id"] in busy_ids or _dialed_recently(lead, now):
+        if (
+            canonical_status(lead.get("status")) != pool_status
+            or lead["id"] in busy_ids
+            or _dialed_recently(lead, now)
+        ):
             keys |= _contact_keys(lead)
     return keys
 
 
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
+    pool_status = _dial_pool_status(state)
     anchor_id = state.queue_anchor_id
     now = utc_now()
     busy_ids = _busy_lead_ids(state)
-    off_limits = _off_limits_keys(leads, busy_ids, now)
+    off_limits = _off_limits_keys(leads, busy_ids, now, pool_status)
     indexed = [
         (index, lead) for index, lead in enumerate(leads)
-        if lead["status"] == "new" and lead["id"] not in busy_ids
+        if canonical_status(lead.get("status")) == pool_status and lead["id"] not in busy_ids
         and not _dialed_recently(lead, now) and not (_contact_keys(lead) & off_limits)
     ]
     if state.selected_timezone:

@@ -8,16 +8,18 @@ STATUSES = (
     {"key": "send_info", "label": "Send info", "color": "--blue", "className": "info"},
     {"key": "booked", "label": "Booked", "color": "--success", "className": "positive"},
     {"key": "disqualified", "label": "Disqualified", "color": "--red", "className": "negative"},
+    {"key": "no_answer_disqualified", "label": "No answer (disqualified)", "color": "--red", "className": "no-answer-dq"},
 )
 STATUS_KEYS = tuple(item["key"] for item in STATUSES)
 # CRM table and add-prospect menus (dialer outcome buttons use STATUS_CALL_OUTCOME only).
-CRM_STATUS_KEYS = ("new", "call", "send_info", "booked", "disqualified")
+CRM_STATUS_KEYS = ("new", "call", "send_info", "booked", "disqualified", "no_answer_disqualified")
 CRM_STATUS_LABELS = {
     "new": "New",
-    "call": "Callback (12 hour timer)",
+    "call": "Callback",
     "send_info": "Send info",
     "booked": "Booked",
     "disqualified": "Disqualified",
+    "no_answer_disqualified": "No answer (disqualified)",
 }
 # Statuses that no longer exist. A stored record that still carries one is read as the status that replaced it.
 LEGACY_STATUSES = {
@@ -27,13 +29,53 @@ LEGACY_STATUSES = {
 }
 
 # A prospect in one of these statuses never goes back to "new" or "call" and is never dialed.
-NEVER_DIAL_STATUSES = ("booked", "disqualified")
-# Total dials rows (call_log entries) at or above this count auto-disqualify the prospect.
-MAX_DIAL_ATTEMPTS_BEFORE_DISQUALIFY = 2
-# A callback the agent sets (outcome, skip, status menu, new prospect) comes due after this long.
-MANUAL_CALLBACK_HOURS = 12
-# A line we hang up on because another line connected first comes back after this long.
-DROPPED_CALLBACK_MINUTES = 5
+NEVER_DIAL_STATUSES = ("booked", "disqualified", "no_answer_disqualified")
+# Auto-dial pool modes on the Dialer (timezone filter stacks on top).
+DIAL_POOL_STATUSES = ("new", "send_info")
+DEFAULT_DIAL_POOL_STATUS = "new"
+DIAL_POOL_STATUS_LABELS = {"new": "New", "send_info": "Send info"}
+# Five or more dials with no live contact → no_answer_disqualified (not sales disqualified).
+NO_ANSWER_DISQUALIFY_MIN_DIALS = 5
+# Back-compat name for imports/tests that referenced the old cap constant.
+MAX_DIAL_ATTEMPTS_BEFORE_DISQUALIFY = NO_ANSWER_DISQUALIFY_MIN_DIALS
+
+LEGACY_CONNECTED_ANSWERS = ("human", "unknown")
+NOT_CONNECTED_CALL_ANSWERS = (
+    "no_answer",
+    "voicemail",
+    "skipped",
+    "race_lost",
+    "cancelled",
+    "dead_line",
+)
+
+
+def is_connected_call_log_entry(entry):
+    """True when the agent was bridged to the prospect on this dial (picked up)."""
+    connected = entry.get("connected")
+    if isinstance(connected, bool):
+        return connected
+    answered = str(entry.get("answered_by") or "")
+    if answered in NOT_CONNECTED_CALL_ANSWERS:
+        return False
+    return answered in LEGACY_CONNECTED_ANSWERS
+
+
+def lead_has_live_contact(lead):
+    """Transcript text or any connected call_log row counts as live contact."""
+    for segment in lead.get("transcript") or []:
+        if str(segment.get("text") or "").strip():
+            return True
+    for entry in lead.get("call_log") or []:
+        if is_connected_call_log_entry(entry):
+            return True
+    return False
+# Callback set on the live line (CRM Callback button or disposition) comes due after this long.
+MANUAL_CALLBACK_HOURS = 6
+# No pickup (no answer, voicemail, dropped line) gets this callback timer in CRM.
+NO_PICKUP_CALLBACK_HOURS = 48
+# Legacy name kept for imports; automatic no-pickup callbacks use NO_PICKUP_CALLBACK_HOURS.
+DROPPED_CALLBACK_MINUTES = NO_PICKUP_CALLBACK_HOURS * 60
 
 DISPOSITION_TO_STATUS = {
     "booked": "booked",
@@ -168,6 +210,7 @@ _STATUS_LABEL_ALIASES = {
     "not interested": "disqualified",
     "do not call": "disqualified",
     "interested": "disqualified",
+    "no answer (disqualified)": "no_answer_disqualified",
 }
 
 
@@ -213,6 +256,9 @@ def browser_vocabulary():
         "crmStatusKeys": list(CRM_STATUS_KEYS),
         "crmStatusLabels": dict(CRM_STATUS_LABELS),
         "neverDialStatuses": list(NEVER_DIAL_STATUSES),
+        "dialPoolStatuses": list(DIAL_POOL_STATUSES),
+        "dialPoolStatusLabels": dict(DIAL_POOL_STATUS_LABELS),
+        "defaultDialPoolStatus": DEFAULT_DIAL_POOL_STATUS,
         "dispositions": dict(DISPOSITION_TO_STATUS),
         "outcomeMetric": dict(OUTCOME_METRIC),
         "defaultOutcomeMetric": DEFAULT_OUTCOME_METRIC,

@@ -25,6 +25,7 @@
                         <option value="send_info">Send info</option>
                         <option value="booked">Booked</option>
                         <option value="disqualified">Disqualified</option>
+                        <option value="no_answer_disqualified">No answer (disqualified)</option>
                       </select>
                       <select id="stateFilter" class="filter-select" aria-label="Filter by state">
                         <option value="">All states</option>
@@ -57,11 +58,12 @@
                 <section class="pool-table-panel" aria-label="Eligible new prospects">
                   <div class="pool-table-toolbar">
                     <div><h2>Caller pool</h2><span id="poolTableSummary" class="pool-table-summary">0 new prospects</span></div>
+                    <label class="pool-status-filter"><span>Pool</span><select id="poolStatusFilter" aria-label="Filter caller pool by CRM status"></select></label>
                     <label class="pool-timezone-filter"><span>Timezone</span><select id="poolTimezoneFilter" aria-label="Filter caller pool by timezone"><option value="">All time zones</option></select></label>
                   </div>
                   <div class="table-scroll pool-table-scroll" role="region" aria-label="New prospect pool table" tabindex="0">
                     <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
-                    <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p>Only prospects marked New appear in this pool.</p></div>
+                    <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p id="poolTableEmptyHint">Only prospects in the selected pool status appear here.</p></div>
                   </div>
                 </section>
               </div>

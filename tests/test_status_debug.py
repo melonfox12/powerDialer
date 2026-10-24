@@ -56,7 +56,7 @@ class StatusUpdateDebugTests(unittest.TestCase):
                 crm.leads = [lead]
                 crm.save()
 
-                for key in ("new", "call", "send_info", "booked", "disqualified"):
+                for key in ("new", "call", "send_info", "booked", "disqualified", "no_answer_disqualified"):
                     code, data = post_status({"status": key})
                     self.assertEqual(code, 200, (key, data))
                     self.assertEqual(data["lead"]["status"], key, key)
@@ -76,14 +76,18 @@ class StatusUpdateDebugTests(unittest.TestCase):
                 lead["call_log"] = [
                     {"id": "d1", "started_at": "2026-01-01T12:00:00+00:00", "ended_at": "2026-01-01T12:01:00+00:00"},
                     {"id": "d2", "started_at": "2026-01-02T12:00:00+00:00", "ended_at": "2026-01-02T12:01:00+00:00"},
+                    {"id": "d3", "started_at": "2026-01-03T12:00:00+00:00", "ended_at": "2026-01-03T12:01:00+00:00"},
+                    {"id": "d4", "started_at": "2026-01-04T12:00:00+00:00", "ended_at": "2026-01-04T12:01:00+00:00"},
+                    {"id": "d5", "started_at": "2026-01-05T12:00:00+00:00", "ended_at": "2026-01-05T12:01:00+00:00"},
                 ]
                 crm.leads = [lead]
                 crm.save()
                 code, data = post_status({"status": "send_info"})
                 self.assertEqual(code, 200, data)
                 self.assertEqual(data["lead"]["status"], "send_info")
-                self.assertEqual(crm.enforce_dial_caps(), 1)
-                self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
+                caps = crm.enforce_dial_caps()
+                self.assertEqual(caps["capped"], 1)
+                self.assertEqual(crm.snapshot()[0]["status"], "no_answer_disqualified")
             finally:
                 servers.stop()
 

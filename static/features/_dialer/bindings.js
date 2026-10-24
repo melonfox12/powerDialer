@@ -5,7 +5,7 @@ import { showToast } from "../../_core/notify.js";
 import { showSessionSummary } from "./summary.js";
 import { stopProspectWaveform } from "./card.js";
 import { render } from "../../core.js";
-import { selectTimezone } from "./pool.js";
+import { selectDialPoolStatus, selectTimezone } from "./pool.js";
 import { bindDialerTimezoneMenu } from "./pool-view.js";
 import { startDialing } from "./session.js";
 import { bindCrmStatus } from "./crm-status.js";
@@ -19,11 +19,13 @@ async function scanCrm() {
     Object.assign(state, result.state);
     render();
     const synced = result.synced || 0;
-    const capped = result.disqualified || 0;
-    if (synced || capped) {
+    const repaired = result.repaired?.to_new || 0;
+    const capped = result.no_answer_disqualified || result.disqualified || 0;
+    if (synced || repaired || capped) {
       const parts = [];
       if (synced) parts.push(`synced ${synced}`);
-      if (capped) parts.push(`disqualified ${capped} (2+ dials)`);
+      if (repaired) parts.push(`reset ${repaired} to New`);
+      if (capped) parts.push(`no answer (disqualified) ${capped} (5+ dials)`);
       showToast(parts.join(", "));
     } else {
       showToast("No unsynced prospects");
@@ -55,6 +57,9 @@ export function bindDialer() {
   });
   for (const selector of [byId("dialerTimezoneFilter"), byId("poolTimezoneFilter")]) {
     selector.addEventListener("change", (event) => selectTimezone(event.target.value));
+  }
+  for (const selector of [byId("dialerPoolStatusFilter"), byId("poolStatusFilter")]) {
+    selector?.addEventListener("change", (event) => selectDialPoolStatus(event.target.value));
   }
   bindDialerTimezoneMenu();
   const callDesk = document.querySelector(".dialer-run-panel");

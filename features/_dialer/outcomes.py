@@ -138,7 +138,7 @@ def log_booking(state, lead_id, booked_at):
     previous = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
     if previous is None:
         raise KeyError("Prospect not found")
-    if previous.get("status") == "disqualified":
+    if previous.get("status") in ("disqualified", "no_answer_disqualified"):
         raise ValueError("A disqualified prospect cannot be marked booked.")
     if previous.get("booked_at"):
         raise ValueError("That booking already has a date and is counted.")

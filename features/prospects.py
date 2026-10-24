@@ -16,6 +16,7 @@ from shared.vocabulary import (
     NEVER_DIAL_STATUSES,
     STATUS_KEYS,
     canonical_status,
+    lead_has_live_contact,
     parse_prospect_status,
 )
 
@@ -30,14 +31,33 @@ def dial_cap_reached(lead):
 
 
 def apply_dial_cap_to_lead(lead):
-    """Mark the prospect disqualified when Total dials shows the max attempts. Returns True when changed."""
+    """Mark no_answer_disqualified after enough dials with no live contact. Returns True when changed."""
     if not dial_cap_reached(lead):
+        return False
+    if lead_has_live_contact(lead):
         return False
     if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES:
         return False
-    lead["status"] = "disqualified"
+    lead["status"] = "no_answer_disqualified"
     lead["scheduled_until"] = None
     return True
+
+
+def repair_dial_status_for_lead(lead):
+    """Fix auto-disqualified statuses mistaken for sales DQ. Returns a repair key or None."""
+    status = canonical_status(lead.get("status"))
+    has_live = lead_has_live_contact(lead)
+    at_cap = dial_cap_reached(lead)
+    if status == "disqualified":
+        if has_live:
+            return None
+        return "no_answer_disqualified" if at_cap else "new"
+    if status == "no_answer_disqualified":
+        if has_live:
+            return "disqualified"
+        if not at_cap:
+            return "new"
+    return None
 
 
 class ProspectStore:
@@ -70,17 +90,40 @@ class ProspectStore:
             lead["status"] = canonical_status(lead.get("status"))
         return leads
 
-    def enforce_dial_caps(self):
-        """Persist disqualified for any prospect already at the dial cap (backfill)."""
-        updated = 0
+    def repair_dial_statuses(self):
+        """Undo wrongful sales disqualified statuses and align no-answer caps."""
+        counts = {"to_new": 0, "to_no_answer_disqualified": 0, "to_disqualified": 0}
+        for lead in self.snapshot():
+            next_status = repair_dial_status_for_lead(lead)
+            if not next_status:
+                continue
+            self.set_status(lead["id"], next_status, repair=True)
+            if next_status == "new":
+                counts["to_new"] += 1
+            elif next_status == "no_answer_disqualified":
+                counts["to_no_answer_disqualified"] += 1
+            else:
+                counts["to_disqualified"] += 1
+        return counts
+
+    def enforce_dial_caps(self, *, repair_misclassified=False):
+        """Backfill no_answer_disqualified at the dial cap. Repair runs only when requested (Scan CRM)."""
+        repair = self.repair_dial_statuses() if repair_misclassified else {
+            "to_new": 0,
+            "to_no_answer_disqualified": 0,
+            "to_disqualified": 0,
+        }
+        capped = 0
         for lead in self.snapshot():
             if not dial_cap_reached(lead):
                 continue
+            if lead_has_live_contact(lead):
+                continue
             if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES:
                 continue
-            self.set_status(lead["id"], "disqualified")
-            updated += 1
-        return updated
+            self.set_status(lead["id"], "no_answer_disqualified")
+            capped += 1
+        return {**repair, "capped": capped}
 
     def timezone_groups(self, leads=None):
         return self.backend.timezone_groups(leads)
@@ -119,7 +162,7 @@ class ProspectStore:
             self.backend.save_locked(lead)
             return dict(lead)
 
-    def set_status(self, lead_id, status, scheduled_until=None):
+    def set_status(self, lead_id, status, scheduled_until=None, *, repair=False):
         status = parse_prospect_status(status)
         if status not in STATUS_KEYS:
             raise ValueError("Unknown prospect status")
@@ -127,7 +170,11 @@ class ProspectStore:
             leads = self.backend.leads_locked()
             self.backend.expire_locked(leads)
             lead = _copy_of(leads, lead_id)
-            if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES and status not in NEVER_DIAL_STATUSES:
+            if (
+                not repair
+                and canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES
+                and status not in NEVER_DIAL_STATUSES
+            ):
                 raise ValueError("Booked and disqualified prospects stay out of the queue for good.")
             previous = canonical_status(lead.get("status"))
             changed_at = utc_now().isoformat()

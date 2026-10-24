@@ -28,6 +28,7 @@
 .status-pie-send_info { background: var(--blue); }
 .status-pie-booked { background: var(--success); }
 .status-pie-disqualified { background: var(--red); }
+.status-pie-no_answer_disqualified { background: var(--amber); }
 .connection-connected { background: var(--success); }
 .connection-unconnected { background: var(--amber); }
 .pie-empty-label { fill: var(--muted); font-family: var(--mono); font-size: 9px; text-anchor: middle; }

@@ -1,9 +1,9 @@
 """Prospect and agent call endings."""
 
-from features._dialer import calls, timing
+from features._dialer import calls, queue, timing
 from features._dialer import rules
 from features._dialer.rules import record_conversation
-from shared.vocabulary import CONVERSATION_MIN_SECONDS
+from shared.vocabulary import CONVERSATION_MIN_SECONDS, NEVER_DIAL_STATUSES
 
 def _call_ended(state, call, params):
     log_entry = None
@@ -80,9 +80,11 @@ def _call_ended(state, call, params):
         lead_id = call.get("lead_id")
         if lead_id:
             try:
-                state.crm.defer(lead_id)
+                lead = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
+                if lead and lead.get("status") not in NEVER_DIAL_STATUSES:
+                    queue.schedule_no_pickup_callback(state, lead_id)
             except (KeyError, ValueError, OSError) as exc:
-                state.record_activity(f"Could not move the unanswered prospect back: {exc}", "error")
+                state.record_activity(f"Could not schedule callback for unanswered prospect: {exc}", "error")
         timing._schedule_advance(state)
 
 def _agent_call_ended(state):

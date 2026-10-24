@@ -16,8 +16,7 @@ def _name(call):
 def _drop_line(state, call, answered_by):
     """Hang up a line that will not reach the agent and log it once.
 
-    A line that lost the race to another pickup gets a 5-minute callback status.
-    Any other drop (voicemail) stays "new" and calls.RETRY_AFTER decides how long it waits.
+    No-pickup drops schedule a 48-hour CRM callback when the prospect is still New.
     """
     with state.lock:
         if call.get("picked_up") or call.get("skip_closed"):
@@ -30,15 +29,13 @@ def _drop_line(state, call, answered_by):
             state.crm.append_call_log(lead_id, calls._dial_record(call, 0, answered_by), call["token"])
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call for {_name(call)}: {exc}", "error")
-    if lead_id and answered_by == calls.RACE_LOST:
+    if lead_id and answered_by in ("voicemail", calls.RACE_LOST, calls.DEAD_LINE, calls.CANCELLED):
         try:
-            queue.schedule_dropped_callback(state, lead_id)
+            queue.schedule_no_pickup_callback(state, lead_id)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not set the callback for {_name(call)}: {exc}", "error")
-        minutes = calls.DROPPED_CALLBACK.seconds // 60
-        state.record_activity(f"Dropped {_name(call)} (another line connected); callback in {minutes} min", "call")
-    else:
-        state.record_activity(f"Dropped {_name(call)} ({answered_by.replace('_', ' ')}); will retry later", "call")
+    label = answered_by.replace("_", " ")
+    state.record_activity(f"Dropped {_name(call)} ({label}); 48-hour callback when eligible", "call")
     timing._schedule_advance(state)
     return True
 

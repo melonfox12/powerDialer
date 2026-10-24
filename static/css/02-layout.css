@@ -93,7 +93,9 @@ h2 { margin-bottom: 0; font-size: 17px; font-weight: 590; letter-spacing: -0.01e
 .pool-table-toolbar { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 14px; padding: 4px 0 12px; border-bottom: 1px solid var(--line); }
 .pool-table-toolbar h2 { margin-top: 3px; font-size: 15px; }
 .pool-table-summary { display: inline-block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+.pool-status-filter,
 .pool-timezone-filter { display: flex; min-width: 150px; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
+.pool-status-filter { min-width: 120px; }
 .pool-timezone-filter select, .dialer-pool-filter select { min-width: 0; height: 32px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--canvas); color: var(--ink-secondary); font-size: 10px; }
 .pool-timezone-filter select { flex: 1; }
 .pool-table-scroll { min-height: 0; max-height: none; flex: 1 1 0; }

@@ -50,6 +50,7 @@ class DialerState:
         self.public_base_url = ""
         self.settings = {}
         self.selected_timezone = None
+        self.dial_pool_status = "new"
         self.activity_log = []
         self.activity_sequence = 0
         self.session = None

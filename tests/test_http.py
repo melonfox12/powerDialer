@@ -34,6 +34,7 @@ STATE_KEYS = (
     "queue_count",
     "running",
     "selected_timezone",
+    "dial_pool_status",
     "session_stats",
     "settings",
     "stage",

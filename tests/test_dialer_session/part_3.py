@@ -49,9 +49,9 @@ class Part3:
             self.assertTrue(machine["skip_closed"])
             self.assertIsNone(dialer.active)
             self.assertIn(person["token"], dialer.in_flight)
-            # Voicemail stays in the queue and waits out its retry window. No callback, one log entry.
             first_after = crm.snapshot()[0]
-            self.assertEqual(first_after["status"], "new")
+            self.assertEqual(first_after["status"], "call")
+            self.assertTrue(first_after["scheduled_until"])
             self.assertEqual([item["answered_by"] for item in first_after["call_log"]], ["voicemail"])
             self.assertEqual(first_after["call_log"][0]["id"], "CA-machine")
 
@@ -87,7 +87,9 @@ class Part3:
             self.assertEqual(saved[0]["answered_by"], "no_answer")
             self.assertTrue(saved[0]["started_at"])
             self.assertIsNotNone(dialer.advance_timer)
-            self.assertTrue(crm.snapshot()[0]["passed_at"])
+            kept = crm.snapshot()[0]
+            self.assertEqual(kept["status"], "call")
+            self.assertTrue(kept["scheduled_until"])
             dialer.advance_timer.cancel()
 
     def _dialer_with_leads(self, directory, count):
@@ -108,7 +110,7 @@ class Part3:
         dialer.session = new_session()
         return crm, dialer
 
-    def test_a_line_that_loses_the_race_becomes_a_five_minute_callback_logged_once(self):
+    def test_a_line_that_loses_the_race_becomes_a_forty_eight_hour_callback_logged_once(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer_with_leads(directory, 2)
             leads = crm.snapshot()
@@ -123,8 +125,8 @@ class Part3:
             kept = crm.snapshot()[1]
             self.assertEqual(kept["status"], "call")
             remaining = datetime.fromisoformat(kept["scheduled_until"]) - utc_now()
-            self.assertGreater(remaining, timedelta(minutes=5) - timedelta(seconds=5))
-            self.assertLessEqual(remaining, timedelta(minutes=5))
+            self.assertGreater(remaining, timedelta(hours=48) - timedelta(seconds=5))
+            self.assertLessEqual(remaining, timedelta(hours=48))
             self.assertEqual([item["answered_by"] for item in kept["call_log"]], ["race_lost"])
             # Reading the state must not add a second record for the callback.
             dialer.public_state()
@@ -133,7 +135,7 @@ class Part3:
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()
 
-    def test_a_dropped_callback_comes_back_after_five_minutes_and_not_before(self):
+    def test_a_dropped_callback_comes_back_after_forty_eight_hours_and_not_before(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer_with_leads(directory, 2)
             leads = crm.snapshot()
@@ -144,16 +146,16 @@ class Part3:
             dialer.in_flight.clear()
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], [])
 
-            def move_back(minutes):
+            def move_back(hours):
                 lead = crm.leads[1]
-                lead["scheduled_until"] = (datetime.fromisoformat(lead["scheduled_until"]) - timedelta(minutes=minutes)).isoformat()
+                lead["scheduled_until"] = (datetime.fromisoformat(lead["scheduled_until"]) - timedelta(hours=hours)).isoformat()
                 for item in lead["call_log"]:
-                    item["started_at"] = (datetime.fromisoformat(item["started_at"]) - timedelta(minutes=minutes)).isoformat()
+                    item["started_at"] = (datetime.fromisoformat(item["started_at"]) - timedelta(hours=hours)).isoformat()
 
-            move_back(4)
+            move_back(40)
             self.assertEqual(crm.snapshot()[1]["status"], "call")
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], [])
-            move_back(2)
+            move_back(10)
             self.assertEqual(crm.snapshot()[1]["status"], "new")
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], ["prospect-1"])
             if dialer.advance_timer:
@@ -193,12 +195,12 @@ class Part3:
             return {"call_log": [{"id": "x", "started_at": (now - ago).isoformat(), "answered_by": answered_by}]}
 
         self.assertTrue(calls._dialed_recently(lead("no_answer", timedelta(hours=1)), now))
-        self.assertFalse(calls._dialed_recently(lead("no_answer", timedelta(hours=4)), now))
+        self.assertTrue(calls._dialed_recently(lead("no_answer", timedelta(hours=40)), now))
+        self.assertFalse(calls._dialed_recently(lead("no_answer", timedelta(hours=49)), now))
         self.assertTrue(calls._dialed_recently(lead("voicemail", timedelta(hours=3)), now))
-        self.assertFalse(calls._dialed_recently(lead("voicemail", timedelta(hours=5)), now))
-        self.assertTrue(calls._dialed_recently(lead("race_lost", timedelta(seconds=30)), now))
-        self.assertTrue(calls._dialed_recently(lead("race_lost", timedelta(minutes=4)), now))
-        self.assertFalse(calls._dialed_recently(lead("race_lost", timedelta(minutes=6)), now))
+        self.assertFalse(calls._dialed_recently(lead("voicemail", timedelta(hours=49)), now))
+        self.assertTrue(calls._dialed_recently(lead("race_lost", timedelta(hours=1)), now))
+        self.assertFalse(calls._dialed_recently(lead("race_lost", timedelta(hours=49)), now))
         self.assertTrue(calls._dialed_recently(lead("unknown", timedelta(hours=5)), now))
         self.assertTrue(calls._dialed_recently(lead("", timedelta(hours=5)), now))
         self.assertFalse(calls._dialed_recently(lead("unknown", timedelta(hours=13)), now))

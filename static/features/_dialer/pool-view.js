@@ -1,8 +1,27 @@
 import { state } from "../../_core/state.js";
-import { byId, setText } from "../../_core/format.js";
+import {
+  byId,
+  CRM_STATUS_LABELS,
+  DEFAULT_DIAL_POOL_STATUS,
+  DIAL_POOL_STATUSES,
+  DIAL_POOL_STATUS_LABELS,
+  setText,
+} from "../../_core/format.js";
 import { openTranscript } from "../../_core/transcript.js";
 
+export function renderPoolStatusFilters() {
+  const keys = DIAL_POOL_STATUSES;
+  const labels = DIAL_POOL_STATUS_LABELS;
+  const selected = state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS;
+  const options = keys.map((key) => new Option(labels[key] || key, key));
+  for (const select of [byId("dialerPoolStatusFilter"), byId("poolStatusFilter")].filter(Boolean)) {
+    select.replaceChildren(...options.map((option) => option.cloneNode(true)));
+    select.value = keys.includes(selected) ? selected : "new";
+  }
+}
+
 export function renderTimezoneFilters() {
+  renderPoolStatusFilters();
   const groups = state.timezone_groups || [];
   const totalNew = groups.reduce((sum, group) => sum + group.count, 0);
   const selected = state.selected_timezone || "";
@@ -70,7 +89,11 @@ export function renderCallerPool() {
   const pool = state.pool || [];
   renderTimezoneFilters();
   setText("poolTabCount", String(pool.length));
-  setText("poolTableSummary", `${pool.length} new prospect${pool.length === 1 ? "" : "s"}${state.selected_timezone ? ` · ${state.selected_timezone}` : ""}`);
+  const poolLabel = DIAL_POOL_STATUS_LABELS[state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS] || "New";
+  const zoneSuffix = state.selected_timezone ? ` · ${state.selected_timezone}` : "";
+  setText("poolTableSummary", `${pool.length} ${poolLabel} prospect${pool.length === 1 ? "" : "s"}${zoneSuffix}`);
+  const emptyHint = byId("poolTableEmptyHint");
+  if (emptyHint) emptyHint.textContent = `Only prospects marked ${poolLabel} appear in this pool.`;
   const body = byId("poolTableBody");
   body.replaceChildren(...pool.map((lead) => {
     const row = document.createElement("tr");
@@ -94,8 +117,8 @@ export function renderCallerPool() {
     }
     const status = document.createElement("td");
     const statusLabel = document.createElement("span");
-    statusLabel.className = "pool-new-status";
-    statusLabel.textContent = "New";
+    statusLabel.className = `pool-new-status pool-status-${lead.status || "new"}`;
+    statusLabel.textContent = CRM_STATUS_LABELS[lead.status] || lead.status || "New";
     status.append(statusLabel);
     row.append(status);
     const transcript = document.createElement("td");

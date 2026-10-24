@@ -101,11 +101,10 @@ class Part4:
             self.assertIs(dialer.active, launched[0])
             self.assertEqual(crm.snapshot()[0]["status"], "new")
             for lead in crm.snapshot()[1:]:
-                # A dropped line becomes a 5 minute callback, with one record in the dial list.
                 self.assertEqual(lead["status"], "call")
                 remaining = datetime.fromisoformat(lead["scheduled_until"]) - utc_now()
-                self.assertGreater(remaining, timedelta(minutes=5) - timedelta(seconds=5))
-                self.assertLessEqual(remaining, timedelta(minutes=5))
+                self.assertGreater(remaining, timedelta(hours=48) - timedelta(seconds=5))
+                self.assertLessEqual(remaining, timedelta(hours=48))
                 self.assertEqual([item["answered_by"] for item in lead["call_log"]], ["race_lost"])
             dialer.public_state()
             for lead in crm.snapshot()[1:]:
@@ -347,7 +346,7 @@ class Part4:
             self.assertTrue(dialer.paused)
             self.assertIn("401", dialer.last_error)
 
-    def test_a_prospect_dialed_in_the_last_12_hours_stays_out_of_the_queue(self):
+    def test_a_prospect_dialed_in_the_last_forty_eight_hours_stays_out_of_the_queue(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
             recent = {
@@ -367,7 +366,7 @@ class Part4:
                 "scheduled_until": None, "transcript": [], "fields": {},
                 "call_log": [{
                     "id": "CA-older",
-                    "started_at": (utc_now() - timedelta(hours=13)).isoformat(),
+                    "started_at": (utc_now() - timedelta(hours=49)).isoformat(),
                     "ended_at": "",
                     "answered_by": "no_answer",
                 }],
@@ -394,6 +393,27 @@ class Part4:
             )
             self.assertEqual(dialer.public_state()["timezone_groups"][0]["count"], 1)
 
+    def test_send_info_pool_mode_only_dials_send_info_prospects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            new_lead = {
+                "id": "new-1", "name": "New", "business": "Shop",
+                "phone": "+12025550101", "timezone": "Eastern", "status": "new",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            send_info = {
+                "id": "info-1", "name": "Info", "business": "Shop",
+                "phone": "+12025550102", "timezone": "Eastern", "status": "send_info",
+                "scheduled_until": None, "transcript": [], "fields": {},
+            }
+            crm.leads = [new_lead, send_info]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.session = new_session()
+            self.assertEqual([lead["id"] for lead in dialer.public_state()["pool"]], ["new-1"])
+            dialer.set_pool_filters(pool_status="send_info")
+            self.assertEqual(dialer.public_state()["dial_pool_status"], "send_info")
+            self.assertEqual([lead["id"] for lead in dialer.public_state()["pool"]], ["info-1"])
+
     def test_a_line_with_no_twilio_update_is_released(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
@@ -415,7 +435,9 @@ class Part4:
                 calls._expire_silent_call(dialer, call["token"])
                 self.assertTrue(call["end_processed"])
                 self.assertNotIn(call["token"], dialer.in_flight)
-                self.assertTrue(crm.snapshot()[0]["passed_at"])
+                kept = crm.snapshot()[0]
+                self.assertEqual(kept["status"], "call")
+                self.assertTrue(kept["scheduled_until"])
                 call["end_processed"] = False
                 call["picked_up"] = True
                 dialer.in_flight[call["token"]] = call
@@ -437,7 +459,7 @@ class Part4:
             self._scan_lead("fresh", "ada   lovelace", "new", None, fields={"City": "Austin", "State": "tx"}),
             self._scan_lead("other-city", "Ada Lovelace", "new", None, city="Dallas", state="TX"),
             self._scan_lead("booked", "Ada Lovelace", "booked", None, city="Austin", state="TX"),
-            self._scan_lead("far", "Grace Hopper", "call", now + timedelta(hours=20), city="Austin", state="TX", dialed=True),
+            self._scan_lead("far", "Grace Hopper", "call", now + timedelta(hours=50), city="Austin", state="TX", dialed=True),
             self._scan_lead("far-copy", "Grace Hopper", "new", None, city="Austin", state="TX"),
             self._scan_lead("quiet", "Alan Turing", "call", due, city="Austin", state="TX"),
             self._scan_lead("quiet-copy", "Alan Turing", "new", None, city="Austin", state="TX"),

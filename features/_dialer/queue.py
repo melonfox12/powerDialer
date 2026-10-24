@@ -10,6 +10,11 @@ from features._dialer import calls, slots, timing
 from features._dialer import projection, rules, twilio
 from features._dialer.rules import new_session, session_summary
 from shared.infra import utc_now
+from shared.vocabulary import (
+    DIAL_POOL_STATUS_LABELS,
+    DIAL_POOL_STATUSES,
+    canonical_status,
+)
 
 def scan_crm(state):
     """Copy an open callback onto new prospects with the same name and location."""
@@ -21,14 +26,25 @@ def scan_crm(state):
         except ValueError:
             continue
         synced += 1
-    disqualified = state.crm.enforce_dial_caps()
+    dial_caps = state.crm.enforce_dial_caps(repair_misclassified=True)
     if synced:
         noun = "prospect" if synced == 1 else "prospects"
         state.record_activity(f"Scan CRM synced {synced} {noun}", "web")
-    if disqualified:
-        noun = "prospect" if disqualified == 1 else "prospects"
-        state.record_activity(f"Marked {disqualified} {noun} disqualified (2+ dials)", "web")
-    return {"synced": synced, "disqualified": disqualified, "state": projection.public_state(state)}
+    repaired_new = dial_caps.get("to_new", 0)
+    if repaired_new:
+        noun = "prospect" if repaired_new == 1 else "prospects"
+        state.record_activity(f"Reset {repaired_new} {noun} to New (wrong auto-disqualify)", "web")
+    capped = dial_caps.get("capped", 0)
+    if capped:
+        noun = "prospect" if capped == 1 else "prospects"
+        state.record_activity(f"Marked {capped} {noun} no answer (disqualified) (5+ dials)", "web")
+    return {
+        "synced": synced,
+        "repaired": dial_caps,
+        "no_answer_disqualified": capped,
+        "disqualified": capped,
+        "state": projection.public_state(state),
+    }
 
 
 def maybe_enforce_dial_caps(state):
@@ -38,25 +54,40 @@ def maybe_enforce_dial_caps(state):
         if now - state.dial_cap_enforced_at < 60:
             return 0
         state.dial_cap_enforced_at = now
-    disqualified = state.crm.enforce_dial_caps()
-    if disqualified:
-        noun = "prospect" if disqualified == 1 else "prospects"
-        state.record_activity(f"Marked {disqualified} {noun} disqualified (2+ dials)", "web")
-    return disqualified
+    dial_caps = state.crm.enforce_dial_caps()
+    capped = dial_caps.get("capped", 0)
+    if capped:
+        noun = "prospect" if capped == 1 else "prospects"
+        state.record_activity(f"Marked {capped} {noun} no answer (disqualified) (5+ dials)", "web")
+    return capped
 
 
-def set_timezone_filter(state, timezone):
-    timezone = str(timezone or "").strip() or None
+def set_pool_filters(state, timezone=None, pool_status=None):
     leads = state.crm.snapshot()
     with state.lock:
-        state.selected_timezone = timezone
+        if timezone is not None:
+            state.selected_timezone = str(timezone or "").strip() or None
+        if pool_status is not None:
+            parsed = canonical_status(pool_status)
+            if parsed not in DIAL_POOL_STATUSES:
+                raise ValueError("Dial pool status must be New or Send info.")
+            state.dial_pool_status = parsed
         if state.session:
             state.queue_total = len(calls._pool_leads(state, leads))
-        state.last_event = f"Dialing pool set to {timezone}" if timezone else "Dialing pool set to all timezones"
+        label = DIAL_POOL_STATUS_LABELS.get(state.dial_pool_status, state.dial_pool_status)
+        zone = state.selected_timezone
+        if zone:
+            state.last_event = f"Dialing pool: {label} · {zone}"
+        else:
+            state.last_event = f"Dialing pool: {label} · all timezones"
         should_fill = state.running and state.agent_ready and not state.paused and not state.pending_outcome and not state.active
     if should_fill:
         slots.fill_slots(state)
     return projection.public_state(state)
+
+
+def set_timezone_filter(state, timezone):
+    return set_pool_filters(state, timezone=timezone)
 
 def start(state, priority_lead_id=None):
     priority = calls._dialable_lead(state, priority_lead_id) if priority_lead_id else None
@@ -86,8 +117,11 @@ def start(state, priority_lead_id=None):
     twilio.prepare_browser_voice(state, values)
     eligible = calls._pool_leads(state)
     if not eligible and priority is None:
-        where = f" in the {state.selected_timezone} timezone" if state.selected_timezone else ""
-        raise ValueError(f"There are no prospects ready to dial{where}. Prospects dialed in the last 12 hours stay out of the queue.")
+        label = DIAL_POOL_STATUS_LABELS.get(state.dial_pool_status, "New")
+        where = f" with {label} status"
+        if state.selected_timezone:
+            where += f" in the {state.selected_timezone} timezone"
+        raise ValueError(f"There are no prospects ready to dial{where}. Prospects dialed recently stay out of the queue.")
     with state.lock:
         state.running = True
         state.paused = False
@@ -217,7 +251,7 @@ def _has_dial_record(log, due):
     return False
 
 def remember_open_skips(state):
-    """Keep a 12-hour callback that has no call record in the dial list."""
+    """Keep an open callback that has no matching dial record in the dial list."""
     now = utc_now()
     for lead in state.crm.snapshot():
         if lead.get("status") != "call" or not lead.get("scheduled_until"):
@@ -236,7 +270,7 @@ def remember_open_skips(state):
         remember_skip(state, lead["id"], due - calls.MANUAL_CALLBACK)
 
 def schedule_callback(state, lead_id, scheduled_until=None, log_skip=True):
-    """Set the callback timer (12 hours unless a time is given). log_skip adds the dial-list entry for it."""
+    """Set a manual callback (6 hours by default). log_skip adds the dial-list entry for it."""
     now = utc_now().replace(microsecond=0)
     due = scheduled_until or (now + calls.MANUAL_CALLBACK).isoformat()
     lead = state.crm.set_status(lead_id, "call", due)
@@ -244,13 +278,19 @@ def schedule_callback(state, lead_id, scheduled_until=None, log_skip=True):
         remember_skip(state, lead_id, now)
     return lead
 
-def schedule_dropped_callback(state, lead_id):
-    """Put a line we dropped back on a short callback. The dial list already has its record."""
+
+def schedule_no_pickup_callback(state, lead_id):
+    """After no pickup, set CRM to Callback with a 48-hour timer. Skips booked/disqualified and active callbacks."""
     lead = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
     if lead is None or lead.get("status") != "new":
         return None
-    due = utc_now().replace(microsecond=0) + calls.DROPPED_CALLBACK
-    return state.crm.set_status(lead_id, "call", due.isoformat())
+    due = (utc_now().replace(microsecond=0) + calls.NO_PICKUP_CALLBACK).isoformat()
+    return state.crm.set_status(lead_id, "call", due)
+
+
+def schedule_dropped_callback(state, lead_id):
+    """Put a line we dropped (lost race, etc.) on the same no-pickup callback as a no-answer."""
+    return schedule_no_pickup_callback(state, lead_id)
 
 def pass_next(state, lead_id=None):
     lead_id = str(lead_id or "").strip() or _current_queue_id(state, state.crm.snapshot())

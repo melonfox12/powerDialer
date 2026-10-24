@@ -24,32 +24,20 @@ from zoneinfo import ZoneInfo
 from shared.vocabulary import (
     CALL_OUTCOME_KEYS,
     CONVERSATION_MIN_SECONDS,
+    NOT_CONNECTED_CALL_ANSWERS,
     PERFORMANCE_RANGES,
     canonical_status,
+    is_connected_call_log_entry,
 )
 
-LEGACY_CONNECTED_ANSWERS = ("human", "unknown")
-NOT_CONNECTED_ANSWERS = (
-    "no_answer",
-    "voicemail",
-    "skipped",
-    "race_lost",
-    "cancelled",
-    "dead_line",
-)
+NOT_CONNECTED_ANSWERS = NOT_CONNECTED_CALL_ANSWERS
 SKIPPED_ANSWER = "skipped"
 BOOKED_STATUS = "booked"
 
 
 def is_connected_record(entry):
     """A connect is a dial where the agent was bridged to the prospect (picked up)."""
-    connected = entry.get("connected")
-    if isinstance(connected, bool):
-        return connected
-    answered = str(entry.get("answered_by") or "")
-    if answered in NOT_CONNECTED_ANSWERS:
-        return False
-    return answered in LEGACY_CONNECTED_ANSWERS
+    return is_connected_call_log_entry(entry)
 
 
 def parse_moment(value):

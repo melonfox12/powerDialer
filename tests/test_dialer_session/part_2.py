@@ -166,8 +166,8 @@ class Part2:
             due = datetime.fromisoformat(kept["scheduled_until"])
             remaining = due - utc_now()
             self.assertEqual(kept["status"], "call")
-            self.assertGreater(remaining, timedelta(hours=12) - timedelta(seconds=2))
-            self.assertLessEqual(remaining, timedelta(hours=12))
+            self.assertGreater(remaining, timedelta(hours=6) - timedelta(seconds=2))
+            self.assertLessEqual(remaining, timedelta(hours=6))
             # The call on the line is already in the dial list, so there is no extra skip entry.
             self.assertEqual([item["id"] for item in kept["call_log"]], [call["token"]])
             view = dialer.public_state()
@@ -241,8 +241,8 @@ class Part2:
             self.assertLessEqual(abs(utc_now() - skipped_at), timedelta(seconds=2))
             due = datetime.fromisoformat(kept["scheduled_until"])
             remaining = due - utc_now()
-            self.assertGreater(remaining, timedelta(hours=12) - timedelta(seconds=2))
-            self.assertLessEqual(remaining, timedelta(hours=12))
+            self.assertGreater(remaining, timedelta(hours=6) - timedelta(seconds=2))
+            self.assertLessEqual(remaining, timedelta(hours=6))
             self.assertEqual(len(crm.snapshot()), 3)
 
             dialer.pass_next("prospect-1")
@@ -254,7 +254,7 @@ class Part2:
                 stored = next(lead for lead in crm.leads if lead["id"] == "prospect-0")
                 stored["scheduled_until"] = (utc_now() - timedelta(seconds=1)).isoformat()
                 for item in stored.get("call_log") or []:
-                    item["started_at"] = (utc_now() - timedelta(hours=12, seconds=1)).isoformat()
+                    item["started_at"] = (utc_now() - timedelta(hours=13)).isoformat()
             returned = next(lead for lead in crm.snapshot() if lead["id"] == "prospect-0")
             self.assertEqual(returned["status"], "new")
             self.assertIsNone(returned["scheduled_until"])
@@ -265,7 +265,7 @@ class Part2:
                 other["status"] = "new"
                 other["scheduled_until"] = None
                 for item in other.get("call_log") or []:
-                    item["started_at"] = (utc_now() - timedelta(hours=12, seconds=1)).isoformat()
+                    item["started_at"] = (utc_now() - timedelta(hours=13)).isoformat()
             dialer.running = True
             dialer.in_flight["token"] = {"lead_id": "prospect-0", "kind": "prospect"}
             skipped_live = dialer.pass_next("prospect-0")
@@ -296,4 +296,4 @@ class Part2:
             dialer.public_state()
             kept = crm.snapshot()[0]
             self.assertEqual(kept["call_log"][0]["answered_by"], "skipped")
-            self.assertEqual(kept["call_log"][0]["started_at"], (due - timedelta(hours=12)).isoformat())
+            self.assertEqual(kept["call_log"][0]["started_at"], (due - timedelta(hours=6)).isoformat())

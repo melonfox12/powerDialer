@@ -8,22 +8,30 @@ export const STATUS_LABELS = Object.fromEntries(Object.entries(STATUS_STYLES).ma
 export const STATUS_COLOR_VARS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.color]));
 export const STATUS_KEYS = vocabulary.statuses.map((status) => status.key);
 // Mirrors shared/vocabulary.py when the page was served before crmStatusKeys was added.
-const FALLBACK_CRM_STATUS_KEYS = ["new", "call", "send_info", "booked", "disqualified"];
+const FALLBACK_CRM_STATUS_KEYS = ["new", "call", "send_info", "booked", "disqualified", "no_answer_disqualified"];
 const FALLBACK_CRM_STATUS_LABELS = {
   new: "New",
-  call: "Callback (12 hour timer)",
+  call: "Callback",
   send_info: "Send info",
   booked: "Booked",
   disqualified: "Disqualified",
+  no_answer_disqualified: "No answer (disqualified)",
 };
 export const CRM_STATUS_KEYS = Array.isArray(vocabulary.crmStatusKeys) && vocabulary.crmStatusKeys.length
   ? vocabulary.crmStatusKeys
   : FALLBACK_CRM_STATUS_KEYS;
 export const CRM_STATUS_LABELS = vocabulary.crmStatusLabels ?? FALLBACK_CRM_STATUS_LABELS;
-const FALLBACK_NEVER_DIAL_STATUSES = ["booked", "disqualified"];
+const FALLBACK_NEVER_DIAL_STATUSES = ["booked", "disqualified", "no_answer_disqualified"];
 export const NEVER_DIAL_STATUSES = Array.isArray(vocabulary.neverDialStatuses) && vocabulary.neverDialStatuses.length
   ? vocabulary.neverDialStatuses
   : FALLBACK_NEVER_DIAL_STATUSES;
+const FALLBACK_DIAL_POOL_STATUSES = ["new", "send_info"];
+const FALLBACK_DIAL_POOL_STATUS_LABELS = { new: "New", send_info: "Send info" };
+export const DIAL_POOL_STATUSES = Array.isArray(vocabulary.dialPoolStatuses) && vocabulary.dialPoolStatuses.length
+  ? vocabulary.dialPoolStatuses
+  : FALLBACK_DIAL_POOL_STATUSES;
+export const DIAL_POOL_STATUS_LABELS = vocabulary.dialPoolStatusLabels ?? FALLBACK_DIAL_POOL_STATUS_LABELS;
+export const DEFAULT_DIAL_POOL_STATUS = vocabulary.defaultDialPoolStatus || "new";
 // A prospect in a never-dial status cannot go back to "new" or "call".
 export const leavesQueueForGood = (lead, status) => (
   NEVER_DIAL_STATUSES.includes(lead?.status) && !NEVER_DIAL_STATUSES.includes(status)

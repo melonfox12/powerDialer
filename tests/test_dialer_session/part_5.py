@@ -146,7 +146,7 @@ class Part5:
             self.assertIsNone(queue.schedule_dropped_callback(dialer, "held"))
             self.assertEqual(crm.snapshot()[0]["scheduled_until"], manual["scheduled_until"])
 
-    def test_a_manual_callback_is_twelve_hours(self):
+    def test_a_manual_callback_is_six_hours(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer(directory, [
                 _lead("menu", "+12025550101", "Ada"),
@@ -159,15 +159,15 @@ class Part5:
                 return datetime.fromisoformat(lead["scheduled_until"]) - utc_now()
 
             dialer.update_status("menu", "call")
-            self.assertGreater(remaining("menu"), timedelta(hours=12) - timedelta(seconds=5))
-            self.assertLessEqual(remaining("menu"), timedelta(hours=12))
+            self.assertGreater(remaining("menu"), timedelta(hours=6) - timedelta(seconds=5))
+            self.assertLessEqual(remaining("menu"), timedelta(hours=6))
 
             call = dialer._new_call("prospect", crm.snapshot()[1])
             call["picked_up"] = True
             dialer.active = call
             dialer.update_status("live", disposition="callback")
-            self.assertGreater(remaining("live"), timedelta(hours=12) - timedelta(seconds=5))
-            self.assertLessEqual(remaining("live"), timedelta(hours=12))
+            self.assertGreater(remaining("live"), timedelta(hours=6) - timedelta(seconds=5))
+            self.assertLessEqual(remaining("live"), timedelta(hours=6))
             # The call is already in the dial list, so a callback adds no skipped record.
             dialer.public_state()
             log = next(item for item in crm.snapshot() if item["id"] == "live")["call_log"]

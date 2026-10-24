@@ -37,6 +37,9 @@ class Dialer(DialerState):
     def set_timezone_filter(self, timezone):
         return queue.set_timezone_filter(self, timezone)
 
+    def set_pool_filters(self, timezone=None, pool_status=None):
+        return queue.set_pool_filters(self, timezone=timezone, pool_status=pool_status)
+
     def scan_crm(self):
         return queue.scan_crm(self)
 
@@ -165,7 +168,13 @@ def get_voice_token(request):
 
 
 def post_timezone(request, data):
-    request.send_json(200, request.account.dialer.set_timezone_filter(data.get("timezone")))
+    timezone = data.get("timezone") if "timezone" in data else None
+    pool_status = data.get("pool_status") if "pool_status" in data else None
+    try:
+        request.send_json(200, request.account.dialer.set_pool_filters(timezone=timezone, pool_status=pool_status))
+    except ValueError as exc:
+        request._trace_error = str(exc)
+        request.send_json(400, {"error": str(exc)})
 
 
 def post_start(request):

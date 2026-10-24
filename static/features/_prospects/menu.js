@@ -30,7 +30,7 @@ export function bindProspectMenu() {
 
   function openMenu(nextLead, x, y, row) {
     lead = nextLead;
-    const blocked = nextLead.status === "disqualified";
+    const blocked = nextLead.status === "disqualified" || nextLead.status === "no_answer_disqualified";
     const missing = !nextLead.phone;
     button.disabled = blocked || missing;
     label.textContent = blocked ? "Disqualified" : "Dial";
