@@ -74,7 +74,10 @@ def _call_ended(state, call, params):
                 others = list(state.in_flight.values())
             elif state.running and not was_connected and not pending_already and not outcome_already_chosen:
                 state.last_event = "No answer"
-                should_refill = not state.active and not state.pending_outcome and not state.paused
+                should_refill = (
+                    not state.active and not state.pending_outcome and not state.paused
+                    and not state.in_flight
+                )
                 others = []
             else:
                 others = []

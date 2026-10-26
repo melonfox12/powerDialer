@@ -132,6 +132,7 @@ class HttpContractTests(unittest.TestCase):
             "dials_to_connected",
             "connected_to_conversations",
             "conversations_to_booked",
+            "connected_to_booked",
         ))
         self.assert_keys(payload["trend"], ("grain", "buckets"))
         self.assertIsInstance(payload["trend"]["buckets"], list)

@@ -105,7 +105,7 @@ CALL_OUTCOMES = (
 CALL_OUTCOME_KEYS = tuple(item["key"] for item in CALL_OUTCOMES)
 PERFORMANCE_RANGES = ("day", "week", "month")
 DEFAULT_PERFORMANCE_RANGE = "week"
-DEFAULT_DAILY_CONVERSATION_GOAL = 20
+DEFAULT_DAILY_CONVERSATION_GOAL = 30
 DEFAULT_DAILY_TALK_GOAL_MINUTES = 60
 # Connect-rate heatmap: hidden below the unlock count, and a cell is muted below the bucket minimum.
 HEATMAP_UNLOCK_DIALS = 100
@@ -150,7 +150,7 @@ SETTING_DEFAULTS = {
     "CALLING_END_HOUR": "21",
     "OPENING_SCRIPT": "",
     "DAILY_GOAL_MINUTES": "60",
-    "DAILY_CONVERSATION_GOAL": "20",
+    "DAILY_CONVERSATION_GOAL": "30",
     # 0 turns the weekly increase off. The anchor is the local date the goal was last set.
     "DAILY_GOAL_WEEKLY_STEP_MINUTES": "0",
     "DAILY_GOAL_ANCHOR": "",

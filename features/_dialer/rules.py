@@ -43,7 +43,7 @@ def dialer_stage(running, paused, active, pending_outcome, in_flight):
         return "wrapup"
     if active:
         return "connected"
-    if any(call.get("state") == "ringing" for call in in_flight):
+    if in_flight:
         return "ringing"
     return "dialing"
 

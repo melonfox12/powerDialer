@@ -42,12 +42,13 @@ function normalizePerformancePayload(data) {
       dials_to_connected: metrics.connect_rate?.value ?? null,
       connected_to_conversations: metrics.conversation_rate?.value ?? null,
       conversations_to_booked: metrics.booking_rate?.value ?? null,
+      connected_to_booked: metrics.pickup_booking_rate?.value ?? metrics.booking_rate?.value ?? null,
     },
     trend: data.trend || { grain: "day", buckets: [] },
     daily: {
       range: data.range,
       conversations: value("conversations"),
-      conversation_goal: 20,
+      conversation_goal: 30,
       talk_minutes: Number(goal.minutes_today ?? 0),
       talk_minutes_goal: Number(goal.target_minutes ?? 60),
     },
@@ -93,24 +94,37 @@ function paintFunnel(funnel, counts) {
   if (!funnel) return;
   const c = counts || {};
   setText("funnelCountDials", String(c.dials ?? 0));
-  setText("funnelCountConversations", String(c.conversations ?? 0));
-  setText("funnelCountBooked", String(c.booked ?? 0));
-  const entries = [
-    ["funnelDetailConnect", "funnelRateConnectBar", funnel.dials_to_connected, c.connected, c.dials, "connect rate", "connects of dials"],
-    ["funnelDetailConversation", "funnelRateConversationBar", funnel.connected_to_conversations, c.conversations, c.connected, "conversation rate", "transcript connects of live connects"],
-    ["funnelDetailBooked", "funnelRateBookedBar", funnel.conversations_to_booked, c.booked, c.conversations, "booking rate", "booked of conversations"],
+  const transcriptDials = Number(c.conversations ?? 0);
+  const pickupRate = c.dials ? transcriptDials / c.dials : null;
+  const bookedDials = Number(c.booked ?? 0);
+  const bookedRate = c.dials ? bookedDials / c.dials : null;
+  const rateCards = [
+    ["funnelRatePickups", "funnelDetailPickups", "funnelRatePickupsBar", pickupRate, transcriptDials, c.dials],
+    ["funnelRateBooked", "funnelDetailBooked", "funnelRateBookedBar", bookedRate, bookedDials, c.dials],
   ];
-  for (const [detailId, barId, ratio, num, den, rateLabel, detailSuffix] of entries) {
+  for (const [valueId, detailId, barId, ratio, num, den] of rateCards) {
+    setText(valueId, formatRate(ratio));
     const detail = byId(detailId);
-    if (detail) {
-      const rate = formatRate(ratio);
-      detail.textContent = rate === "—"
-        ? `${detailSuffix} · ${rateLabel} —`
-        : `${num} of ${den} ${detailSuffix} · ${rateLabel} ${rate}`;
-    }
+    if (detail) detail.textContent = `${num ?? 0} of ${den ?? 0}`;
     const bar = byId(barId);
     bar.style.width = typeof ratio === "number" && Number.isFinite(ratio) ? `${Math.min(100, ratio * 100)}%` : "0%";
   }
+}
+
+function normalizeTrend(trend) {
+  const base = trend && typeof trend === "object" ? trend : { grain: "day", buckets: [] };
+  const buckets = Array.isArray(base.buckets) ? base.buckets : [];
+  return {
+    ...base,
+    buckets: buckets.map((bucket) => {
+      const pickupsRaw = bucket?.pickups ?? bucket?.conversations;
+      const pickups = Number(pickupsRaw);
+      return {
+        ...bucket,
+        pickups: Number.isFinite(pickups) ? Math.max(0, pickups) : 0,
+      };
+    }),
+  };
 }
 
 function paint(data) {
@@ -118,10 +132,15 @@ function paint(data) {
   if (data.range && data.range !== S.performanceRange) return;
   paintDailyGoals(data.daily, data.range);
   paintFunnel(data.funnel, data.counts);
-  const trend = data.trend || { grain: "day", buckets: [] };
+  schedulePerformanceLineChart(normalizeTrend(data.trend));
+}
+
+function schedulePerformanceLineChart(trend) {
   buildPerformanceLineChart(trend);
   requestAnimationFrame(() => {
-    if (S.dashboardTab === "performance") buildPerformanceLineChart(trend);
+    requestAnimationFrame(() => {
+      if (S.dashboardTab === "performance") buildPerformanceLineChart(trend);
+    });
   });
 }
 
@@ -161,6 +180,12 @@ export function renderMetrics() {
   if (S.dashboardTab !== "performance") return;
   if (Date.now() - S.performanceFetchedAt > REFRESH_MS) refreshPerformance();
   paintIfNew();
+}
+
+export function repaintPerformanceChart() {
+  const trend = state.performance?.trend;
+  if (!trend) return;
+  schedulePerformanceLineChart(normalizeTrend(trend));
 }
 
 function setRange(range) {

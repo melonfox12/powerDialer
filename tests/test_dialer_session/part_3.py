@@ -123,6 +123,21 @@ class Part3:
             self.assertNotIn(lead["id"], launched)
             self.assertEqual(launched, [crm.snapshot()[1]["id"]])
 
+    def test_parallel_no_answer_does_not_schedule_advance_while_sibling_rings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 2)
+            leads = crm.snapshot()
+            ringing = dialer._new_call("prospect", leads[1])
+            ringing["call_uuid"] = "CA-ringing"
+            missed = dialer._new_call("prospect", leads[0])
+            missed["call_uuid"] = "CA-miss"
+            dialer._call_ended(missed, {"CallStatus": "no-answer", "CallDuration": "0"})
+            self.assertIsNone(dialer.advance_timer)
+            dialer._call_ended(ringing, {"CallStatus": "no-answer", "CallDuration": "0"})
+            self.assertIsNotNone(dialer.advance_timer)
+            if dialer.advance_timer:
+                dialer.advance_timer.cancel()
+
     def test_unanswered_call_is_kept_in_the_dial_log(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")

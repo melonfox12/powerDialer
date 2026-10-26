@@ -8,9 +8,14 @@ A call record is one `call_log` entry on a prospect (skipped rows are not dials)
 (``picked_up`` at hangup), or legacy rows with ``answered_by`` human/unknown and not voicemail,
 no-answer, race_lost, etc.
 
-**Conversation** — a live connect (not voicemail) with ``transcript_lines`` > 0, any length. Used for
-funnel ``connected → conversations``, goal bars, and the activity chart (same three series as the
-metric cards: dials, conversations, booked). Talk time sums connected seconds on transcript dials.
+**Conversation** — a dial with a transcript (``transcript_lines`` > 0 or matching lead segments), not
+voicemail. Goal bars and the activity chart **pickups** series use this count per bucket (same rules
+as Total dials transcript dials). Talk time sums connected seconds on transcript dials.
+
+**Chart pickups** — per bucket, dials in that window where ``is_conversation`` is true (not raw
+``connected``).
+
+**Chart booked** — per bucket, dials in that window to prospects whose CRM status is ``booked``.
 
 **Funnel** — ``dials_to_connected`` = connects ÷ dials; ``connected_to_conversations`` = conversations
 ÷ connects; ``conversations_to_booked`` = booked ÷ conversations. Booked uses prospects currently
@@ -34,6 +39,7 @@ from shared.vocabulary import (
     CALL_OUTCOME_KEYS,
     CONVERSATION_MIN_SECONDS,
     NOT_CONNECTED_CALL_ANSWERS,
+    DEFAULT_DAILY_CONVERSATION_GOAL,
     PERFORMANCE_RANGES,
     canonical_status,
 )
@@ -188,6 +194,18 @@ def is_conversation(record):
     return str(record.get("answered_by") or "") != "voicemail"
 
 
+def leads_index(leads):
+    return {str(lead.get("id")): lead for lead in leads if lead.get("id")}
+
+
+def is_booked_lead_dial(call, leads_by_id):
+    """Dial in range to a prospect whose CRM status is Booked (chart booked series)."""
+    lead = leads_by_id.get(str(call.get("lead_id") or ""))
+    if not lead:
+        return False
+    return canonical_status(lead.get("status")) == BOOKED_STATUS
+
+
 def transcript_talk_seconds(record):
     """Talk time on transcript dials (segment span or connected duration)."""
     if record.get("transcript_lines", 0) <= 0:
@@ -268,11 +286,8 @@ def range_windows(range_key, now, zone):
 def window_counts(calls, leads, calls_by_lead, start, end):
     chosen = [call for call in calls if in_window(call["at"], start, end)]
     connected = [call for call in chosen if call["connected"]]
-    booked = 0
-    for lead in leads:
-        moment = active_booking_moment(lead, calls_by_lead)
-        if moment and in_window(moment["at"], start, end):
-            booked += 1
+    leads_by_id = leads_index(leads)
+    booked = sum(1 for call in chosen if is_booked_lead_dial(call, leads_by_id))
     return {
         "dials": len(chosen),
         "connected": len(connected),
@@ -287,6 +302,7 @@ def funnel_rates(counts):
         "dials_to_connected": rate(counts["connected"], counts["dials"]),
         "connected_to_conversations": rate(counts["conversations"], counts["connected"]),
         "conversations_to_booked": rate(counts["booked"], counts["conversations"]),
+        "connected_to_booked": rate(counts["booked"], counts["connected"]),
     }
 
 
@@ -309,6 +325,7 @@ def trend_buckets(calls, leads, calls_by_lead, range_key, start, end, now, zone)
             keys.append(day)
             day += timedelta(days=1)
 
+    leads_by_id = leads_index(leads)
     buckets = []
     for key in keys:
         if grain == "hour":
@@ -320,16 +337,15 @@ def trend_buckets(calls, leads, calls_by_lead, range_key, start, end, now, zone)
             bucket_end = datetime.combine(key, time.max, tzinfo=zone).astimezone(timezone.utc)
             label = {"date": key.isoformat(), "hour": None}
         bucket_calls = [call for call in chosen if in_window(call["at"], bucket_start, min(bucket_end, end))]
-        connected = [call for call in bucket_calls if call["connected"]]
-        booked = 0
-        for lead in leads:
-            moment = active_booking_moment(lead, calls_by_lead)
-            if moment and in_window(moment["at"], bucket_start, min(bucket_end, end)):
-                booked += 1
+        pickups = sum(1 for call in bucket_calls if is_conversation(call))
+        booked = sum(
+            1 for call in bucket_calls
+            if is_booked_lead_dial(call, leads_by_id)
+        )
         buckets.append({
             **label,
             "dials": len(bucket_calls),
-            "conversations": sum(is_conversation(call) for call in bucket_calls),
+            "pickups": pickups,
             "booked": booked,
         })
     return grain, buckets
@@ -350,7 +366,7 @@ def build_performance(leads, sessions, goal, range_key, tz_name, now, live_sessi
     goal_conversations = sum(is_conversation(call) for call in period_calls)
     goal_talk_seconds = sum(transcript_talk_seconds(call) for call in period_calls)
     has_activity = counts["dials"] > 0 or counts["booked"] > 0 or any(
-        bucket["dials"] or bucket["booked"] for bucket in buckets
+        bucket["pickups"] or bucket["booked"] for bucket in buckets
     )
     return {
         "range": range_key,
@@ -368,7 +384,7 @@ def build_performance(leads, sessions, goal, range_key, tz_name, now, live_sessi
         "daily": {
             "range": range_key,
             "conversations": goal_conversations,
-            "conversation_goal": int(goal.get("conversation_goal") or 20),
+            "conversation_goal": int(goal.get("conversation_goal") or DEFAULT_DAILY_CONVERSATION_GOAL),
             "talk_minutes": goal_talk_seconds / 60,
             "talk_minutes_goal": int(goal.get("talk_minutes_goal") or goal.get("minutes") or 60),
         },

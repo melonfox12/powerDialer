@@ -66,6 +66,33 @@ function rememberDashboardTab(name) {
   }
 }
 
+/** Match Performance column height to Dialer: document top → Recent activity row (+ doc bottom padding). */
+export function syncPerformanceDocumentHeight() {
+  const perf = document.querySelector(".performance-document");
+  const panel = byId("dialerTabPanel");
+  const doc = panel?.querySelector(".dialer-document");
+  const recent = doc?.querySelector(".activity-log-disclosure summary");
+  if (!perf || !doc || !recent) return;
+
+  const measure = () => {
+    const docRect = doc.getBoundingClientRect();
+    const recentRect = recent.getBoundingClientRect();
+    if (!recentRect.height) return null;
+    const padBottom = Number.parseFloat(getComputedStyle(doc).paddingBottom) || 0;
+    return Math.round(recentRect.bottom - docRect.top + padBottom);
+  };
+
+  let height = measure();
+  if (height == null && panel.hidden) {
+    panel.hidden = false;
+    height = measure();
+    panel.hidden = true;
+  }
+  if (height != null && height > 0) {
+    document.documentElement.style.setProperty("--performance-run-height", `${height}px`);
+  }
+}
+
 function placeTab(button, target, before) {
   const list = button.parentElement;
   if (before) list.insertBefore(button, target);
@@ -128,6 +155,7 @@ function bindTabReorder() {
 export function setDashboardTab(name, moveFocus = false) {
   S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : "dialer";
   rememberDashboardTab(S.dashboardTab);
+  syncPerformanceDocumentHeight();
   const selectedButton = byId(TAB_BUTTONS[S.dashboardTab]);
   for (const button of document.querySelectorAll("[data-dashboard-tab]")) {
     const selected = button === selectedButton;
@@ -146,6 +174,9 @@ export function setDashboardTab(name, moveFocus = false) {
   if (S.dashboardTab === "prospects") renderTable();
   if (S.dashboardTab === "pool") renderCallerPool();
   render();
+  if (S.dashboardTab === "performance") {
+    import("../features/performance.js").then((module) => module.repaintPerformanceChart());
+  }
   if (moveFocus) selectedButton.focus();
 }
 
@@ -189,5 +220,9 @@ export function bindNavigation() {
   for (const modeButton of document.querySelectorAll("[data-performance-mode]")) {
     modeButton.addEventListener("click", () => setPerformanceMode(modeButton.dataset.performanceMode));
   }
+  window.addEventListener("resize", syncPerformanceDocumentHeight);
   setDashboardTab(savedDashboardTab());
+  requestAnimationFrame(() => {
+    syncPerformanceDocumentHeight();
+  });
 }

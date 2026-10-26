@@ -1,19 +1,38 @@
-import { byId, dayLabel, formatRate } from "../../_core/format.js";
+import { byId, dayLabel } from "../../_core/format.js";
 
-/** Same three metrics as the period total cards (counts per bucket from performance.py). */
+/** Counts per bucket; same three metrics as the period cards (performance.py). */
 export const PERFORMANCE_CHART_SERIES = [
-  { key: "dials", label: "Dials", className: "line-series-dials", pointClass: "line-point-dials", marker: true },
-  { key: "conversations", label: "Conversations", className: "line-series-connected", pointClass: "line-point-connected", marker: true },
-  { key: "booked", label: "Booked", className: "line-series-booked", pointClass: "line-point-booked", marker: true },
+  { key: "dials", label: "Dials", stroke: "#34d399", className: "line-series-dials", pointClass: "line-point-dials" },
+  { key: "pickups", label: "Pickups", stroke: "#a78bfa", className: "line-series-pickups", pointClass: "line-point-pickups" },
+  { key: "booked", label: "Booked", stroke: "#f472b6", className: "line-series-booked", pointClass: "line-point-booked" },
 ];
 
 const SERIES = PERFORMANCE_CHART_SERIES;
 
-let visible = { dials: true, conversations: true, booked: true };
+let visible = { dials: true, pickups: true, booked: true };
 let lastTrend = null;
+let layoutRetryTimer = null;
+
+const VIEW_WIDTH = 960;
+const VIEW_HEIGHT = 320;
+const PLOT_LEFT = 40;
+const PLOT_RIGHT = 16;
+const PLOT_TOP = 16;
+const PLOT_BOTTOM = 32;
+const STROKE_WIDTH = 2.5;
 
 function hourLabel(hour) {
   return `${hour % 12 || 12}${hour < 12 ? "a" : "p"}`;
+}
+
+function bucketMetric(bucket, key) {
+  if (key === "pickups") {
+    const raw = bucket?.pickups ?? bucket?.conversations;
+    const value = Number(raw);
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
+  }
+  const value = Number(bucket?.[key]);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 function bucketTitle(bucket, grain) {
@@ -73,19 +92,41 @@ function paintLegend(onToggle) {
   }));
 }
 
-const CHART_HEIGHT = 320;
-const CHART_WIDTH = 960;
+function chartPanelHidden(container) {
+  return Boolean(container.closest("[hidden]") || container.hidden);
+}
 
-function chartSize(container) {
-  const hidden = container.closest("[hidden]") || container.hidden;
-  if (hidden) return { width: CHART_WIDTH, height: CHART_HEIGHT };
-  const rect = container.getBoundingClientRect();
-  const width = Math.round(rect.width) || container.clientWidth || CHART_WIDTH;
-  const height = Math.round(rect.height) || container.clientHeight || CHART_HEIGHT;
-  return {
-    width: Math.max(width, 320),
-    height: Math.max(height, 280),
-  };
+function chartLayoutReady(container) {
+  if (chartPanelHidden(container)) return false;
+  return container.getBoundingClientRect().height >= 40;
+}
+
+function scheduleLayoutRetry() {
+  if (layoutRetryTimer) return;
+  layoutRetryTimer = window.setTimeout(() => {
+    layoutRetryTimer = null;
+    if (lastTrend?.buckets?.length) buildPerformanceLineChart(lastTrend);
+  }, 50);
+}
+
+function xForBucketIndex(index, count, plotWidth) {
+  if (count <= 1) return PLOT_LEFT + plotWidth / 2;
+  return PLOT_LEFT + (index / (count - 1)) * plotWidth;
+}
+
+function yScaleMax(buckets) {
+  let peakDials = 0;
+  for (const bucket of buckets) {
+    peakDials = Math.max(peakDials, bucketMetric(bucket, "dials"));
+  }
+  if (peakDials <= 0) return 1;
+  return Math.max(1, Math.ceil(peakDials * 1.1));
+}
+
+function linePath(points) {
+  if (!points.length) return "";
+  const [first, ...rest] = points;
+  return `M ${first.x} ${first.y}${rest.map((point) => ` L ${point.x} ${point.y}`).join("")}`;
 }
 
 export function buildPerformanceLineChart(trend) {
@@ -96,52 +137,57 @@ export function buildPerformanceLineChart(trend) {
   const grain = trend?.grain || "day";
   lastTrend = trend;
   const hasData = buckets.length > 0;
-  empty.hidden = hasData;
-  container.hidden = !hasData;
+  const hiddenPanel = chartPanelHidden(container);
+  if (!hiddenPanel) {
+    empty.hidden = hasData;
+    container.hidden = !hasData;
+  }
   if (!hasData) {
-    container.textContent = "";
-    container.setAttribute("aria-label", "No activity in this range");
+    if (!hiddenPanel) {
+      container.textContent = "";
+      container.setAttribute("aria-label", "No activity in this range");
+    }
     return;
   }
-  const { width, height } = chartSize(container);
-  const left = 36;
-  const right = 12;
-  const top = 14;
-  const bottom = 28;
-  const plotWidth = width - left - right;
-  const plotHeight = height - top - bottom;
-  const { start: periodStart, end: periodEnd } = periodBounds(trend, buckets, grain);
-  const span = Math.max(periodEnd - periodStart, 1);
-  const maxValue = Math.max(1, ...buckets.flatMap((bucket) => [bucket.dials, bucket.conversations, bucket.booked]));
-  const xForTime = (ms) => {
-    const clamped = Math.min(periodEnd, Math.max(periodStart, ms));
-    return left + ((clamped - periodStart) / span) * plotWidth;
-  };
-  const xForIndex = (index) => xForTime(bucketCenterMs(buckets[index], grain));
-  const yFor = (value) => top + plotHeight - (value / maxValue) * plotHeight;
-  const parts = [];
-
-  parts.push(`<line x1="${left}" y1="${top}" x2="${left}" y2="${top + plotHeight}" class="line-chart-axis-edge" />`);
-  parts.push(`<line x1="${width - right}" y1="${top}" x2="${width - right}" y2="${top + plotHeight}" class="line-chart-axis-edge" />`);
-  parts.push(`<line x1="${left}" y1="${top + plotHeight}" x2="${width - right}" y2="${top + plotHeight}" class="line-chart-axis-edge" />`);
-
-  for (const fraction of [0, 0.5, 1]) {
-    const y = top + plotHeight * (1 - fraction);
-    const gridClass = fraction === 0 ? "line-chart-axis-baseline" : "line-chart-grid";
-    parts.push(`<line x1="${left}" y1="${y}" x2="${width - right}" y2="${y}" class="${gridClass}" />`);
-    parts.push(`<text x="${left - 8}" y="${y + 4}" class="line-chart-y-label">${Math.round(maxValue * fraction)}</text>`);
+  if (hiddenPanel) return;
+  if (!chartLayoutReady(container)) {
+    scheduleLayoutRetry();
+    return;
   }
 
-  for (const series of SERIES) {
-    if (!visible[series.key]) continue;
-    const points = buckets.map((bucket, index) => `${xForIndex(index)},${yFor(bucket[series.key] || 0)}`);
-    parts.push(`<polyline points="${points.join(" ")}" class="line-series ${series.className}" />`);
-    if (series.marker) {
-      buckets.forEach((bucket, index) => {
-        const value = bucket[series.key] || 0;
-        parts.push(`<circle cx="${xForIndex(index)}" cy="${yFor(value)}" r="3" class="line-point ${series.pointClass}"><title>${bucketTitle(bucket, grain)}: ${series.label} ${value}</title></circle>`);
-      });
-    }
+  const width = VIEW_WIDTH;
+  const height = VIEW_HEIGHT;
+  const plotWidth = width - PLOT_LEFT - PLOT_RIGHT;
+  const plotHeight = height - PLOT_TOP - PLOT_BOTTOM;
+  const plotBottom = PLOT_TOP + plotHeight;
+  const yMax = yScaleMax(buckets);
+  const { start: periodStart, end: periodEnd } = periodBounds(trend, buckets, grain);
+  const span = Math.max(periodEnd - periodStart, 1);
+  const xForTime = (ms) => {
+    const clamped = Math.min(periodEnd, Math.max(periodStart, ms));
+    return PLOT_LEFT + ((clamped - periodStart) / span) * plotWidth;
+  };
+  const yFor = (value) => {
+    const n = Number(value);
+    const safe = Number.isFinite(n) ? Math.max(0, n) : 0;
+    return plotBottom - (safe / yMax) * plotHeight;
+  };
+
+  const chrome = [];
+  const overlays = [];
+  const seriesParts = [];
+  const labels = [];
+
+  chrome.push(`<clipPath id="performance-plot-clip"><rect x="${PLOT_LEFT}" y="${PLOT_TOP}" width="${plotWidth}" height="${plotHeight}" /></clipPath>`);
+  chrome.push(`<line x1="${PLOT_LEFT}" y1="${PLOT_TOP}" x2="${PLOT_LEFT}" y2="${plotBottom}" class="line-chart-axis-edge" />`);
+  chrome.push(`<line x1="${width - PLOT_RIGHT}" y1="${PLOT_TOP}" x2="${width - PLOT_RIGHT}" y2="${plotBottom}" class="line-chart-axis-edge" />`);
+  chrome.push(`<line x1="${PLOT_LEFT}" y1="${plotBottom}" x2="${width - PLOT_RIGHT}" y2="${plotBottom}" class="line-chart-axis-edge" />`);
+
+  for (const fraction of [0, 0.5, 1]) {
+    const y = plotBottom - plotHeight * fraction;
+    const gridClass = fraction === 0 ? "line-chart-axis-baseline" : "line-chart-grid";
+    chrome.push(`<line x1="${PLOT_LEFT}" y1="${y}" x2="${width - PLOT_RIGHT}" y2="${y}" class="${gridClass}" />`);
+    chrome.push(`<text x="${PLOT_LEFT - 8}" y="${y + 4}" class="line-chart-y-label">${Math.round(yMax * fraction)}</text>`);
   }
 
   const step = Math.ceil(buckets.length / 8);
@@ -153,14 +199,32 @@ export function buildPerformanceLineChart(trend) {
     const slotEnd = index < buckets.length - 1 ? (center + nextCenter) / 2 : periodEnd;
     const rectX = xForTime(slotStart);
     const rectW = Math.max(1, xForTime(slotEnd) - rectX);
-    const title = `${bucketTitle(bucket, grain)}: Dials ${bucket.dials || 0}, Conversations ${bucket.conversations || 0}, Booked ${bucket.booked || 0}`;
-    parts.push(`<rect x="${rectX}" y="${top}" width="${rectW}" height="${plotHeight}" fill="transparent"><title>${title}</title></rect>`);
+    const title = `${bucketTitle(bucket, grain)}: Dials ${bucketMetric(bucket, "dials")}, Pickups ${bucketMetric(bucket, "pickups")}, Booked ${bucketMetric(bucket, "booked")}`;
+    overlays.push(`<rect x="${rectX}" y="${PLOT_TOP}" width="${rectW}" height="${plotHeight}" fill="transparent" pointer-events="all"><title>${title}</title></rect>`);
     if (index % step && index !== buckets.length - 1) return;
-    parts.push(`<text x="${xForIndex(index)}" y="${height - 6}" class="line-chart-day-label">${bucketAxisLabel(bucket, grain, buckets.length, index)}</text>`);
+    const x = xForBucketIndex(index, buckets.length, plotWidth);
+    labels.push(`<text x="${x}" y="${height - 8}" class="line-chart-day-label">${bucketAxisLabel(bucket, grain, buckets.length, index)}</text>`);
   });
 
-  container.setAttribute("aria-label", "Activity chart: dials, conversations, and booked");
-  container.innerHTML = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="presentation">${parts.join("")}</svg>`;
+  const drawOrder = ["dials", "booked", "pickups"];
+  seriesParts.push(`<g clip-path="url(#performance-plot-clip)">`);
+  for (const key of drawOrder) {
+    const series = SERIES.find((item) => item.key === key);
+    if (!series || !visible[series.key]) continue;
+    const points = buckets.map((bucket, index) => ({
+      x: xForBucketIndex(index, buckets.length, plotWidth),
+      y: yFor(bucketMetric(bucket, series.key)),
+    }));
+    const strokeWidth = series.key === "pickups" ? 3 : STROKE_WIDTH;
+    const dash = series.key === "pickups" ? ' stroke-dasharray="8 5"' : "";
+    seriesParts.push(
+      `<path d="${linePath(points)}" class="line-series ${series.className}" fill="none" stroke="${series.stroke}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round"${dash} />`,
+    );
+  }
+  seriesParts.push("</g>");
+
+  container.setAttribute("aria-label", "Activity chart: dials, pickups, and booked");
+  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="presentation" xmlns="http://www.w3.org/2000/svg">${chrome.join("")}${overlays.join("")}${seriesParts.join("")}${labels.join("")}</svg>`;
 }
 
 export function bindPerformanceChart() {
@@ -173,5 +237,16 @@ export function bindPerformanceChart() {
   if (container && typeof ResizeObserver !== "undefined") {
     const observer = new ResizeObserver(() => resize());
     observer.observe(container);
+  }
+  const panel = byId("metricsPanel");
+  if (panel && typeof MutationObserver !== "undefined") {
+    const visibility = new MutationObserver(() => {
+      if (!panel.hidden) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resize());
+        });
+      }
+    });
+    visibility.observe(panel, { attributes: true, attributeFilter: ["hidden"] });
   }
 }

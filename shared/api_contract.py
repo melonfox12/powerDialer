@@ -167,6 +167,7 @@ PERFORMANCE_DAILY_KEYS = (
 )
 
 PERFORMANCE_FUNNEL_KEYS = (
+    "connected_to_booked",
     "connected_to_conversations",
     "conversations_to_booked",
     "dials_to_connected",
@@ -182,7 +183,7 @@ PERFORMANCE_COUNTS_KEYS = (
 
 PERFORMANCE_TREND_KEYS = ("buckets", "grain")
 
-PERFORMANCE_TREND_BUCKET_KEYS = ("booked", "conversations", "date", "dials", "hour")
+PERFORMANCE_TREND_BUCKET_KEYS = ("booked", "date", "dials", "hour", "pickups")
 
 
 class LeadRecord(TypedDict, total=False):

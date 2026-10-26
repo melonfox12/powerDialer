@@ -45,7 +45,7 @@ def lead(lead_id, calls=(), status="call", booked_at=None, status_history=None):
     return row
 
 
-GOAL = {"conversation_goal": 20, "talk_minutes_goal": 60, "minutes": 60, "weekly_step": 0, "anchor": ""}
+GOAL = {"conversation_goal": 30, "talk_minutes_goal": 60, "minutes": 60, "weekly_step": 0, "anchor": ""}
 
 
 class RateTests(unittest.TestCase):
@@ -194,19 +194,19 @@ class BuildPerformanceTests(unittest.TestCase):
         ]
         booked = lead(
             "b",
-            [],
+            [call(5, seconds=10, transcript_lines=1)],
             status="booked",
             status_history=[{"from_status": "call", "to_status": "booked", "changed_at": (NOW - timedelta(minutes=5)).isoformat()}],
         )
         result = self.build([lead("a", calls), booked])
         counts = result["counts"]
-        self.assertEqual(counts["dials"], 3)
-        self.assertEqual(counts["connected"], 2)
-        self.assertEqual(counts["conversations"], 2)
+        self.assertEqual(counts["dials"], 4)
+        self.assertEqual(counts["connected"], 3)
+        self.assertEqual(counts["conversations"], 3)
         self.assertEqual(counts["booked"], 1)
-        self.assertAlmostEqual(result["funnel"]["dials_to_connected"], 2 / 3)
+        self.assertAlmostEqual(result["funnel"]["dials_to_connected"], 3 / 4)
         self.assertAlmostEqual(result["funnel"]["connected_to_conversations"], 1.0)
-        self.assertAlmostEqual(result["funnel"]["conversations_to_booked"], 0.5)
+        self.assertAlmostEqual(result["funnel"]["conversations_to_booked"], 1 / 3)
 
     def test_talk_time_sums_connected_seconds_in_range(self):
         calls = [call(10, seconds=40), call(20, seconds=50)]
@@ -258,6 +258,29 @@ class BuildPerformanceTests(unittest.TestCase):
         self.assertEqual(result["daily"]["conversations"], 1)
         self.assertAlmostEqual(result["daily"]["talk_minutes"], 0.5)
 
+    def test_trend_booked_counts_dials_to_booked_status_leads(self):
+        calls = [call(10), call(15)]
+        booked_lead = lead("a", calls, status="booked")
+        other = lead("b", [call(10)])
+        result = self.build([booked_lead, other], range_key="day")
+        active = [bucket for bucket in result["trend"]["buckets"] if bucket["dials"]]
+        self.assertEqual(len(active), 1)
+        bucket = active[0]
+        self.assertEqual(bucket["dials"], 3)
+        self.assertEqual(bucket["booked"], 2)
+
+    def test_trend_pickups_are_transcript_dials_not_connects(self):
+        calls = [
+            call(10, seconds=60),
+            call(10, seconds=30, transcript_lines=2),
+        ]
+        result = self.build([lead("a", calls)], range_key="day")
+        active = [bucket for bucket in result["trend"]["buckets"] if bucket["dials"]]
+        self.assertEqual(len(active), 1)
+        bucket = active[0]
+        self.assertEqual(bucket["dials"], 2)
+        self.assertEqual(bucket["pickups"], 1)
+
     def test_week_trend_spans_rolling_window_days(self):
         result = self.build([lead("a", [call(10)])])
         self.assertEqual(result["trend"]["grain"], "day")
@@ -280,7 +303,7 @@ class BuildPerformanceTests(unittest.TestCase):
 class GoalSettingsTests(unittest.TestCase):
     def test_defaults_include_conversation_goal(self):
         parsed = preferences({key: "" for key in SETTING_DEFAULTS})
-        self.assertEqual(parsed["DAILY_CONVERSATION_GOAL"], "20")
+        self.assertEqual(parsed["DAILY_CONVERSATION_GOAL"], "30")
         self.assertEqual(parsed["DAILY_GOAL_MINUTES"], "60")
 
     def test_save_goal_stores_conversation_goal(self):
