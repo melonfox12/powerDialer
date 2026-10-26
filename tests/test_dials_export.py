@@ -38,7 +38,26 @@ class DialsExportTests(unittest.TestCase):
         self.assertEqual(row["answered_by"], "human")
         self.assertEqual(row["duration_seconds"], "42")
         self.assertEqual(row["connected"], "true")
-        self.assertEqual(row["Call transcript"], "1")
+        self.assertEqual(row["Call transcript"], "Agent 12:00:00 PM: Hi")
+
+    def test_csv_transcript_field_escapes_multiline_utterances(self):
+        leads = [{
+            "id": "lead-1",
+            "name": "Ada",
+            "phone": "+12025550111",
+            "status": "new",
+            "transcript": [
+                {"timestamp": "2026-10-26T12:00:00+00:00", "speaker": "Agent", "text": 'He said, "yes".'},
+                {"timestamp": "2026-10-26T12:00:05+00:00", "speaker": "Prospect", "text": "Line one\nLine two"},
+            ],
+            "call_log": [{"id": "CA123", "started_at": "2026-10-26T12:00:00+00:00", "ended_at": "2026-10-26T12:01:00+00:00"}],
+        }]
+        decoded = dials_csv_bytes_for(leads).decode("utf-8-sig")
+        row = next(csv.DictReader(StringIO(decoded)))
+        self.assertEqual(
+            row["Call transcript"],
+            'Agent 12:00:00 PM: He said, "yes".\nProspect 12:00:05 PM: Line one\nLine two',
+        )
 
 
 if __name__ == "__main__":

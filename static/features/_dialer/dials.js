@@ -2,7 +2,7 @@ import { state } from "../../_core/state.js";
 import { byId, createCrmStatusSelect, crmStatusMenuOpen, setText } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { showToast } from "../../_core/notify.js";
-import { openTranscript } from "../../_core/transcript.js";
+import { formatTranscriptCsvCell, openTranscript } from "../../_core/transcript.js";
 import { focusProspect } from "../_prospects/table.js";
 
 let lastDialsSignature = null;
@@ -53,7 +53,7 @@ function dialsCsvText(rows) {
       lead?.phone || "",
       lead?.business || "",
       lead?.review_count ?? "",
-      lead?.transcript?.length ?? 0,
+      formatTranscriptCsvCell(lead?.transcript),
       lead?.status || "",
       leadId,
       lead?.timezone || "",

@@ -1,6 +1,7 @@
 """CSV export for the Total dials call log (one row per call_log entry)."""
 
 import csv
+from datetime import datetime, timezone
 from io import StringIO
 
 from shared.vocabulary import canonical_status
@@ -32,6 +33,31 @@ def _dial_when(entry):
     return str(entry.get("ended_at") or entry.get("started_at") or "")
 
 
+def _transcript_display_time(value):
+    if not value:
+        return "Time unavailable"
+    try:
+        moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return "Time unavailable"
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    else:
+        moment = moment.astimezone(timezone.utc)
+    return moment.strftime("%I:%M:%S %p").lstrip("0")
+
+
+def _transcript_csv_cell(transcript):
+    ordered = sorted(transcript or [], key=lambda item: str(item.get("timestamp") or ""))
+    lines = []
+    for entry in ordered:
+        speaker = entry.get("speaker") or "Speaker"
+        stamp = _transcript_display_time(entry.get("timestamp"))
+        text = entry.get("text") or ""
+        lines.append(f"{speaker} {stamp}: {text}")
+    return "\n".join(lines)
+
+
 def _rows_for_leads(leads):
     rows = []
     for lead in leads or []:
@@ -51,7 +77,6 @@ def _rows_for_leads(leads):
 
 def _row(lead, entry):
     reviews = lead.get("review_count")
-    transcript_count = len(lead.get("transcript") or [])
     connected = entry.get("connected")
     if connected is True:
         connected_text = "true"
@@ -65,7 +90,7 @@ def _row(lead, entry):
         "Phone": lead.get("phone") or "",
         "Business": lead.get("business") or "",
         "Reviews": reviews if reviews is not None and reviews != "" else "",
-        "Call transcript": transcript_count,
+        "Call transcript": _transcript_csv_cell(lead.get("transcript")),
         "Status": canonical_status(lead.get("status", "new")),
         "lead_id": lead.get("id") or "",
         "timezone": lead.get("timezone") or "",

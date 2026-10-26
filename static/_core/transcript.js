@@ -3,6 +3,19 @@ export function transcriptTimestamp(value) {
   return Number.isNaN(date.getTime()) ? "Time unavailable" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+/** One CSV cell: utterances sorted by time, same speaker/time style as the transcript dialog. */
+export function formatTranscriptCsvCell(entries) {
+  const ordered = [...(entries || [])].sort((left, right) => new Date(left.timestamp) - new Date(right.timestamp));
+  return ordered
+    .map((entry) => {
+      const speaker = entry.speaker || "Speaker";
+      const time = transcriptTimestamp(entry.timestamp);
+      const text = entry.text || "";
+      return `${speaker} ${time}: ${text}`;
+    })
+    .join("\n");
+}
+
 export function renderTranscriptEntries(container, entries, emptyMessage, followLatest = false) {
   const previousScrollTop = container.scrollTop;
   const shouldFollowLatest = followLatest &&
