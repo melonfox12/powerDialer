@@ -26,7 +26,7 @@ export function renderCallerIdGroupStatus() {
   const selectedKey = state.caller_id_group || DEFAULT_CALLER_ID_GROUP;
   const group = CALLER_ID_GROUPS.find((item) => item.key === selectedKey);
   const label = group?.label || "Eastern";
-  setText(byId("dialerCallerIdStatus"), `Caller ID · ${label}`);
+  setText("dialerCallerIdStatus", `Caller ID · ${label}`);
 }
 
 export function renderTimezoneFilters() {
