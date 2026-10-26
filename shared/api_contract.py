@@ -16,6 +16,7 @@ DIALER_STATE_KEYS = (
     "advance_at",
     "agent_ready",
     "caller_ids",
+    "caller_id_group",
     "counts",
     "current_caller_id",
     "dial_pool_status",

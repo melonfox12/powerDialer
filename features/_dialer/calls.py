@@ -25,11 +25,6 @@ from shared.dial_policy import (
     resolve_pool_status,
 )
 from shared.infra import utc_now
-CALLER_IDS = (
-    "+18607354163",
-    "+18607521887",
-    "+18607824999",
-)
 
 def _callback_due(lead):
     return callback_due(lead)

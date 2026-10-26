@@ -1,6 +1,7 @@
 import { state } from "../../_core/state.js";
 import { byId, createCrmStatusSelect, crmStatusMenuOpen, setText } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
+import { showToast } from "../../_core/notify.js";
 import { openTranscript } from "../../_core/transcript.js";
 import { focusProspect } from "../_prospects/table.js";
 
@@ -12,6 +13,95 @@ document.addEventListener("crm-status-menu-close", (event) => {
   if (!select || !byId("dialsTable")?.contains(select)) return;
   queueMicrotask(() => renderDials());
 });
+
+const DIALS_CSV_HEADERS = [
+  "When",
+  "Prospect",
+  "Phone",
+  "Business",
+  "Reviews",
+  "Call transcript",
+  "Status",
+  "lead_id",
+  "timezone",
+  "dial_id",
+  "started_at",
+  "ended_at",
+  "caller_id",
+  "answered_by",
+  "duration_seconds",
+  "dial_transcript_lines",
+  "connected",
+  "outcome",
+];
+
+function csvEscape(value) {
+  const text = value == null ? "" : String(value);
+  if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function dialsCsvText(rows) {
+  const lines = [DIALS_CSV_HEADERS.join(",")];
+  for (const { leadId, entry } of rows) {
+    const lead = prospectFor(leadId);
+    const connected = entry.connected;
+    const connectedText = connected === true ? "true" : connected === false ? "false" : "";
+    const record = [
+      entry.ended_at || entry.started_at || "",
+      lead?.name || "",
+      lead?.phone || "",
+      lead?.business || "",
+      lead?.review_count ?? "",
+      lead?.transcript?.length ?? 0,
+      lead?.status || "",
+      leadId,
+      lead?.timezone || "",
+      entry.id || "",
+      entry.started_at || "",
+      entry.ended_at || "",
+      entry.caller_id || "",
+      entry.answered_by || "",
+      entry.duration_seconds ?? "",
+      entry.transcript_lines ?? "",
+      connectedText,
+      entry.outcome || "",
+    ];
+    lines.push(record.map(csvEscape).join(","));
+  }
+  return `\uFEFF${lines.join("\r\n")}`;
+}
+
+export function exportDialsCsv() {
+  const button = byId("exportDialsButton");
+  const rows = dialRows(state.leads);
+  if (!rows.length) {
+    showToast("No dials to export yet.", true);
+    return;
+  }
+  if (button) button.disabled = true;
+  try {
+    const csv = dialsCsvText(rows);
+    const blobUrl = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = blobUrl;
+    anchor.download = "total-dials-export.csv";
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  } catch (error) {
+    console.error("Total dials CSV export failed:", error);
+    showToast(error?.message || "Export failed.", true);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+export function bindDialsExport() {
+  const button = byId("exportDialsButton");
+  if (button) button.addEventListener("click", exportDialsCsv);
+}
 
 export function renderDials() {
   const table = byId("dialsTable");

@@ -10,6 +10,7 @@ import { selectDialPoolStatus, selectTimezone } from "./pool.js";
 import { bindDialerTimezoneMenu } from "./pool-view.js";
 import { startDialing } from "./session.js";
 import { bindCrmStatus } from "./crm-status.js";
+import { bindDialsExport } from "./dials.js";
 async function scanCrm() {
   const button = byId("scanCrmButton");
   if (button.disabled) return;
@@ -42,6 +43,7 @@ async function scanCrm() {
 export function bindDialer() {
   byId("startButton").addEventListener("click", startDialing);
   byId("scanCrmButton").addEventListener("click", scanCrm);
+  bindDialsExport();
   bindCrmStatus();
   byId("stopButton").addEventListener("click", async () => {
     try {

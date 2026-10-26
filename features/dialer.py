@@ -182,7 +182,9 @@ def post_timezone(request, data):
     timezone = data.get("timezone") if "timezone" in data else None
     pool_status = data.get("pool_status") if "pool_status" in data else None
     try:
-        request.send_json(200, request.account.dialer.set_pool_filters(timezone=timezone, pool_status=pool_status))
+        request.send_json(200, request.account.dialer.set_pool_filters(
+            timezone=timezone, pool_status=pool_status,
+        ))
     except ValueError as exc:
         request._trace_error = str(exc)
         request.send_json(400, {"error": str(exc)})
@@ -239,6 +241,18 @@ def post_status(request, data):
     request.send_json(200, {"lead": lead, "state": state})
 
 
+def get_dials_export(request):
+    from features._prospects.dials_csv_export import dials_csv_bytes_for
+
+    try:
+        content = dials_csv_bytes_for(request.account.crm.snapshot())
+        request.send_bytes(200, content, "text/csv; charset=utf-8", {
+            "Content-Disposition": "attachment; filename=total-dials-export.csv",
+        })
+    except OSError as exc:
+        request.report_storage_error(exc)
+
+
 def post_call_outcome(request, data):
     lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/").removesuffix("/call-outcome"))
     dialer = request.account.dialer
@@ -260,6 +274,7 @@ ROUTES = [
     ("POST", "/api/next/skip", post_pass_next, "POST"),
     ("POST", "/api/advance", post_advance, "POST"),
     ("POST", "/api/dials/scan", post_scan_crm, "POST"),
+    ("GET", "/api/dials/export.csv", get_dials_export, "GET reads"),
     ("POST", "/api/leads/{id}/dial", post_dial, "POST"),
     ("POST", "/api/leads/{id}/status", post_status, "POST"),
     ("POST", "/api/leads/{id}/call-outcome", post_call_outcome, "POST"),

@@ -92,6 +92,15 @@
   background: rgba(255, 255, 255, .04);
   color: var(--ink);
 }
+.issue-meta .dialer-pool-filter .caller-id-group-status {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
 .issue-meta .dialer-pool-filter select:not(.dialer-pool-status-select) {
   position: absolute;
   width: 1px;

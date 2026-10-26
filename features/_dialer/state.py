@@ -13,6 +13,7 @@ import threading
 from datetime import datetime, timezone
 
 from shared.infra import debug_event
+from shared.vocabulary import DEFAULT_CALLER_ID_GROUP, caller_ids_for_group
 
 
 class DialerState:
@@ -37,7 +38,8 @@ class DialerState:
         self.agent_call_uuid = None
         self.agent_call_token = None
         self.conference = ""
-        self.callers = []
+        self.caller_id_group = DEFAULT_CALLER_ID_GROUP
+        self.callers = caller_ids_for_group(DEFAULT_CALLER_ID_GROUP)
         self.caller_index = 0
         self.active = None
         self.taggable_call = None

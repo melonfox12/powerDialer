@@ -2,6 +2,8 @@ import { state } from "../../_core/state.js";
 import {
   byId,
   CRM_STATUS_LABELS,
+  CALLER_ID_GROUPS,
+  DEFAULT_CALLER_ID_GROUP,
   DEFAULT_DIAL_POOL_STATUS,
   DIAL_POOL_STATUSES,
   DIAL_POOL_STATUS_LABELS,
@@ -20,8 +22,16 @@ export function renderPoolStatusFilters() {
   }
 }
 
+export function renderCallerIdGroupStatus() {
+  const selectedKey = state.caller_id_group || DEFAULT_CALLER_ID_GROUP;
+  const group = CALLER_ID_GROUPS.find((item) => item.key === selectedKey);
+  const label = group?.label || "Eastern";
+  setText(byId("dialerCallerIdStatus"), `Caller ID · ${label}`);
+}
+
 export function renderTimezoneFilters() {
   renderPoolStatusFilters();
+  renderCallerIdGroupStatus();
   const groups = state.timezone_groups || [];
   const totalNew = groups.reduce((sum, group) => sum + group.count, 0);
   const selected = state.selected_timezone || "";

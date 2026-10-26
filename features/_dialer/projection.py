@@ -3,6 +3,7 @@
 from features._dialer import calls
 from features._dialer.rules import clear_stale_active, dialer_stage, new_session, recent_streak
 from shared.dial_policy import leads_for_timezone_counts, resolve_pool_status
+from shared.vocabulary import caller_id_group_for_prospect_timezone, resolve_caller_id_group
 from shared.infra import utc_now
 
 def crm_catalog(state, leads=None):
@@ -97,6 +98,9 @@ def public_state(state, include_leads=False):
     view["counts"]["calling"] = len(view["in_flight"])
     view["selected_timezone"] = state.selected_timezone
     view["dial_pool_status"] = resolve_pool_status(getattr(state, "dial_pool_status", None))
+    view["caller_id_group"] = resolve_caller_id_group(
+        caller_id_group_for_prospect_timezone(state.selected_timezone),
+    )
     view["pool"] = catalog["pool"]
     if include_leads:
         view["leads"] = leads

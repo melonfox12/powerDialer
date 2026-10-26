@@ -34,6 +34,16 @@ export const DIAL_POOL_STATUSES = Array.isArray(vocabulary.dialPoolStatuses) && 
   : FALLBACK_DIAL_POOL_STATUSES;
 export const DIAL_POOL_STATUS_LABELS = vocabulary.dialPoolStatusLabels ?? FALLBACK_DIAL_POOL_STATUS_LABELS;
 export const DEFAULT_DIAL_POOL_STATUS = vocabulary.defaultDialPoolStatus || "new";
+const FALLBACK_CALLER_ID_GROUPS = [
+  { key: "eastern", label: "Eastern" },
+  { key: "central", label: "Central" },
+  { key: "mountain", label: "Mountain" },
+  { key: "pacific", label: "Pacific" },
+];
+export const CALLER_ID_GROUPS = Array.isArray(vocabulary.callerIdGroups) && vocabulary.callerIdGroups.length
+  ? vocabulary.callerIdGroups
+  : FALLBACK_CALLER_ID_GROUPS;
+export const DEFAULT_CALLER_ID_GROUP = vocabulary.defaultCallerIdGroup || "eastern";
 // A prospect in a never-dial status cannot go back to "new" or "call".
 export const leavesQueueForGood = (lead, status) => (
   NEVER_DIAL_STATUSES.includes(lead?.status) && !NEVER_DIAL_STATUSES.includes(status)

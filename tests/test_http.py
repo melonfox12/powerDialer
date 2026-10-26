@@ -150,6 +150,12 @@ class HttpContractTests(unittest.TestCase):
         self.assertIn("text/csv", content_type)
         self.assertTrue(raw.startswith(b"\xef\xbb\xbf"))
 
+        status, raw, content_type = self.request("GET", "/api/dials/export.csv")
+        self.assertEqual(status, 200)
+        self.assertIn("text/csv", content_type)
+        self.assertTrue(raw.startswith(b"\xef\xbb\xbf"))
+        self.assertIn(b"When,Prospect,Phone", raw)
+
         status, raw, _type = self.request(
             "POST",
             "/api/debug",
@@ -208,6 +214,27 @@ class HttpContractTests(unittest.TestCase):
         status, payload, _type = self.json_request("POST", "/api/timezone", {"timezone": "Eastern"})
         self.assertEqual(status, 200)
         self.assert_keys(payload, STATE_KEYS)
+        self.assertEqual(payload["caller_id_group"], "eastern")
+        self.assertEqual(
+            payload["caller_ids"],
+            ["+18607354163", "+18607521887", "+18607824999"],
+        )
+
+        status, payload, _type = self.json_request("POST", "/api/timezone", {"timezone": "Pacific"})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["caller_id_group"], "pacific")
+        self.assertEqual(
+            payload["caller_ids"],
+            ["+12136953093", "+12139533359", "+12137204625"],
+        )
+
+        status, payload, _type = self.json_request("POST", "/api/timezone", {"timezone": "Central"})
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["caller_id_group"], "central")
+        self.assertEqual(
+            payload["caller_ids"],
+            ["+19206545904", "+19207827371", "+19205668506"],
+        )
 
         status, payload, _type = self.json_request("POST", "/api/start", {})
         self.assertEqual(status, 400)
@@ -436,6 +463,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/next/skip"),
     ("POST", "/api/advance"),
     ("POST", "/api/dials/scan"),
+    ("GET", "/api/dials/export.csv"),
     ("POST", "/api/leads/{id}/dial"),
     ("POST", "/api/leads/{id}/status"),
     ("POST", "/api/leads/{id}/call-outcome"),

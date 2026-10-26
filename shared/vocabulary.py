@@ -139,6 +139,54 @@ TIMEZONE_ALIASES = {
 }
 UTC_OFFSET_ZONES = {-5: "Eastern", -6: "Central", -7: "Mountain", -8: "Pacific", -9: "Alaska", -10: "Hawaii"}
 
+# Rotating outbound caller IDs grouped by the timezone they represent.
+CALLER_ID_GROUP_KEYS = ("eastern", "central", "mountain", "pacific")
+DEFAULT_CALLER_ID_GROUP = "eastern"
+CALLER_ID_GROUPS = {
+    "eastern": {
+        "label": "Eastern",
+        "caller_ids": ("+18607354163", "+18607521887", "+18607824999"),
+    },
+    "central": {
+        "label": "Central",
+        "caller_ids": ("+19206545904", "+19207827371", "+19205668506"),
+    },
+    "mountain": {
+        "label": "Mountain",
+        "caller_ids": ("+15055602960", "+15053995221", "+15053703413"),
+    },
+    "pacific": {
+        "label": "Pacific",
+        "caller_ids": ("+12136953093", "+12139533359", "+12137204625"),
+    },
+}
+
+
+PROSPECT_TIMEZONE_TO_CALLER_ID_GROUP = {
+    "Eastern": "eastern",
+    "Central": "central",
+    "Mountain": "mountain",
+    "Pacific": "pacific",
+    "Alaska": "mountain",
+    "Hawaii": "pacific",
+}
+
+
+def resolve_caller_id_group(key):
+    parsed = str(key or "").strip().lower()
+    return parsed if parsed in CALLER_ID_GROUPS else DEFAULT_CALLER_ID_GROUP
+
+
+def caller_id_group_for_prospect_timezone(timezone_name):
+    zone = str(timezone_name or "").strip()
+    if not zone:
+        return DEFAULT_CALLER_ID_GROUP
+    return PROSPECT_TIMEZONE_TO_CALLER_ID_GROUP.get(zone, DEFAULT_CALLER_ID_GROUP)
+
+
+def caller_ids_for_group(key):
+    return list(CALLER_ID_GROUPS[resolve_caller_id_group(key)]["caller_ids"])
+
 SETTING_DEFAULTS = {
     "SESSION_GOAL": "20",
     "CONVERSATION_THRESHOLD_SECONDS": str(CONVERSATION_MIN_SECONDS),
@@ -253,6 +301,10 @@ def browser_vocabulary():
         "stages": list(STAGES),
         "callStates": list(CALL_STATES),
         "timezones": dict(TIMEZONE_NAMES),
+        "callerIdGroups": [
+            {"key": key, "label": CALLER_ID_GROUPS[key]["label"]} for key in CALLER_ID_GROUP_KEYS
+        ],
+        "defaultCallerIdGroup": DEFAULT_CALLER_ID_GROUP,
         "settingKeys": list(SETTING_KEYS),
         "secretInputs": [dict(item) for item in SECRET_INPUTS],
     }
