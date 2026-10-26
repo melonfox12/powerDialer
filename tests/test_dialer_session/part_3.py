@@ -66,6 +66,63 @@ class Part3:
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()
 
+    def test_prospect_hangup_after_live_connect_schedules_next_dial(self):
+        from features._dialer import timing
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 2)
+            leads = crm.snapshot()
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001", "+15551110002", "+15551110003"]
+            dialer.settings = {
+                "CALLING_START_HOUR": "0",
+                "CALLING_END_HOUR": "24",
+                "AUTO_ADVANCE_DELAY_SECONDS": "0",
+            }
+            call = dialer._new_call("prospect", leads[0])
+            call["call_uuid"] = "CA-prospect-hangup"
+            dialer._pickup(call)
+            dialer._machine_result(call, {"AnsweredBy": "human"})
+            self.assertIsNone(dialer.pending_outcome)
+            dialer._call_ended(call, {"CallStatus": "completed", "CallDuration": "18"})
+            self.assertIsNone(dialer.pending_outcome)
+            self.assertIsNotNone(dialer.advance_timer)
+            if dialer.advance_timer:
+                dialer.advance_timer.cancel()
+            launched = []
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append(call["lead_id"])
+            try:
+                timing._advance_queue(dialer)
+            finally:
+                calls._launch_call = original_launch
+            self.assertNotIn(leads[0]["id"], launched)
+            self.assertIn(leads[1]["id"], launched)
+
+    def test_no_answer_moves_new_prospect_to_forty_eight_hour_callback(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 2)
+            lead = crm.snapshot()[0]
+            call = dialer._new_call("prospect", lead)
+            call["call_uuid"] = "CA-miss"
+            dialer._call_ended(call, {"CallStatus": "no-answer", "CallDuration": "0"})
+            kept = crm.snapshot()[0]
+            self.assertEqual(kept["status"], "call")
+            self.assertTrue(kept["scheduled_until"])
+            launched = []
+            original_launch = calls._launch_call
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001", "+15551110002", "+15551110003"]
+            dialer.settings = {"CALLING_START_HOUR": "0", "CALLING_END_HOUR": "24"}
+            calls._launch_call = lambda state, call, destination: launched.append(call["lead_id"])
+            try:
+                dialer.fill_slots()
+            finally:
+                calls._launch_call = original_launch
+                if dialer.advance_timer:
+                    dialer.advance_timer.cancel()
+            self.assertNotIn(lead["id"], launched)
+            self.assertEqual(launched, [crm.snapshot()[1]["id"]])
+
     def test_unanswered_call_is_kept_in_the_dial_log(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
@@ -187,6 +244,50 @@ class Part3:
             self.assertEqual([item["answered_by"] for item in crm.snapshot()[0]["call_log"]], ["dead_line"])
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()
+
+    def test_wrapped_ended_call_is_stale_and_fill_slots_can_resume(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 2)
+            leads = crm.snapshot()
+            finished = dialer._new_call("prospect", leads[0])
+            dialer._pickup(finished)
+            finished["wrapping"] = True
+            finished["end_processed"] = True
+            finished["state"] = "ended"
+            dialer.active = finished
+            dialer.in_flight.clear()
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001", "+15551110002"]
+            dialer.settings = {"CALLING_START_HOUR": "0", "CALLING_END_HOUR": "24"}
+            launched = []
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append(call["lead_id"])
+            try:
+                dialer.fill_slots()
+            finally:
+                calls._launch_call = original_launch
+                if dialer.advance_timer:
+                    dialer.advance_timer.cancel()
+            self.assertIsNone(dialer.active)
+            self.assertEqual(launched, [leads[1]["id"]])
+
+    def test_disposition_after_agent_hangup_schedules_auto_advance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 2)
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001"]
+            dialer.settings = {"CALLING_START_HOUR": "0", "CALLING_END_HOUR": "24", "AUTO_ADVANCE_DELAY_SECONDS": "3"}
+            lead = crm.snapshot()[0]
+            call = dialer._new_call("prospect", lead)
+            call["call_uuid"] = "CA-live"
+            dialer._pickup(call)
+            dialer.hangup_active()
+            self.assertEqual(dialer.pending_outcome, lead["id"])
+            dialer._call_ended(call, {"CallStatus": "completed", "CallDuration": "40"})
+            self.assertIsNone(dialer.advance_timer)
+            dialer.update_status(lead["id"], "send_info")
+            self.assertIsNotNone(dialer.advance_timer)
+            dialer.advance_timer.cancel()
 
     def test_stale_active_does_not_block_the_next_pickup(self):
         with tempfile.TemporaryDirectory() as directory:

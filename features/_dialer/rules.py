@@ -11,14 +11,14 @@ def stale_active_call(call):
     """True when a finished line still referenced by state.active must not block the next connect."""
     if not isinstance(call, dict):
         return True
-    if call.get("wrapping"):
-        return False
     if call.get("end_processed"):
         return True
     if call.get("state") in ("ended", "cancelled", "skipped"):
         return True
     if call.get("cancelled") and not call.get("picked_up"):
         return True
+    if call.get("wrapping"):
+        return False
     return False
 
 

@@ -1,12 +1,30 @@
 import { state } from "../../_core/state.js";
-import { appendStatusPill, byId, setText } from "../../_core/format.js";
+import { byId, createCrmStatusSelect, crmStatusMenuOpen, setText } from "../../_core/format.js";
 import { openTranscript } from "../../_core/transcript.js";
 import { focusProspect } from "../_prospects/table.js";
 
+let lastDialsSignature = null;
+let dialsRenderDeferred = false;
+
+document.addEventListener("crm-status-menu-close", (event) => {
+  const select = event.detail?.select;
+  if (!select || !byId("dialsTable")?.contains(select)) return;
+  queueMicrotask(() => renderDials());
+});
+
 export function renderDials() {
+  const table = byId("dialsTable");
+  if (crmStatusMenuOpen(table)) {
+    dialsRenderDeferred = true;
+    return;
+  }
   const rows = dialRows(state.leads);
+  const signature = dialsTableSignature(rows);
   setText("dialsTabCount", String(rows.length));
   setText("dialsTableSummary", `${rows.length} dial${rows.length === 1 ? "" : "s"}`);
+  if (!dialsRenderDeferred && signature === lastDialsSignature) return;
+  dialsRenderDeferred = false;
+  lastDialsSignature = signature;
   const body = byId("dialsTableBody");
   body.replaceChildren(...rows.map(({ leadId, entry }) => {
     const lead = prospectFor(leadId);
@@ -26,6 +44,25 @@ export function renderDials() {
 
 function prospectFor(leadId) {
   return state.leads.find((item) => item.id === leadId) || null;
+}
+
+function dialsTableSignature(rows) {
+  const parts = [String(rows.length)];
+  for (const { leadId, entry } of rows) {
+    const lead = prospectFor(leadId);
+    parts.push(
+      leadId,
+      entry.ended_at || entry.started_at || "",
+      lead?.name || "",
+      lead?.business || "",
+      String(lead?.review_count ?? ""),
+      String(lead?.transcript?.length ?? 0),
+      lead?.status || "",
+      lead?.scheduled_until || "",
+      state.pending_outcome?.id === leadId ? "1" : "0",
+    );
+  }
+  return parts.join("\x1e");
 }
 
 function dialRows(leads) {
@@ -98,7 +135,7 @@ function transcriptCell(leadId, lead) {
 function statusCell(lead) {
   const cell = document.createElement("td");
   cell.className = "status-cell";
-  if (lead) appendStatusPill(cell, lead);
+  if (lead) cell.append(createCrmStatusSelect(lead));
   else cell.textContent = "—";
   return cell;
 }

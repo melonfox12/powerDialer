@@ -27,6 +27,9 @@ class Part1:
         self.assertEqual(dialer_stage(True, True, None, False, []), "paused")
         ended = {"state": "ended", "end_processed": True}
         self.assertTrue(stale_active_call(ended))
+        wrapped_done = {"wrapping": True, "end_processed": True, "state": "ended"}
+        self.assertTrue(stale_active_call(wrapped_done))
+        self.assertFalse(stale_active_call({"wrapping": True, "state": "live", "picked_up": True}))
         self.assertEqual(dialer_stage(True, False, ended, False, [{"state": "ringing"}]), "ringing")
 
     def test_disposition_mapping(self):

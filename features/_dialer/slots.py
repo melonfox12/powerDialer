@@ -5,6 +5,21 @@ import threading
 from features._dialer import calls, rules
 
 
+def _prune_finished_lines(state):
+    """Drop ended lines still listed in in_flight so open slots can refill."""
+    with state.lock:
+        rules.clear_stale_active(state)
+        for token, call in list(state.in_flight.items()):
+            if call.get("end_processed") or call.get("skip_closed"):
+                state.in_flight.pop(token, None)
+                if state.active is call:
+                    state.active = None
+            elif call.get("cancelled") and not call.get("picked_up"):
+                state.in_flight.pop(token, None)
+                if state.active is call:
+                    state.active = None
+
+
 def fill_slots(state):
     try:
         _place_prospect_call(state)
@@ -13,9 +28,11 @@ def fill_slots(state):
 
 
 def _place_prospect_call(state):
+    _prune_finished_lines(state)
     launches = []
     none_ready = False
     with state.lock:
+        rules.clear_stale_active(state)
         if not state.running or state.paused or not state.agent_ready or state.active or state.pending_outcome:
             return
         # Read the prospects under the lock. A fill that waited here must see the dials
@@ -67,9 +84,14 @@ def _schedule_calling_window_check(state):
 
 
 def _check_calling_window(state):
+    _prune_finished_lines(state)
     with state.lock:
         state.calling_window_timer = None
-        should_fill = state.running and not state.paused and not state.active and not state.pending_outcome
+        rules.clear_stale_active(state)
+        should_fill = (
+            state.running and not state.paused and state.agent_ready
+            and not state.active and not state.pending_outcome
+        )
     if should_fill:
         fill_slots(state)
     else:

@@ -30,7 +30,7 @@ def _drop_line(state, call, answered_by):
             queue.maybe_enforce_dial_caps(state)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call for {_name(call)}: {exc}", "error")
-    if lead_id and answered_by in ("voicemail", calls.RACE_LOST, calls.DEAD_LINE, calls.CANCELLED):
+    if lead_id and not call.get("picked_up"):
         try:
             queue.schedule_no_pickup_callback(state, lead_id)
         except (KeyError, ValueError, OSError) as exc:

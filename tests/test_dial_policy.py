@@ -5,6 +5,7 @@ from shared.dial_policy import (
     apply_dial_cap_to_lead,
     dialed_recently,
     dial_cap_reached,
+    open_dial_lead_ids,
     pool_leads,
     repair_dial_status_for_lead,
     resolve_pool_status,
@@ -62,6 +63,18 @@ class DialPolicyTests(unittest.TestCase):
         self.assertTrue(dialed_recently(row, now))
         row["call_log"][0]["started_at"] = (now - timedelta(hours=49)).isoformat()
         self.assertFalse(dialed_recently(row, now))
+
+    def test_in_progress_dial_uses_forty_eight_hour_window(self):
+        now = utc_now()
+        row = lead(call_log=[{
+            "id": "d1",
+            "started_at": (now - timedelta(hours=40)).isoformat(),
+            "answered_by": "",
+            "ended_at": "",
+        }])
+        self.assertTrue(dialed_recently(row, now))
+        self.assertEqual(open_dial_lead_ids([row]), {"p1"})
+        self.assertEqual(pool_leads([row], pool_status="new", busy_ids={"p1"}, now=now), [])
 
     def test_resolve_pool_status_defaults_unknown(self):
         self.assertEqual(resolve_pool_status("booked"), "new")

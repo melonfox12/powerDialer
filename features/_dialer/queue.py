@@ -178,11 +178,10 @@ def _current_queue_id(state, leads):
     return pool[0]["id"] if pool else ""
 
 def drop_prospect_call(state, lead_id):
-    """Hang up every line to this prospect. Returns True when the dialer should dial the next one now.
+    """Hang up every line to this prospect.
 
-    A line the agent was talking on ends through the normal call-ended path, so its duration, call log
-    entry, and tag are kept and the auto-advance countdown starts. A line that never connected is closed
-    silently.
+    Returns (fill_now, schedule_advance). After a talked call, the queue resumes only when the
+    auto-advance timer is scheduled; a line that never connected can refill immediately.
     """
     hung = []
     talked = False
@@ -220,14 +219,21 @@ def drop_prospect_call(state, lead_id):
             state.pending_outcome = None
         if state.manual_lead_id == lead_id:
             state.manual_lead_id = None
-        # After a talked call the call-ended path starts the auto-advance countdown.
-        should_fill = (
-            not talked and state.running and not state.paused and state.agent_ready
-            and not state.active and not state.pending_outcome and not state.in_flight
+        if not talked:
+            for call in state.calls.values():
+                if call.get("lead_id") == lead_id and call.get("picked_up"):
+                    talked = True
+                    break
+        rules.clear_stale_active(state)
+        idle = (
+            state.running and not state.paused and state.agent_ready
+            and not state.active and not state.pending_outcome
         )
+        should_fill = idle and not talked and not state.in_flight
+        should_advance = idle and talked
     for call_uuid in hung:
         threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
-    return should_fill
+    return should_fill, should_advance
 
 def remember_skip(state, lead_id, when):
     moment = when.replace(microsecond=0).isoformat()
@@ -314,11 +320,13 @@ def pass_next(state, lead_id=None):
     with state.lock:
         if state.queue_anchor_id == lead_id:
             state.queue_anchor_id = None
-    should_fill = drop_prospect_call(state, lead_id)
+    should_fill, should_advance = drop_prospect_call(state, lead_id)
     name = lead.get("name") or lead.get("business") or "Prospect"
     state.record_activity(f"Skipped {name}", "web")
     if should_fill:
         slots.fill_slots(state)
+    elif should_advance:
+        timing._schedule_advance(state)
     return projection.public_state(state)
 
 def dial_lead(state, lead_id):

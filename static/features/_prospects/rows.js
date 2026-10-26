@@ -1,6 +1,5 @@
-import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
-import { CRM_STATUS_KEYS, STATUS_LABELS, STATUS_STYLES, crmStatusOptionText, fillTimezoneSelect, initials, leavesQueueForGood, markCallback } from "../../_core/format.js";
+import { createCrmStatusSelect, fillTimezoneSelect, initials } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { LEAD_COLUMNS, locationText } from "./query.js";
 import { openTranscript } from "./transcript.js";
@@ -64,40 +63,7 @@ export function appendLeadRows(body, leads, extras, onSelection) {
 function statusCell(lead) {
   const cell = document.createElement("td");
   cell.className = "status-cell";
-  const select = document.createElement("select");
-  const currentStatus = lead.status || "new";
-  select.className = `status-select status-${STATUS_STYLES[currentStatus]?.className || "neutral"}`;
-  select.setAttribute("aria-label", `Call status for ${lead.name || lead.phone}`);
-  if (!CRM_STATUS_KEYS.includes(currentStatus)) {
-    const current = document.createElement("option");
-    current.value = currentStatus;
-    current.textContent = STATUS_LABELS[currentStatus] || currentStatus;
-    current.selected = true;
-    current.disabled = true;
-    select.append(current);
-  }
-  for (const value of CRM_STATUS_KEYS) {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = crmStatusOptionText(value, lead);
-    option.selected = currentStatus === value;
-    if (value === "new" && state.pending_outcome?.id === lead.id) option.disabled = true;
-    if (leavesQueueForGood(lead, value)) option.disabled = true;
-    select.append(option);
-  }
-  select.addEventListener("change", () => {
-    const next = String(select.value || "").trim();
-    if (!next || !CRM_STATUS_KEYS.includes(next)) {
-      select.value = currentStatus;
-      return;
-    }
-    const current = state.leads.find((item) => item.id === lead.id) || lead;
-    document.dispatchEvent(new CustomEvent("prospect-status", {
-      detail: { lead: current, status: next, select },
-    }));
-  });
-  markCallback(select, lead);
-  cell.append(select);
+  cell.append(createCrmStatusSelect(lead));
   return cell;
 }
 

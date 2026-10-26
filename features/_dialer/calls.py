@@ -20,6 +20,7 @@ from shared.dial_policy import (
     dialed_recently,
     is_never_dial_status,
     manual_lead_blocked,
+    open_dial_lead_ids,
     pool_leads,
     resolve_pool_status,
 )
@@ -43,13 +44,15 @@ def _contact_keys(lead):
 
 
 def _busy_lead_ids(state):
-    """Leads on a line, ringing, or waiting for an outcome right now."""
+    """Leads on a line, ringing, waiting for an outcome, or with an unfinished dial log row."""
+    leads = state.crm.snapshot()
     with state.lock:
         busy = {call["lead_id"] for call in state.in_flight.values() if call.get("lead_id")}
         if state.active and state.active.get("lead_id"):
             busy.add(state.active["lead_id"])
         if state.pending_outcome:
             busy.add(state.pending_outcome)
+    busy |= open_dial_lead_ids(leads)
     return busy
 
 

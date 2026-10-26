@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from features._dialer import queue, slots
+from features._dialer import queue, slots, timing
 from features._dialer import rules
 from features._dialer.rules import record_disposition, status_for_disposition
 from shared.vocabulary import (
@@ -63,13 +63,15 @@ def end_call_with_status(state, lead_id, status, scheduled_until=None):
     with state.lock:
         if state.queue_anchor_id == lead_id:
             state.queue_anchor_id = None
-    should_fill = queue.drop_prospect_call(state, lead_id)
+    should_fill, should_advance = queue.drop_prospect_call(state, lead_id)
     name = lead.get("name") or lead.get("business") or lead.get("phone") or "prospect"
     state.record_activity(f"{name} marked {status}", "web")
     with state.lock:
         state.last_event = f"{name} marked {status}"
     if should_fill:
         slots.fill_slots(state)
+    elif should_advance:
+        timing._schedule_advance(state)
     return lead
 
 def _set_booked(state, lead_id, scheduled_until=None):

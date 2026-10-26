@@ -3,12 +3,13 @@
 import threading
 import time
 
-from features._dialer import slots
+from features._dialer import rules, slots
 from features._dialer import projection
 
 
 def _schedule_advance(state, delay=None):
     with state.lock:
+        rules.clear_stale_active(state)
         if not state.running or state.paused or state.pending_outcome or state.active:
             return
         if state.advance_timer:
@@ -26,7 +27,11 @@ def _advance_queue(state):
         state.advance_timer = None
         state.advance_at = None
         state.advance_remaining = None
-        should_fill = state.running and not state.paused and not state.pending_outcome
+        rules.clear_stale_active(state)
+        should_fill = (
+            state.running and not state.paused and state.agent_ready
+            and not state.pending_outcome and not state.active
+        )
     if should_fill:
         slots.fill_slots(state)
 

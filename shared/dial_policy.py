@@ -176,12 +176,36 @@ def callback_due(lead):
     return moment
 
 
+def retry_wait_for_log_entry(entry):
+    """How long before this dial-log row allows the same prospect back in the auto pool."""
+    answered = str((entry or {}).get("answered_by") or "")
+    if answered:
+        return RETRY_AFTER.get(answered, RECENT_DIAL_WINDOW)
+    return NO_PICKUP_CALLBACK
+
+
+def open_dial_lead_ids(leads):
+    """Prospects with a call_log row still in progress (dialed but not finished)."""
+    ids = set()
+    for lead in leads or []:
+        lead_id = lead.get("id")
+        if not lead_id:
+            continue
+        for entry in lead.get("call_log") or []:
+            started = str(entry.get("started_at") or "").strip()
+            ended = str(entry.get("ended_at") or "").strip()
+            answered = str(entry.get("answered_by") or "").strip()
+            if started and not ended and not answered:
+                ids.add(lead_id)
+                break
+    return ids
+
+
 def dial_windows(lead):
     log = lead.get("call_log") or []
     if log:
         return [
-            (item.get("started_at") or item.get("ended_at") or "",
-             RETRY_AFTER.get(item.get("answered_by"), RECENT_DIAL_WINDOW))
+            (item.get("started_at") or item.get("ended_at") or "", retry_wait_for_log_entry(item))
             for item in log
         ]
     return [(raw, RECENT_DIAL_WINDOW) for raw in dial_times(lead)]

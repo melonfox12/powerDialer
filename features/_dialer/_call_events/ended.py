@@ -40,8 +40,10 @@ def _call_ended(state, call, params):
             state.in_flight.pop(call["token"], None)
             if state.active is call:
                 state.active = None
+            rules.clear_stale_active(state)
             outcome_already_chosen = call.get("outcome_chosen")
             pending_already = state.pending_outcome == call.get("lead_id")
+            prospect_hung_up = was_connected and not pending_already and not call.get("wrapping")
             duration = 0
             if was_connected:
                 try:
@@ -57,8 +59,14 @@ def _call_ended(state, call, params):
                 rules._save_session(state)
             log_entry = calls._dial_record(call, duration)
             if state.running and was_connected:
-                state.last_event = "Call ended"
-                should_schedule_advance = not pending_already and not state.pending_outcome
+                state.last_event = (
+                    "Prospect hung up" if prospect_hung_up else "Call ended"
+                )
+                # Agent-initiated hangup sets pending_outcome and waits for disposition.
+                # Prospect-side hangup keeps the queue moving after the auto-advance delay.
+                should_schedule_advance = (
+                    prospect_hung_up or (not pending_already and not state.pending_outcome)
+                )
                 others = list(state.in_flight.values())
             elif state.running and not was_connected and not pending_already and not outcome_already_chosen:
                 state.last_event = "No answer"
