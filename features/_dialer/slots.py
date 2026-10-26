@@ -35,6 +35,10 @@ def _place_prospect_call(state):
         rules.clear_stale_active(state)
         if not state.running or state.paused or not state.agent_ready or state.active or state.pending_outcome:
             return
+        # Do not top up lines mid-wave: launch the next batch only after every parallel
+        # prospect call has finished (no-answer, voicemail, connect, etc.).
+        if state.in_flight:
+            return
         # Read the prospects under the lock. A fill that waited here must see the dials
         # another fill just placed, or it could ring the same person again.
         leads = state.crm.snapshot()
@@ -90,7 +94,7 @@ def _check_calling_window(state):
         rules.clear_stale_active(state)
         should_fill = (
             state.running and not state.paused and state.agent_ready
-            and not state.active and not state.pending_outcome
+            and not state.active and not state.pending_outcome and not state.in_flight
         )
     if should_fill:
         fill_slots(state)

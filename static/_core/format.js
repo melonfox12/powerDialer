@@ -44,6 +44,7 @@ export const CALLER_ID_GROUPS = Array.isArray(vocabulary.callerIdGroups) && voca
   ? vocabulary.callerIdGroups
   : FALLBACK_CALLER_ID_GROUPS;
 export const DEFAULT_CALLER_ID_GROUP = vocabulary.defaultCallerIdGroup || "eastern";
+export const CALLBACK_STATUS_HOURS = vocabulary.callbackStatusHours ?? 2;
 // A prospect in a never-dial status cannot go back to "new" or "call".
 export const leavesQueueForGood = (lead, status) => (
   NEVER_DIAL_STATUSES.includes(lead?.status) && !NEVER_DIAL_STATUSES.includes(status)

@@ -53,22 +53,22 @@ class DialPolicyTests(unittest.TestCase):
         row = lead(status="disqualified", call_log=[{"id": "d1", "started_at": "2026-01-01T12:00:00+00:00"}])
         self.assertEqual(repair_dial_status_for_lead(row), "new")
 
-    def test_no_pickup_stays_out_of_pool_for_48h(self):
+    def test_no_pickup_stays_out_of_pool_for_two_hours(self):
         now = utc_now()
         row = lead(call_log=[{
             "id": "d1",
-            "started_at": (now - timedelta(hours=40)).isoformat(),
+            "started_at": (now - timedelta(hours=1)).isoformat(),
             "answered_by": "no_answer",
         }])
         self.assertTrue(dialed_recently(row, now))
-        row["call_log"][0]["started_at"] = (now - timedelta(hours=49)).isoformat()
+        row["call_log"][0]["started_at"] = (now - timedelta(hours=3)).isoformat()
         self.assertFalse(dialed_recently(row, now))
 
-    def test_in_progress_dial_uses_forty_eight_hour_window(self):
+    def test_in_progress_dial_uses_two_hour_retry_window(self):
         now = utc_now()
         row = lead(call_log=[{
             "id": "d1",
-            "started_at": (now - timedelta(hours=40)).isoformat(),
+            "started_at": (now - timedelta(hours=1)).isoformat(),
             "answered_by": "",
             "ended_at": "",
         }])

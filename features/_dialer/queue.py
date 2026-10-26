@@ -21,6 +21,10 @@ from shared.vocabulary import (
 
 def maintain_crm(state):
     """CRM backfill and callback dial-list repair. Never call from GET /api/state or /api/live."""
+    shifted = state.crm.migrate_callback_timers_to_two_hours()
+    if shifted:
+        noun = "prospect" if shifted == 1 else "prospects"
+        state.record_activity(f"Updated callback timers on {shifted} {noun} (48h → 2h)", "dialer")
     remember_open_skips(state)
     maybe_enforce_dial_caps(state)
 
@@ -311,7 +315,7 @@ def remember_open_skips(state):
         remember_skip(state, lead["id"], due - calls.MANUAL_CALLBACK)
 
 def schedule_callback(state, lead_id, scheduled_until=None, log_skip=True):
-    """Set a manual callback (6 hours by default). log_skip adds the dial-list entry for it."""
+    """Set a manual callback (2 hours by default). log_skip adds the dial-list entry for it."""
     now = utc_now().replace(microsecond=0)
     due = scheduled_until or (now + calls.MANUAL_CALLBACK).isoformat()
     lead = state.crm.set_status(lead_id, "call", due)
@@ -321,7 +325,7 @@ def schedule_callback(state, lead_id, scheduled_until=None, log_skip=True):
 
 
 def schedule_no_pickup_callback(state, lead_id):
-    """After no pickup, set CRM to Callback with a 48-hour timer. Skips booked/disqualified and active callbacks."""
+    """After no pickup, set CRM to Callback with a 2-hour timer. Skips booked/disqualified and active callbacks."""
     lead = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
     if lead is None or lead.get("status") != "new":
         return None

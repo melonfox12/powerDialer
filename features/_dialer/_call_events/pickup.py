@@ -16,7 +16,7 @@ def _name(call):
 def _drop_line(state, call, answered_by):
     """Hang up a line that will not reach the agent and log it once.
 
-    No-pickup drops schedule a 48-hour CRM callback when the prospect is still New.
+    No-pickup drops schedule a 2-hour CRM callback when the prospect is still New.
     """
     with state.lock:
         if call.get("picked_up") or call.get("skip_closed"):
@@ -36,7 +36,7 @@ def _drop_line(state, call, answered_by):
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not set the callback for {_name(call)}: {exc}", "error")
     label = answered_by.replace("_", " ")
-    state.record_activity(f"Dropped {_name(call)} ({label}); 48-hour callback when eligible", "call")
+    state.record_activity(f"Dropped {_name(call)} ({label}); 2-hour callback when eligible", "call")
     timing._schedule_advance(state)
     return True
 

@@ -9,8 +9,41 @@ from features._dialer.twilio import TwilioError
 from features.dialer import Dialer
 from features.prospects import ProspectStore
 from shared.infra import utc_now
+from shared.vocabulary import NO_PICKUP_CALLBACK_HOURS
 
 class Part4:
+    def test_fill_slots_waits_until_the_parallel_wave_finishes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = [
+                {
+                    "id": f"prospect-{index}",
+                    "name": f"Prospect {index}",
+                    "business": "Shop",
+                    "phone": f"+1202555012{index}",
+                    "timezone": "Eastern",
+                    "status": "new",
+                    "scheduled_until": None,
+                    "transcript": [],
+                    "fields": {},
+                }
+                for index in range(5)
+            ]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.running = True
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001", "+15551110002", "+15551110003"]
+            dialer.settings = {"CALLING_START_HOUR": "0", "CALLING_END_HOUR": "24"}
+            launched = []
+            calls._launch_call = lambda state, call, destination: launched.append(call["lead_id"])
+            dialer.fill_slots()
+            self.assertEqual(len(launched), 3)
+            dialer.fill_slots()
+            self.assertEqual(len(launched), 3)
+            dialer.in_flight.pop(next(iter(dialer.in_flight)))
+            dialer.fill_slots()
+            self.assertEqual(len(launched), 3)
+
     def test_three_lines_dial_at_once_and_caller_ids_rotate(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
@@ -103,8 +136,8 @@ class Part4:
             for lead in crm.snapshot()[1:]:
                 self.assertEqual(lead["status"], "call")
                 remaining = datetime.fromisoformat(lead["scheduled_until"]) - utc_now()
-                self.assertGreater(remaining, timedelta(hours=48) - timedelta(seconds=5))
-                self.assertLessEqual(remaining, timedelta(hours=48))
+                self.assertGreater(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS) - timedelta(seconds=5))
+                self.assertLessEqual(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS))
                 self.assertEqual([item["answered_by"] for item in lead["call_log"]], ["race_lost"])
             dialer.public_state()
             for lead in crm.snapshot()[1:]:
@@ -451,8 +484,8 @@ class Part4:
 
     def test_scan_crm_copies_an_open_callback_onto_a_reimported_prospect(self):
         now = utc_now().replace(microsecond=0)
-        due = now + timedelta(hours=5)
-        later = now + timedelta(hours=8)
+        due = now + timedelta(hours=1)
+        later = now + timedelta(hours=1, minutes=30)
         leads = [
             self._scan_lead("held", "Ada Lovelace", "call", due, city="Austin", state="TX", dialed=True),
             self._scan_lead("held-later", "Ada Lovelace", "call", later, city="Austin", state="TX", dialed=True),
@@ -502,6 +535,6 @@ class Part4:
             "city": city,
             "state": state,
             "transcript": [],
-            "fields": fields or {},
+            "fields": {**(fields or {}), "callback_timer_48h_to_2h": True},
             "call_log": [{"id": f"dial-{lead_id}", "started_at": utc_now().isoformat()}] if dialed else [],
         }

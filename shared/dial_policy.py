@@ -7,6 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 from shared.infra import utc_now
 from shared.vocabulary import (
+    CALLBACK_TIMER_MIGRATION_FIELD,
+    CALLBACK_TIMER_MIGRATION_SHIFT_HOURS,
     DEFAULT_DIAL_POOL_STATUS,
     DIAL_POOL_STATUSES,
     LEGACY_CONNECTED_ANSWERS,
@@ -17,6 +19,8 @@ from shared.vocabulary import (
     NOT_CONNECTED_CALL_ANSWERS,
     canonical_status,
 )
+
+CALLBACK_TIMER_MIGRATION_SHIFT = timedelta(hours=CALLBACK_TIMER_MIGRATION_SHIFT_HOURS)
 
 RECENT_DIAL_WINDOW = timedelta(hours=12)
 RACE_LOST = "race_lost"
@@ -174,6 +178,26 @@ def callback_due(lead):
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=timezone.utc)
     return moment
+
+
+def apply_callback_timer_migration_to_lead(lead, now):
+    """One-time per lead: shift open callbacks forward after the 48h → 2h policy change."""
+    if lead.get("status") != "call" or not lead.get("scheduled_until"):
+        return False
+    fields = lead.setdefault("fields", {})
+    if fields.get(CALLBACK_TIMER_MIGRATION_FIELD):
+        return False
+    due = callback_due(lead)
+    fields[CALLBACK_TIMER_MIGRATION_FIELD] = True
+    if due is None:
+        return False
+    new_due = due - CALLBACK_TIMER_MIGRATION_SHIFT
+    if new_due <= now:
+        lead["status"] = "new"
+        lead["scheduled_until"] = None
+    else:
+        lead["scheduled_until"] = new_due.isoformat()
+    return True
 
 
 def retry_wait_for_log_entry(entry):

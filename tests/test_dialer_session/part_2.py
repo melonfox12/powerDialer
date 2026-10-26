@@ -5,6 +5,7 @@ from features.prospects import ProspectStore
 from features._dialer.rules import new_session
 from features.dialer import Dialer
 from shared.infra import utc_now
+from shared.vocabulary import MANUAL_CALLBACK_HOURS
 
 class Part2:
     def test_callback_is_persisted_and_do_not_call_leaves_the_auto_dial_pool(self):
@@ -166,8 +167,8 @@ class Part2:
             due = datetime.fromisoformat(kept["scheduled_until"])
             remaining = due - utc_now()
             self.assertEqual(kept["status"], "call")
-            self.assertGreater(remaining, timedelta(hours=6) - timedelta(seconds=2))
-            self.assertLessEqual(remaining, timedelta(hours=6))
+            self.assertGreater(remaining, timedelta(hours=MANUAL_CALLBACK_HOURS) - timedelta(seconds=2))
+            self.assertLessEqual(remaining, timedelta(hours=MANUAL_CALLBACK_HOURS))
             # The call on the line is already in the dial list, so there is no extra skip entry.
             self.assertEqual([item["id"] for item in kept["call_log"]], [call["token"]])
             view = dialer.public_state()
@@ -241,8 +242,8 @@ class Part2:
             self.assertLessEqual(abs(utc_now() - skipped_at), timedelta(seconds=2))
             due = datetime.fromisoformat(kept["scheduled_until"])
             remaining = due - utc_now()
-            self.assertGreater(remaining, timedelta(hours=6) - timedelta(seconds=2))
-            self.assertLessEqual(remaining, timedelta(hours=6))
+            self.assertGreater(remaining, timedelta(hours=MANUAL_CALLBACK_HOURS) - timedelta(seconds=2))
+            self.assertLessEqual(remaining, timedelta(hours=MANUAL_CALLBACK_HOURS))
             self.assertEqual(len(crm.snapshot()), 3)
 
             dialer.pass_next("prospect-1")
@@ -280,7 +281,7 @@ class Part2:
     def test_open_callback_without_a_call_is_listed_as_a_skip(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
-            due = utc_now().replace(microsecond=0) + timedelta(hours=6)
+            due = utc_now().replace(microsecond=0) + timedelta(hours=MANUAL_CALLBACK_HOURS)
             crm.leads = [{
                 "id": "prospect-0",
                 "name": "Ada Lovelace",
@@ -290,10 +291,13 @@ class Part2:
                 "status": "call",
                 "scheduled_until": due.isoformat(),
                 "transcript": [],
-                "fields": {},
+                "fields": {"callback_timer_48h_to_2h": True},
             }]
             dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.maintain_crm()
             kept = crm.snapshot()[0]
             self.assertEqual(kept["call_log"][0]["answered_by"], "skipped")
-            self.assertEqual(kept["call_log"][0]["started_at"], (due - timedelta(hours=6)).isoformat())
+            self.assertEqual(
+                kept["call_log"][0]["started_at"],
+                (due - timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat(),
+            )

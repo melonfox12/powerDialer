@@ -49,12 +49,14 @@ NOT_CONNECTED_CALL_ANSWERS = (
     "dead_line",
 )
 # Connect, pool, and cap rules: shared.dial_policy (imports these constants).
-# Callback set on the live line (CRM Callback button or disposition) comes due after this long.
-MANUAL_CALLBACK_HOURS = 6
-# No pickup (no answer, voicemail, dropped line) gets this callback timer in CRM.
-NO_PICKUP_CALLBACK_HOURS = 48
+# Callback status (manual disposition, CRM button, or no-pickup drop) comes due after this long.
+MANUAL_CALLBACK_HOURS = 2
+NO_PICKUP_CALLBACK_HOURS = 2
+LEGACY_NO_PICKUP_CALLBACK_HOURS = 48
+CALLBACK_TIMER_MIGRATION_SHIFT_HOURS = LEGACY_NO_PICKUP_CALLBACK_HOURS - NO_PICKUP_CALLBACK_HOURS
 # Legacy name kept for imports; automatic no-pickup callbacks use NO_PICKUP_CALLBACK_HOURS.
 DROPPED_CALLBACK_MINUTES = NO_PICKUP_CALLBACK_HOURS * 60
+CALLBACK_TIMER_MIGRATION_FIELD = "callback_timer_48h_to_2h"
 
 DISPOSITION_TO_STATUS = {
     "booked": "booked",
@@ -233,6 +235,7 @@ SECRET_INPUTS = (
 _STATUS_LABEL_ALIASES = {
     "callback": "call",
     "callback (12 hour timer)": "call",
+    "callback (2 hour timer)": "call",
     "send info": "send_info",
     "not interested": "disqualified",
     "do not call": "disqualified",
@@ -305,6 +308,7 @@ def browser_vocabulary():
             {"key": key, "label": CALLER_ID_GROUPS[key]["label"]} for key in CALLER_ID_GROUP_KEYS
         ],
         "defaultCallerIdGroup": DEFAULT_CALLER_ID_GROUP,
+        "callbackStatusHours": NO_PICKUP_CALLBACK_HOURS,
         "settingKeys": list(SETTING_KEYS),
         "secretInputs": [dict(item) for item in SECRET_INPUTS],
     }

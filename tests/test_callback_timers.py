@@ -16,7 +16,7 @@ def _lead(lead_id, phone="+12025550101", name="Ada"):
 
 
 class CallbackTimerTests(unittest.TestCase):
-    def test_no_pickup_callback_is_forty_eight_hours(self):
+    def test_no_pickup_callback_is_two_hours(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm")
             crm.leads = [_lead("a")]
@@ -29,7 +29,7 @@ class CallbackTimerTests(unittest.TestCase):
             self.assertGreater(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS) - timedelta(seconds=5))
             self.assertLessEqual(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS))
 
-    def test_manual_callback_is_six_hours(self):
+    def test_manual_callback_is_two_hours(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm")
             crm.leads = [_lead("a")]
@@ -50,6 +50,27 @@ class CallbackTimerTests(unittest.TestCase):
             dialer = Dialer(crm, str(Path(directory) / ".env"), metrics=MetricsStore(Path(directory) / "metrics.json"))
             self.assertIsNone(queue.schedule_no_pickup_callback(dialer, "a"))
             self.assertEqual(crm.snapshot()[0]["scheduled_until"], manual["scheduled_until"])
+
+    def test_legacy_forty_eight_hour_callback_shifts_forward_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            due = utc_now() + timedelta(hours=47)
+            crm = ProspectStore(Path(directory) / "crm")
+            crm.leads = [{
+                "id": "a",
+                "name": "Ada",
+                "phone": "+12025550101",
+                "status": "call",
+                "scheduled_until": due.isoformat(),
+                "call_log": [],
+                "fields": {},
+            }]
+            crm.save()
+            crm = ProspectStore(Path(directory) / "crm")
+            lead = crm.snapshot()[0]
+            remaining = calls._callback_due(lead) - utc_now()
+            self.assertGreater(remaining, timedelta(minutes=30))
+            self.assertLessEqual(remaining, timedelta(hours=2))
+            self.assertTrue(lead["fields"].get("callback_timer_48h_to_2h"))
 
 
 if __name__ == "__main__":

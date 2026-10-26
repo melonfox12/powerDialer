@@ -2,7 +2,13 @@ import { postJson, request } from "../../_core/api.js";
 import { applyMutationPayload, loadAppState } from "../../_core/sync-state.js";
 import { state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
-import { CRM_STATUS_KEYS, CRM_STATUS_LABELS, STATUS_LABELS, byId } from "../../_core/format.js";
+import {
+  CALLBACK_STATUS_HOURS,
+  CRM_STATUS_KEYS,
+  CRM_STATUS_LABELS,
+  STATUS_LABELS,
+  byId,
+} from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 
@@ -31,7 +37,7 @@ export async function changeLeadStatus(lead, status, select) {
     byId("saveState").textContent = "All changes saved";
     render();
     const label = next === "call"
-      ? "callback in 12 hours"
+      ? `callback in ${CALLBACK_STATUS_HOURS} hours`
       : (CRM_STATUS_LABELS[next] || STATUS_LABELS[next] || next).toLowerCase();
     showToast(`${lead.name || lead.phone}: ${label}`);
   } catch (error) {

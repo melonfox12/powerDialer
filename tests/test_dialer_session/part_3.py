@@ -7,6 +7,7 @@ from features._dialer import calls
 from features._dialer.rules import new_session
 from features.dialer import Dialer
 from shared.infra import utc_now
+from shared.vocabulary import NO_PICKUP_CALLBACK_HOURS
 
 class Part3:
     def test_answer_waits_for_a_person_and_voicemail_frees_only_that_line(self):
@@ -197,8 +198,8 @@ class Part3:
             kept = crm.snapshot()[1]
             self.assertEqual(kept["status"], "call")
             remaining = datetime.fromisoformat(kept["scheduled_until"]) - utc_now()
-            self.assertGreater(remaining, timedelta(hours=48) - timedelta(seconds=5))
-            self.assertLessEqual(remaining, timedelta(hours=48))
+            self.assertGreater(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS) - timedelta(seconds=5))
+            self.assertLessEqual(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS))
             self.assertEqual([item["answered_by"] for item in kept["call_log"]], ["race_lost"])
             # Reading the state must not add a second record for the callback.
             dialer.public_state()
@@ -224,10 +225,10 @@ class Part3:
                 for item in lead["call_log"]:
                     item["started_at"] = (datetime.fromisoformat(item["started_at"]) - timedelta(hours=hours)).isoformat()
 
-            move_back(40)
+            move_back(1)
             self.assertEqual(crm.snapshot()[1]["status"], "call")
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], [])
-            move_back(10)
+            move_back(2)
             self.assertEqual(crm.snapshot()[1]["status"], "new")
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], ["prospect-1"])
             if dialer.advance_timer:
@@ -346,12 +347,11 @@ class Part3:
             return {"call_log": [{"id": "x", "started_at": (now - ago).isoformat(), "answered_by": answered_by}]}
 
         self.assertTrue(calls._dialed_recently(lead("no_answer", timedelta(hours=1)), now))
-        self.assertTrue(calls._dialed_recently(lead("no_answer", timedelta(hours=40)), now))
-        self.assertFalse(calls._dialed_recently(lead("no_answer", timedelta(hours=49)), now))
-        self.assertTrue(calls._dialed_recently(lead("voicemail", timedelta(hours=3)), now))
-        self.assertFalse(calls._dialed_recently(lead("voicemail", timedelta(hours=49)), now))
+        self.assertFalse(calls._dialed_recently(lead("no_answer", timedelta(hours=3)), now))
+        self.assertTrue(calls._dialed_recently(lead("voicemail", timedelta(hours=1)), now))
+        self.assertFalse(calls._dialed_recently(lead("voicemail", timedelta(hours=3)), now))
         self.assertTrue(calls._dialed_recently(lead("race_lost", timedelta(hours=1)), now))
-        self.assertFalse(calls._dialed_recently(lead("race_lost", timedelta(hours=49)), now))
+        self.assertFalse(calls._dialed_recently(lead("race_lost", timedelta(hours=3)), now))
         self.assertTrue(calls._dialed_recently(lead("unknown", timedelta(hours=5)), now))
-        self.assertTrue(calls._dialed_recently(lead("", timedelta(hours=5)), now))
+        self.assertTrue(calls._dialed_recently(lead("", timedelta(hours=1)), now))
         self.assertFalse(calls._dialed_recently(lead("unknown", timedelta(hours=13)), now))

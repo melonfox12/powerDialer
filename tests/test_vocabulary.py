@@ -15,6 +15,7 @@ class VocabularyTests(unittest.TestCase):
         self.assertEqual(parse_prospect_status("Not interested"), "disqualified")
         self.assertEqual(parse_prospect_status("Send info"), "send_info")
         self.assertEqual(parse_prospect_status("Callback (12 hour timer)"), "call")
+        self.assertEqual(parse_prospect_status("Callback (2 hour timer)"), "call")
         self.assertEqual(parse_prospect_status("No answer (disqualified)"), "no_answer_disqualified")
 
     def test_browser_vocabulary_includes_crm_status_menu(self):

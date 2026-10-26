@@ -9,6 +9,7 @@ from features._prospects.backend_supabase import SupabaseBackend
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import parse_csv, update_lead_fields
 from shared.dial_policy import (
+    apply_callback_timer_migration_to_lead,
     apply_dial_cap_to_lead,
     dial_cap_reached,
     lead_has_live_contact,
@@ -31,6 +32,7 @@ class ProspectStore:
             self.backend = SupabaseBackend(client, user_id)
         else:
             self.backend = LocalBackend(path)
+        self.migrate_callback_timers_to_two_hours()
 
     @property
     def lock(self):
@@ -70,6 +72,19 @@ class ProspectStore:
             else:
                 counts["to_disqualified"] += 1
         return counts
+
+    def migrate_callback_timers_to_two_hours(self):
+        """Shift legacy 48-hour callback deadlines forward once per prospect."""
+        now = utc_now()
+        shifted = 0
+        with self.lock:
+            leads = self.backend.leads_locked()
+            self.backend.expire_locked(leads)
+            for lead in leads:
+                if apply_callback_timer_migration_to_lead(lead, now):
+                    self.backend.save_locked(lead)
+                    shifted += 1
+        return shifted
 
     def enforce_dial_caps(self, *, repair_misclassified=False):
         """Backfill no_answer_disqualified at the dial cap. Repair runs only when requested (Scan CRM)."""
