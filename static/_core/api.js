@@ -33,6 +33,7 @@ export function debugEvent(level, message, detail = "") {
 export async function request(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (S.accessToken) headers.Authorization = `Bearer ${S.accessToken}`;
+  const sentAuth = Boolean(headers.Authorization);
   const method = options.method || "GET";
   let response;
   try {
@@ -44,7 +45,9 @@ export async function request(path, options = {}) {
   const type = response.headers.get("content-type") || "";
   const result = type.includes("application/json") ? await response.json() : await response.text();
   if (response.status === 401 && S.googleAuthEnabled) {
-    onUnauthorized(result?.error || "Sign in with Google to continue.");
+    if (sentAuth) {
+      onUnauthorized(result?.error || "Sign in with Google to continue.");
+    }
     throw new Error(result?.error || "Sign in with Google to continue.");
   }
   if (!response.ok) throw new Error(result?.error || `Request failed (${response.status})`);

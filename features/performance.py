@@ -8,8 +8,16 @@ A call record is one `call_log` entry on a prospect (skipped rows are not dials)
 (``picked_up`` at hangup), or legacy rows with ``answered_by`` human/unknown and not voicemail,
 no-answer, race_lost, etc.
 
-**Conversation** — a connect with ``duration_seconds`` ≥ ``CONVERSATION_MIN_SECONDS`` (60) and not
-voicemail. Talk time sums connected prospect seconds with the same voicemail exclusion.
+**Conversation** — a live connect (not voicemail) with ``transcript_lines`` > 0, any length. Used for
+funnel ``connected → conversations``, goal bars, and the activity chart (same three series as the
+metric cards: dials, conversations, booked). Talk time sums connected seconds on transcript dials.
+
+**Funnel** — ``dials_to_connected`` = connects ÷ dials; ``connected_to_conversations`` = conversations
+÷ connects; ``conversations_to_booked`` = booked ÷ conversations. Booked uses prospects currently
+Booked whose latest into-Booked transition falls in the range.
+
+Goal-bar **talk time** sums connected seconds only on dials with ``transcript_lines`` > 0 in the
+selected range (day / week / month uses the same window as the chart and funnel).
 
 Bookings are counted from `status_history` transitions into ``booked``. If a prospect is moved out
 of Booked later they no longer contribute to booked totals or the chart (going forward). Each
@@ -33,6 +41,7 @@ from shared.vocabulary import (
 NOT_CONNECTED_ANSWERS = NOT_CONNECTED_CALL_ANSWERS
 SKIPPED_ANSWER = "skipped"
 BOOKED_STATUS = "booked"
+DAY_RANGE_HOURS = 12
 
 
 def is_connected_record(entry):
@@ -75,24 +84,92 @@ def format_funnel_percent(value):
     return f"{percent:.1f}%"
 
 
+def call_duration_seconds(entry):
+    """Connected talk time for one call_log row (pickup through hangup)."""
+    seconds = entry.get("duration_seconds")
+    if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and seconds > 0:
+        return int(seconds)
+    start = parse_moment(entry.get("started_at"))
+    end = parse_moment(entry.get("ended_at"))
+    if start and end and end > start:
+        return int((end - start).total_seconds())
+    return 0
+
+
+def dial_moment(entry):
+    """When the dial counts for Total dials and Performance windows (ended, else started)."""
+    return parse_moment(entry.get("ended_at")) or parse_moment(entry.get("started_at"))
+
+
+def segments_for_dial(lead, entry):
+    """Transcript lines on the lead that fall within this call_log row's time window."""
+    start = parse_moment(entry.get("started_at"))
+    if start is None:
+        return []
+    end = parse_moment(entry.get("ended_at"))
+    slack = timedelta(seconds=45)
+    matched = []
+    for segment in lead.get("transcript") or []:
+        moment = parse_moment(segment.get("timestamp"))
+        if moment is None:
+            continue
+        if end is not None:
+            if start - slack <= moment <= end + slack:
+                matched.append(segment)
+        elif moment >= start - slack:
+            matched.append(segment)
+    return matched
+
+
+def transcript_talk_from_segments(segments):
+    """Talk span from first to last transcript timestamp on this dial."""
+    moments = [parse_moment(item.get("timestamp")) for item in segments]
+    moments = [item for item in moments if item is not None]
+    if len(moments) < 2:
+        return 0
+    return max(0, int((max(moments) - min(moments)).total_seconds()))
+
+
+def effective_transcript_lines(lead, entry):
+    stored = entry.get("transcript_lines")
+    count = int(stored) if isinstance(stored, (int, float)) and not isinstance(stored, bool) else 0
+    segments = segments_for_dial(lead, entry)
+    return max(count, len(segments))
+
+
+def live_connect_for_metrics(entry, transcript_lines):
+    """Same intent as Total dials: live connect or a transcribed conversation."""
+    if is_connected_record(entry):
+        return True
+    if transcript_lines <= 0:
+        return False
+    answered = str(entry.get("answered_by") or "")
+    if answered in NOT_CONNECTED_ANSWERS or answered == "voicemail":
+        return False
+    return True
+
+
 def call_records(leads):
     records = []
     for lead in leads:
         for entry in lead.get("call_log") or []:
             if entry.get("answered_by") == SKIPPED_ANSWER:
                 continue
-            at = parse_moment(entry.get("started_at")) or parse_moment(entry.get("ended_at"))
+            at = dial_moment(entry)
             if at is None:
                 continue
-            connected = is_connected_record(entry)
-            seconds = entry.get("duration_seconds")
-            duration = int(seconds) if isinstance(seconds, (int, float)) and not isinstance(seconds, bool) and seconds > 0 else 0
+            segments = segments_for_dial(lead, entry)
+            transcript_lines = effective_transcript_lines(lead, entry)
+            connected = live_connect_for_metrics(entry, transcript_lines)
+            seg_talk = transcript_talk_from_segments(segments)
+            duration = seg_talk if seg_talk > 0 else call_duration_seconds(entry)
             outcome = entry.get("outcome")
             records.append({
                 "lead_id": lead.get("id"),
                 "at": at,
                 "connected": connected,
                 "duration": duration,
+                "transcript_lines": max(0, transcript_lines),
                 "answered_by": entry.get("answered_by") or "",
                 "outcome": outcome if outcome in CALL_OUTCOME_KEYS else None,
             })
@@ -104,8 +181,20 @@ def is_talk_time(record):
     return record["connected"] and record["answered_by"] != "voicemail"
 
 
-def is_conversation(record, minimum_seconds=CONVERSATION_MIN_SECONDS):
-    return is_talk_time(record) and record["duration"] >= minimum_seconds
+def is_conversation(record):
+    """Any dial in the period with a transcript (call_log count or lead segments), not voicemail."""
+    if record.get("transcript_lines", 0) <= 0:
+        return False
+    return str(record.get("answered_by") or "") != "voicemail"
+
+
+def transcript_talk_seconds(record):
+    """Talk time on transcript dials (segment span or connected duration)."""
+    if record.get("transcript_lines", 0) <= 0:
+        return 0
+    if str(record.get("answered_by") or "") == "voicemail":
+        return 0
+    return record["duration"]
 
 
 def in_window(moment, start, end):
@@ -165,19 +254,15 @@ def count_booked_from_history(leads, calls_by_lead=None):
 
 
 def range_windows(range_key, now, zone):
-    """(start, end) in UTC for day, week, or month ranges."""
+    """Day = rolling last ``DAY_RANGE_HOURS``; week/month = rolling windows ending at ``now``."""
     if range_key not in PERFORMANCE_RANGES:
         raise ValueError("Choose day, week, or month.")
     end = now.astimezone(timezone.utc)
     if range_key == "day":
-        return end - timedelta(hours=24), end
-    local_today = now.astimezone(zone).date()
+        return end - timedelta(hours=DAY_RANGE_HOURS), end
     if range_key == "week":
-        start_day = local_today - timedelta(days=6)
-    else:
-        start_day = local_today - timedelta(days=29)
-    start = datetime.combine(start_day, time.min, tzinfo=zone).astimezone(timezone.utc)
-    return start, end
+        return end - timedelta(days=7), end
+    return end - timedelta(days=30), end
 
 
 def window_counts(calls, leads, calls_by_lead, start, end):
@@ -191,7 +276,7 @@ def window_counts(calls, leads, calls_by_lead, start, end):
     return {
         "dials": len(chosen),
         "connected": len(connected),
-        "conversations": sum(is_conversation(call) for call in connected),
+        "conversations": sum(is_conversation(call) for call in chosen),
         "talk_seconds": sum(call["duration"] for call in connected if is_talk_time(call)),
         "booked": booked,
     }
@@ -205,37 +290,22 @@ def funnel_rates(counts):
     }
 
 
-def today_bounds(now, zone):
-    local_today = now.astimezone(zone).date()
-    start = datetime.combine(local_today, time.min, tzinfo=zone).astimezone(timezone.utc)
-    return start, now.astimezone(timezone.utc)
-
-
-def daily_totals(calls, leads, calls_by_lead, now, zone):
-    start, end = today_bounds(now, zone)
-    counts = window_counts(calls, leads, calls_by_lead, start, end)
-    return {
-        "conversations": counts["conversations"],
-        "talk_seconds": counts["talk_seconds"],
-        "talk_minutes": counts["talk_seconds"] / 60,
-    }
-
-
 def trend_buckets(calls, leads, calls_by_lead, range_key, start, end, now, zone):
-    """Dials, conversations, and booked per hour (day) or per day (week/month)."""
+    """One bucket per hour (day) or per calendar day (week/month) from period start through end."""
     chosen = [call for call in calls if in_window(call["at"], start, end)]
     grain = "hour" if range_key == "day" else "day"
     keys = []
     if grain == "hour":
+        local_start = start.astimezone(zone).replace(minute=0, second=0, microsecond=0)
         local_end = end.astimezone(zone).replace(minute=0, second=0, microsecond=0)
-        for offset in range(23, -1, -1):
-            keys.append((local_end - timedelta(hours=offset)).astimezone(timezone.utc))
+        cursor = local_start
+        while cursor <= local_end:
+            keys.append(cursor.astimezone(timezone.utc))
+            cursor += timedelta(hours=1)
     else:
-        local_end = end.astimezone(zone).date()
-        days = 7 if range_key == "week" else 30
-        first_day = local_end - timedelta(days=days - 1)
-        day = first_day
-        while day <= local_end:
+        day = start.astimezone(zone).date()
+        last_day = end.astimezone(zone).date()
+        while day <= last_day:
             keys.append(day)
             day += timedelta(days=1)
 
@@ -259,7 +329,7 @@ def trend_buckets(calls, leads, calls_by_lead, range_key, start, end, now, zone)
         buckets.append({
             **label,
             "dials": len(bucket_calls),
-            "conversations": sum(is_conversation(call) for call in connected),
+            "conversations": sum(is_conversation(call) for call in bucket_calls),
             "booked": booked,
         })
     return grain, buckets
@@ -275,7 +345,10 @@ def build_performance(leads, sessions, goal, range_key, tz_name, now, live_sessi
     start, end = range_windows(range_key, now, zone)
     counts = window_counts(calls, leads, calls_by_lead, start, end)
     grain, buckets = trend_buckets(calls, leads, calls_by_lead, range_key, start, end, now.astimezone(timezone.utc), zone)
-    today = daily_totals(calls, leads, calls_by_lead, now, zone)
+    period_calls = [call for call in calls if in_window(call["at"], start, end)]
+    period_connected = [call for call in period_calls if call["connected"]]
+    goal_conversations = sum(is_conversation(call) for call in period_calls)
+    goal_talk_seconds = sum(transcript_talk_seconds(call) for call in period_calls)
     has_activity = counts["dials"] > 0 or counts["booked"] > 0 or any(
         bucket["dials"] or bucket["booked"] for bucket in buckets
     )
@@ -286,11 +359,17 @@ def build_performance(leads, sessions, goal, range_key, tz_name, now, live_sessi
         "has_activity": has_activity,
         "counts": counts,
         "funnel": funnel_rates(counts),
-        "trend": {"grain": grain, "buckets": buckets},
+        "trend": {
+            "grain": grain,
+            "period_start": start.isoformat(),
+            "period_end": end.isoformat(),
+            "buckets": buckets,
+        },
         "daily": {
-            "conversations": today["conversations"],
+            "range": range_key,
+            "conversations": goal_conversations,
             "conversation_goal": int(goal.get("conversation_goal") or 20),
-            "talk_minutes": today["talk_minutes"],
+            "talk_minutes": goal_talk_seconds / 60,
             "talk_minutes_goal": int(goal.get("talk_minutes_goal") or goal.get("minutes") or 60),
         },
         "pipeline_booked": count_booked_in_pipeline(leads),

@@ -9,6 +9,16 @@ import { bindPerformanceChart, buildPerformanceLineChart } from "./_performance/
 const REFRESH_MS = 30000;
 const RANGE_STORAGE_KEY = "prospect-desk-performance-range";
 const LEGACY_RANGE_MAP = { today: "day", "7d": "week", all: "month" };
+const GOAL_PERIOD_LABELS = {
+  day: { conversations: "Conversations today", talk: "Talk time today" },
+  week: { conversations: "Conversations this week", talk: "Talk time this week" },
+  month: { conversations: "Conversations this month", talk: "Talk time this month" },
+};
+
+function performanceAuthReady() {
+  if (!S.googleAuthEnabled) return true;
+  return Boolean(S.accessToken);
+}
 
 function normalizePerformancePayload(data) {
   if (!data || typeof data !== "object") return null;
@@ -35,6 +45,7 @@ function normalizePerformancePayload(data) {
     },
     trend: data.trend || { grain: "day", buckets: [] },
     daily: {
+      range: data.range,
       conversations: value("conversations"),
       conversation_goal: 20,
       talk_minutes: Number(goal.minutes_today ?? 0),
@@ -44,15 +55,20 @@ function normalizePerformancePayload(data) {
 }
 
 function talkLabel(minutes) {
-  const whole = Math.floor(minutes);
-  const fraction = Math.round((minutes - whole) * 60);
-  if (!whole) return `${fraction || 0}m`;
-  if (!fraction) return `${whole}m`;
-  return `${whole}m`;
+  const totalSeconds = Math.round(Number(minutes) * 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  if (hours) return mins ? `${hours}h ${mins}m` : `${hours}h`;
+  if (mins) return `${mins}m`;
+  return `${totalSeconds % 60}s`;
 }
 
-function paintDailyGoals(daily) {
+function paintDailyGoals(daily, rangeKey) {
   if (!daily || typeof daily !== "object") return;
+  const range = GOAL_PERIOD_LABELS[rangeKey || daily.range] ? (rangeKey || daily.range) : S.performanceRange;
+  const labels = GOAL_PERIOD_LABELS[range] || GOAL_PERIOD_LABELS.week;
+  setText("dailyConversationLabel", labels.conversations);
+  setText("dailyTalkLabel", labels.talk);
   const conversations = Number(daily.conversations ?? 0);
   const conversationGoal = daily.conversation_goal;
   const talkMinutes = daily.talk_minutes;
@@ -73,15 +89,25 @@ function paintDailyGoals(daily) {
   byId("dailyTalkFill").style.width = `${Math.min(100, talkGoal ? talkMinutes / talkGoal * 100 : 0)}%`;
 }
 
-function paintFunnel(funnel) {
+function paintFunnel(funnel, counts) {
   if (!funnel) return;
+  const c = counts || {};
+  setText("funnelCountDials", String(c.dials ?? 0));
+  setText("funnelCountConversations", String(c.conversations ?? 0));
+  setText("funnelCountBooked", String(c.booked ?? 0));
   const entries = [
-    ["funnelRateConnect", "funnelRateConnectBar", funnel.dials_to_connected],
-    ["funnelRateConversation", "funnelRateConversationBar", funnel.connected_to_conversations],
-    ["funnelRateBooked", "funnelRateBookedBar", funnel.conversations_to_booked],
+    ["funnelDetailConnect", "funnelRateConnectBar", funnel.dials_to_connected, c.connected, c.dials, "connect rate", "connects of dials"],
+    ["funnelDetailConversation", "funnelRateConversationBar", funnel.connected_to_conversations, c.conversations, c.connected, "conversation rate", "transcript connects of live connects"],
+    ["funnelDetailBooked", "funnelRateBookedBar", funnel.conversations_to_booked, c.booked, c.conversations, "booking rate", "booked of conversations"],
   ];
-  for (const [valueId, barId, ratio] of entries) {
-    setText(valueId, formatRate(ratio));
+  for (const [detailId, barId, ratio, num, den, rateLabel, detailSuffix] of entries) {
+    const detail = byId(detailId);
+    if (detail) {
+      const rate = formatRate(ratio);
+      detail.textContent = rate === "—"
+        ? `${detailSuffix} · ${rateLabel} —`
+        : `${num} of ${den} ${detailSuffix} · ${rateLabel} ${rate}`;
+    }
     const bar = byId(barId);
     bar.style.width = typeof ratio === "number" && Number.isFinite(ratio) ? `${Math.min(100, ratio * 100)}%` : "0%";
   }
@@ -89,8 +115,9 @@ function paintFunnel(funnel) {
 
 function paint(data) {
   if (!data) return;
-  paintDailyGoals(data.daily);
-  paintFunnel(data.funnel);
+  if (data.range && data.range !== S.performanceRange) return;
+  paintDailyGoals(data.daily, data.range);
+  paintFunnel(data.funnel, data.counts);
   const trend = data.trend || { grain: "day", buckets: [] };
   buildPerformanceLineChart(trend);
   requestAnimationFrame(() => {
@@ -106,9 +133,9 @@ function paintIfNew() {
 
 export async function refreshPerformance() {
   if (S.performanceBusy) return;
+  if (!performanceAuthReady()) return;
   S.performanceBusy = true;
   const range = S.performanceRange;
-  S.performanceFetchedAt = Date.now();
   try {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
     const raw = await request(`/api/performance?range=${encodeURIComponent(range)}&tz=${encodeURIComponent(timezone)}`);
@@ -118,13 +145,13 @@ export async function refreshPerformance() {
     }
     if (range === S.performanceRange) {
       state.performance = data;
+      S.performanceFetchedAt = Date.now();
       S.performancePainted = null;
       paintIfNew();
-    } else {
-      S.performanceFetchedAt = 0;
     }
   } catch (error) {
-    showToast(error.message, true);
+    S.performanceFetchedAt = 0;
+    if (performanceAuthReady()) showToast(error.message, true);
   } finally {
     S.performanceBusy = false;
   }
@@ -145,6 +172,7 @@ function setRange(range) {
     button.setAttribute("aria-pressed", String(selected));
   }
   S.performanceFetchedAt = 0;
+  S.performancePainted = null;
   refreshPerformance();
 }
 

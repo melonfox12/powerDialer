@@ -93,7 +93,7 @@ METRIC_KEYS = (
 )
 
 # Performance page. A conversation is a connected call at least this long.
-CONVERSATION_MIN_SECONDS = 60
+CONVERSATION_MIN_SECONDS = 30
 # Tags the agent puts on a connected call. "booked" also marks the prospect booked.
 CALL_OUTCOMES = (
     {"key": "not_interested", "label": "Disqualified"},

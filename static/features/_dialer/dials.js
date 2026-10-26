@@ -1,5 +1,6 @@
 import { state } from "../../_core/state.js";
 import { byId, createCrmStatusSelect, crmStatusMenuOpen, setText } from "../../_core/format.js";
+import { formatPhoneNumber } from "../../_core/phone.js";
 import { openTranscript } from "../../_core/transcript.js";
 import { focusProspect } from "../_prospects/table.js";
 
@@ -32,6 +33,7 @@ export function renderDials() {
     row.dataset.leadId = leadId;
     row.append(cell(dialWhen(entry.ended_at || entry.started_at)));
     row.append(prospectCell(leadId, lead));
+    row.append(phoneCell(lead));
     row.append(cell(lead?.business || "—"));
     row.append(cell(reviewText(lead)));
     row.append(transcriptCell(leadId, lead));
@@ -54,6 +56,7 @@ function dialsTableSignature(rows) {
       leadId,
       entry.ended_at || entry.started_at || "",
       lead?.name || "",
+      lead?.phone || "",
       lead?.business || "",
       String(lead?.review_count ?? ""),
       String(lead?.transcript?.length ?? 0),
@@ -109,10 +112,26 @@ function prospectCell(leadId, lead) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "dial-prospect-link";
-  button.textContent = lead?.name || "Unnamed prospect";
+  const name = lead?.name || "Unnamed prospect";
+  button.textContent = name;
   button.title = "Open in Prospects";
   button.addEventListener("click", () => focusProspect(leadId));
   cell.append(button);
+  return cell;
+}
+
+function phoneCell(lead) {
+  const cell = document.createElement("td");
+  cell.className = "phone-cell";
+  if (!lead?.phone) {
+    cell.textContent = "—";
+    return cell;
+  }
+  const link = document.createElement("a");
+  link.className = "phone-link";
+  link.href = `tel:${lead.phone}`;
+  link.textContent = formatPhoneNumber(lead.phone);
+  cell.append(link);
   return cell;
 }
 

@@ -3,7 +3,7 @@
 from features._dialer import calls, queue, timing
 from features._dialer import rules
 from features._dialer.rules import record_conversation
-from shared.vocabulary import CONVERSATION_MIN_SECONDS, NEVER_DIAL_STATUSES
+from shared.vocabulary import NEVER_DIAL_STATUSES
 
 def _call_ended(state, call, params):
     log_entry = None
@@ -53,9 +53,13 @@ def _call_ended(state, call, params):
                 rules._bump(state, "connected")
                 if duration:
                     rules._bump(state, "talk_seconds", duration)
-                    threshold = int(state.settings.get("CONVERSATION_THRESHOLD_SECONDS", CONVERSATION_MIN_SECONDS))
-                    if state.session and call.get("picked_up") and call.get("answered_by") != "voicemail":
-                        record_conversation(state.session, duration, threshold)
+                if (
+                    state.session
+                    and call.get("picked_up")
+                    and call.get("answered_by") != "voicemail"
+                    and len(call.get("transcript_lines") or []) > 0
+                ):
+                    record_conversation(state.session)
                 rules._save_session(state)
             log_entry = calls._dial_record(call, duration)
             if state.running and was_connected:

@@ -1,4 +1,4 @@
-import { byId, request, S, setUnauthorizedHandler, showToast } from "../core.js";
+import { byId, render, request, S, setUnauthorizedHandler, showToast } from "../core.js";
 import { drawProspectWaveform, refreshState } from "./dialer.js";
 import { applySavedSettings } from "./settings.js";
 
@@ -36,6 +36,7 @@ export function syncAccountChrome(session) {
 export async function bootApp() {
   hideLoginGate();
   drawProspectWaveform(0);
+  S.performanceFetchedAt = 0;
   refreshState();
   request("/api/settings").then((settings) => {
     applySavedSettings(settings);
@@ -56,6 +57,10 @@ export async function initAuth() {
   supabaseClient.auth.onAuthStateChange((_event, session) => {
     S.accessToken = session?.access_token || null;
     syncAccountChrome(session);
+    if (session?.access_token && S.dashboardTab === "performance") {
+      S.performanceFetchedAt = 0;
+      render();
+    }
   });
   const { data: { session } } = await supabaseClient.auth.getSession();
   S.accessToken = session?.access_token || null;

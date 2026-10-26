@@ -70,9 +70,54 @@ class CallRecordTests(unittest.TestCase):
         records = performance.call_records([lead("x", entries)])
         self.assertEqual([record["connected"] for record in records], [False, False])
 
-    def test_conversation_needs_sixty_connected_seconds(self):
-        records = performance.call_records([lead("x", [call(1, seconds=59), call(2, seconds=60), call(3, connected=False, seconds=90)])])
-        self.assertEqual(sum(performance.is_conversation(record) for record in records), 1)
+    def test_conversation_requires_transcript_not_duration(self):
+        records = performance.call_records([lead("x", [
+            call(1, seconds=5, transcript_lines=2),
+            call(2, seconds=120),
+            call(3, connected=False, seconds=90, transcript_lines=1),
+        ])])
+        self.assertEqual(sum(performance.is_conversation(record) for record in records), 2)
+
+    def test_lead_transcript_segments_count_without_call_log_lines(self):
+        started = NOW - timedelta(minutes=3)
+        ended = NOW - timedelta(minutes=1)
+        entry = {
+            "id": "dial-1",
+            "started_at": started.isoformat(),
+            "ended_at": ended.isoformat(),
+            "answered_by": "human",
+            "connected": True,
+            "duration_seconds": 0,
+            "transcript_lines": 0,
+        }
+        segments = [
+            {"timestamp": (started + timedelta(seconds=10)).isoformat(), "speaker": "Agent", "text": "Hi"},
+            {"timestamp": (started + timedelta(seconds=40)).isoformat(), "speaker": "Prospect", "text": "Hello"},
+        ]
+        row = lead("x", [entry])
+        row["transcript"] = segments
+        records = performance.call_records([row])
+        self.assertEqual(records[0]["transcript_lines"], 2)
+        self.assertTrue(performance.is_conversation(records[0]))
+        self.assertEqual(records[0]["duration"], 30)
+
+    def test_live_connect_without_transcript_is_not_a_conversation(self):
+        short = call(1, seconds=120)
+        records = performance.call_records([lead("x", [short])])
+        self.assertFalse(performance.is_conversation(records[0]))
+
+    def test_duration_falls_back_to_started_and_ended(self):
+        started = NOW - timedelta(minutes=5)
+        ended = started + timedelta(seconds=42)
+        entry = {
+            "id": "x",
+            "started_at": started.isoformat(),
+            "ended_at": ended.isoformat(),
+            "answered_by": "human",
+            "connected": True,
+            "duration_seconds": 0,
+        }
+        self.assertEqual(performance.call_duration_seconds(entry), 42)
 
     def test_voicemail_is_never_a_conversation(self):
         records = performance.call_records([lead("x", [call(1, seconds=120, answered_by="voicemail")])])
@@ -80,18 +125,20 @@ class CallRecordTests(unittest.TestCase):
 
 
 class WindowTests(unittest.TestCase):
-    def test_week_window_is_seven_local_days(self):
+    def test_week_window_is_rolling_seven_days(self):
         start, end = performance.range_windows("week", NOW, NEW_YORK)
         self.assertEqual(end, NOW.astimezone(timezone.utc))
-        self.assertEqual(start, datetime(2026, 10, 17, 4, 0, tzinfo=timezone.utc))
+        self.assertEqual(start, NOW.astimezone(timezone.utc) - timedelta(days=7))
 
-    def test_day_window_is_twenty_four_hours(self):
+    def test_day_window_is_rolling_twelve_hours(self):
         start, end = performance.range_windows("day", NOW, NEW_YORK)
-        self.assertEqual(end - start, timedelta(hours=24))
+        self.assertEqual(end, NOW.astimezone(timezone.utc))
+        self.assertEqual(start, NOW.astimezone(timezone.utc) - timedelta(hours=performance.DAY_RANGE_HOURS))
 
-    def test_month_window_is_thirty_local_days(self):
+    def test_month_window_is_rolling_thirty_days(self):
         start, end = performance.range_windows("month", NOW, NEW_YORK)
-        self.assertEqual(start, datetime(2026, 9, 24, 4, 0, tzinfo=timezone.utc))
+        self.assertEqual(end, NOW.astimezone(timezone.utc))
+        self.assertEqual(start, NOW.astimezone(timezone.utc) - timedelta(days=30))
 
 
 class BookedHistoryTests(unittest.TestCase):
@@ -140,7 +187,11 @@ class BuildPerformanceTests(unittest.TestCase):
         return performance.build_performance(leads, [], goal, range_key, "America/New_York", NOW)
 
     def test_funnel_and_counts(self):
-        calls = [call(10, seconds=90), call(20, seconds=30), call(30, connected=False)]
+        calls = [
+            call(10, seconds=90, transcript_lines=1),
+            call(20, seconds=30, transcript_lines=2),
+            call(30, connected=False),
+        ]
         booked = lead(
             "b",
             [],
@@ -151,11 +202,11 @@ class BuildPerformanceTests(unittest.TestCase):
         counts = result["counts"]
         self.assertEqual(counts["dials"], 3)
         self.assertEqual(counts["connected"], 2)
-        self.assertEqual(counts["conversations"], 1)
+        self.assertEqual(counts["conversations"], 2)
         self.assertEqual(counts["booked"], 1)
         self.assertAlmostEqual(result["funnel"]["dials_to_connected"], 2 / 3)
-        self.assertAlmostEqual(result["funnel"]["connected_to_conversations"], 0.5)
-        self.assertAlmostEqual(result["funnel"]["conversations_to_booked"], 1.0)
+        self.assertAlmostEqual(result["funnel"]["connected_to_conversations"], 1.0)
+        self.assertAlmostEqual(result["funnel"]["conversations_to_booked"], 0.5)
 
     def test_talk_time_sums_connected_seconds_in_range(self):
         calls = [call(10, seconds=40), call(20, seconds=50)]
@@ -179,21 +230,51 @@ class BuildPerformanceTests(unittest.TestCase):
         )
         self.assertEqual(counts["talk_seconds"], 30)
 
+    def test_goal_talk_time_sums_transcript_dials_only(self):
+        calls = [
+            call(10, seconds=90, transcript_lines=5),
+            call(15, seconds=60),
+            call(20, seconds=45, transcript_lines=1),
+        ]
+        records = performance.call_records([lead("a", calls)])
+        connected = [record for record in records if record["connected"]]
+        total = sum(performance.transcript_talk_seconds(record) for record in connected)
+        self.assertEqual(total, 135)
+        result = self.build([lead("a", calls)], range_key="week")
+        self.assertAlmostEqual(result["daily"]["talk_minutes"], 135 / 60)
+
     def test_daily_goals_use_local_midnight(self):
-        calls = [call(10, seconds=75)]
-        result = self.build([lead("a", calls)])
+        calls = [call(10, seconds=75, transcript_lines=2)]
+        result = self.build([lead("a", calls)], range_key="day")
+        self.assertEqual(result["daily"]["range"], "day")
         self.assertEqual(result["daily"]["conversations"], 1)
         self.assertAlmostEqual(result["daily"]["talk_minutes"], 75 / 60)
 
-    def test_week_trend_has_seven_day_buckets(self):
+    def test_goal_bars_follow_week_window_on_week_tab(self):
+        old = call(60 * 24 * 8, seconds=90)
+        recent = call(10, seconds=30, transcript_lines=2)
+        result = self.build([lead("a", [old, recent])], range_key="week")
+        self.assertEqual(result["daily"]["range"], "week")
+        self.assertEqual(result["daily"]["conversations"], 1)
+        self.assertAlmostEqual(result["daily"]["talk_minutes"], 0.5)
+
+    def test_week_trend_spans_rolling_window_days(self):
         result = self.build([lead("a", [call(10)])])
         self.assertEqual(result["trend"]["grain"], "day")
-        self.assertEqual(len(result["trend"]["buckets"]), 7)
+        start, end = performance.range_windows("week", NOW, NEW_YORK)
+        expected_days = (end.astimezone(NEW_YORK).date() - start.astimezone(NEW_YORK).date()).days + 1
+        self.assertEqual(len(result["trend"]["buckets"]), expected_days)
 
-    def test_day_trend_is_hourly(self):
+    def test_day_trend_is_hourly_over_twelve_hours(self):
         result = self.build([lead("a", [call(10)])], range_key="day")
         self.assertEqual(result["trend"]["grain"], "hour")
-        self.assertEqual(len(result["trend"]["buckets"]), 24)
+        start, end = performance.range_windows("day", NOW, NEW_YORK)
+        local_start = start.astimezone(NEW_YORK).replace(minute=0, second=0, microsecond=0)
+        local_end = end.astimezone(NEW_YORK).replace(minute=0, second=0, microsecond=0)
+        expected_hours = int((local_end - local_start).total_seconds() // 3600) + 1
+        self.assertEqual(len(result["trend"]["buckets"]), expected_hours)
+        self.assertEqual(result["trend"]["buckets"][0]["hour"], local_start.hour)
+        self.assertEqual(result["trend"]["buckets"][-1]["hour"], local_end.hour)
 
 
 class GoalSettingsTests(unittest.TestCase):

@@ -15,7 +15,7 @@ class SettingsTests(unittest.TestCase):
     def test_blank_preference_values_keep_defaults(self):
         parsed = preferences({key: "" for key in SETTING_DEFAULTS})
         self.assertEqual(parsed["SESSION_GOAL"], "20")
-        self.assertEqual(parsed["CONVERSATION_THRESHOLD_SECONDS"], "60")
+        self.assertEqual(parsed["CONVERSATION_THRESHOLD_SECONDS"], "30")
         self.assertEqual(parsed["SOUNDS_ENABLED"], "true")
         self.assertEqual(parsed["OPENING_SCRIPT"], "")
 

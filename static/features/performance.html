@@ -3,10 +3,10 @@
                 <div class="performance-document dialer-document">
                   <header class="performance-header">
                     <h2 id="metricsTitle" class="visually-hidden">Performance</h2>
-                    <div class="performance-daily-goals" aria-label="Daily goals">
+                    <div class="performance-daily-goals" aria-label="Conversation and talk-time goals">
                       <div class="performance-goal-block">
                         <div class="performance-goal-head">
-                          <span class="performance-goal-label">Conversations today</span>
+                          <span id="dailyConversationLabel" class="performance-goal-label">Conversations this week</span>
                           <span class="performance-goal-value">
                             <strong id="dailyConversationsValue">0</strong>
                             <span class="performance-goal-sep">/</span>
@@ -19,7 +19,7 @@
                       </div>
                       <div class="performance-goal-block">
                         <div class="performance-goal-head">
-                          <span class="performance-goal-label">Talk time today</span>
+                          <span id="dailyTalkLabel" class="performance-goal-label">Talk time this week</span>
                           <span class="performance-goal-value">
                             <strong id="dailyTalkValue">0m</strong>
                             <span class="performance-goal-sep">/</span>
@@ -47,20 +47,23 @@
                     <p id="performanceChartEmpty" class="performance-chart-empty" role="status" hidden>No activity in this range</p>
                   </section>
 
-                  <section class="performance-funnel-row" aria-label="Funnel conversion rates">
-                    <article class="performance-funnel-card">
-                      <span class="performance-funnel-label">Dials → Connected</span>
-                      <strong id="funnelRateConnect" class="performance-funnel-value">—</strong>
+                  <section class="performance-funnel-row" aria-label="Period totals and conversion rates">
+                    <article class="performance-funnel-card performance-funnel-card-dials">
+                      <span class="performance-funnel-label">Dials</span>
+                      <strong id="funnelCountDials" class="performance-funnel-value">0</strong>
+                      <span id="funnelDetailConnect" class="performance-funnel-detail"></span>
                       <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateConnectBar"></span></div>
                     </article>
-                    <article class="performance-funnel-card">
-                      <span class="performance-funnel-label">Connected → Conversations</span>
-                      <strong id="funnelRateConversation" class="performance-funnel-value">—</strong>
+                    <article class="performance-funnel-card performance-funnel-card-conversations">
+                      <span class="performance-funnel-label">Conversations</span>
+                      <strong id="funnelCountConversations" class="performance-funnel-value">0</strong>
+                      <span id="funnelDetailConversation" class="performance-funnel-detail"></span>
                       <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateConversationBar"></span></div>
                     </article>
-                    <article class="performance-funnel-card">
-                      <span class="performance-funnel-label">Conversations → Booked</span>
-                      <strong id="funnelRateBooked" class="performance-funnel-value">—</strong>
+                    <article class="performance-funnel-card performance-funnel-card-booked">
+                      <span class="performance-funnel-label">Booked</span>
+                      <strong id="funnelCountBooked" class="performance-funnel-value">0</strong>
+                      <span id="funnelDetailBooked" class="performance-funnel-detail"></span>
                       <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateBookedBar"></span></div>
                     </article>
                   </section>

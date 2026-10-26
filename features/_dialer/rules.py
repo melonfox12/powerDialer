@@ -89,9 +89,7 @@ def add_connect(session, timestamp=None):
     session["connects"] = session.get("connects", 0) + 1
 
 
-def record_conversation(session, duration_seconds, threshold_seconds=30):
-    if duration_seconds < threshold_seconds:
-        return False
+def record_conversation(session):
     session["conversations"] = session.get("conversations", 0) + 1
     if (
         session["conversations"] >= session.get("goal", 20)

@@ -40,13 +40,13 @@ class Part2:
             dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.running = True
             dialer.session = new_session(goal=1)
-            dialer.settings = {"CONVERSATION_THRESHOLD_SECONDS": "30"}
             call = dialer._new_call("prospect", lead)
             dialer._pickup(call)
             self.assertEqual(dialer.session["connects"], 1)
             dialer._machine_result(call, {"AnsweredBy": "human"})
             self.assertEqual(dialer.session["connects"], 1)
             self.assertEqual(call["answered_by"], "human")
+            call["transcript_lines"] = ["prospect spoke"]
             dialer._call_ended(call, {"CallDuration": "30"})
             self.assertEqual(dialer.session["conversations"], 1)
             self.assertIsNone(dialer.pending_outcome)

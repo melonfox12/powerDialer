@@ -5,6 +5,7 @@ import { S } from "./state.js";
 
 const DASHBOARD_TABS = ["dialer", "performance", "prospects", "pool", "dials"];
 const TAB_ORDER_KEY = "prospect-desk-sidebar-order";
+const TAB_ACTIVE_KEY = "prospect-desk-dashboard-tab";
 const TAB_BUTTONS = {
   dialer: "dialerTabButton",
   performance: "performanceTabButton",
@@ -46,6 +47,23 @@ function savedTabOrder() {
 
 function rememberTabOrder() {
   localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(sidebarTabs().map((button) => button.dataset.dashboardTab)));
+}
+
+function savedDashboardTab() {
+  try {
+    const name = localStorage.getItem(TAB_ACTIVE_KEY) || "";
+    return DASHBOARD_TABS.includes(name) ? name : "dialer";
+  } catch {
+    return "dialer";
+  }
+}
+
+function rememberDashboardTab(name) {
+  try {
+    localStorage.setItem(TAB_ACTIVE_KEY, name);
+  } catch {
+    // ignore quota / private mode
+  }
 }
 
 function placeTab(button, target, before) {
@@ -109,6 +127,7 @@ function bindTabReorder() {
 
 export function setDashboardTab(name, moveFocus = false) {
   S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : "dialer";
+  rememberDashboardTab(S.dashboardTab);
   const selectedButton = byId(TAB_BUTTONS[S.dashboardTab]);
   for (const button of document.querySelectorAll("[data-dashboard-tab]")) {
     const selected = button === selectedButton;
@@ -170,4 +189,5 @@ export function bindNavigation() {
   for (const modeButton of document.querySelectorAll("[data-performance-mode]")) {
     modeButton.addEventListener("click", () => setPerformanceMode(modeButton.dataset.performanceMode));
   }
+  setDashboardTab(savedDashboardTab());
 }
