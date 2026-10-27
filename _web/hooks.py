@@ -48,11 +48,13 @@ def make_hook_handler(runtime):
                 if dialer is None:
                     status, content_type, content = 404, "text/plain", "Unknown call"
                 else:
-                    callback_url = dialer.public_base_url + self.path
+                    # Twilio signs the URL without query string, then appends sorted GET/POST params.
+                    callback_url = dialer.public_base_url + parsed.path
+                    sign_params = body_values if body_values is not None else query
                     valid = dialer.validate_webhook(
                         callback_url,
                         self.headers.get("X-Twilio-Signature", ""),
-                        body_values or {},
+                        sign_params,
                     )
                     if not valid:
                         dialer.record_activity("Rejected unsigned Twilio callback", "error")

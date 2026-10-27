@@ -83,7 +83,7 @@ def _create_call(state, call, destination):
         "To": number,
         "From": caller,
         "Url": twilio._url(state, call, "answer"),
-        "Method": "GET",
+        "Method": "POST",
         "StatusCallback": twilio._url(state, call, "status"),
         "StatusCallbackMethod": "POST",
         "StatusCallbackEvent": ["initiated", "ringing", "answered", "completed"],

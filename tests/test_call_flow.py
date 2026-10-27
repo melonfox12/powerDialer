@@ -135,6 +135,19 @@ class CallFlowTests(unittest.TestCase):
             headers["X-Twilio-Signature"] = sign(PUBLIC_BASE + path, parsed, AUTH_TOKEN)
         return self.servers.request(self.servers.hook_base, "POST", path, encoded, headers)
 
+    def hook_get(self, path, form, signature=None):
+        query = urllib.parse.urlencode(form)
+        full_path = f"{path}?{query}" if query else path
+        parsed = urllib.parse.parse_qs(query, keep_blank_values=True)
+        headers = {}
+        if signature is not None:
+            headers["X-Twilio-Signature"] = signature
+        elif signature is False:
+            pass
+        else:
+            headers["X-Twilio-Signature"] = sign(PUBLIC_BASE + path, parsed, AUTH_TOKEN)
+        return self.servers.request(self.servers.hook_base, "GET", full_path, None, headers)
+
     def json_app(self, method, path, payload):
         status, raw, _type = self.app(
             method,
@@ -213,11 +226,25 @@ class CallFlowTests(unittest.TestCase):
         self.assertNotIn(b"Conference", raw)
         self.assertFalse(prospect.get("picked_up"))
 
+        status, raw, content_type = self.hook_get(
+            f"/hooks/{token}/answer",
+            {"CallSid": prospect["call_uuid"]},
+        )
+        self.assertEqual(status, 200, raw)
+        self.assertIn("xml", content_type)
+        self.assertIn(b"Pause", raw)
+
         status, raw, _type = self.hook(f"/hooks/{token}/machine", {"AnsweredBy": "human"})
         self.assertEqual(status, 200)
         self.assertEqual(prospect["answered_by"], "human")
         self.assertEqual(prospect["state"], "live")
         self.assertTrue(prospect["picked_up"])
+
+        status, raw, content_type = self.hook(f"/hooks/{token}/answer", {"CallSid": prospect["call_uuid"]})
+        self.assertEqual(status, 200)
+        self.assertIn("xml", content_type)
+        self.assertIn(b"Conference", raw)
+        self.assertNotIn(b"<Start", raw)
 
         status, updated = self.json_app("POST", f"/api/leads/{lead_id}/status", {"disposition": "booked"})
         self.assertEqual(status, 200)

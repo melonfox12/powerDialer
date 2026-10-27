@@ -61,6 +61,7 @@ def handle_webhook(state, token, action, params):
         if lost:
             return 200, "application/xml", "<Response><Hangup/></Response>"
         if joined:
+            transcript.schedule_live_transcription(state, call)
             return 200, "application/xml", str(transcript._live_twiml(state, call))
         return 200, "application/xml", twilio.waiting_twiml()
     if action == "machine":

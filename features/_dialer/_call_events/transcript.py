@@ -1,6 +1,7 @@
 """Live conference TwiML and transcription callbacks."""
 
 import json
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -9,12 +10,8 @@ from twilio.twiml.voice_response import VoiceResponse
 from features._dialer import twilio
 
 def _live_twiml(state, call):
+    """Bridge the prospect into the agent conference. Transcription starts after media is up."""
     response = VoiceResponse()
-    with state.lock:
-        start_transcription = not call.get("transcription_started")
-        call["transcription_started"] = True
-    if start_transcription:
-        _start_transcription(state, response, call)
     response.dial().conference(
         state.conference,
         beep="false",
@@ -23,20 +20,30 @@ def _live_twiml(state, call):
     )
     return response
 
-def _start_transcription(state, response, call):
-    response.start().transcription(
-        status_callback_url=twilio._url(state, call, "transcript"),
-        status_callback_method="POST",
-        name=f"crm-{call['token']}",
-        track="both_tracks",
-        inbound_track_label="prospect",
-        outbound_track_label="agent",
-        # Interim results send one webhook every few hundred ms, which trips the tunnel's request cap.
-        partial_results=False,
-        language_code="en-US",
-        speech_model="telephony",
-        enable_automatic_punctuation=True,
-    )
+
+def schedule_live_transcription(state, call):
+    """Start live transcription on the connected call leg (REST), not before conference join."""
+    with state.lock:
+        if call.get("transcription_started"):
+            return
+        call["transcription_started"] = True
+        call_uuid = call.get("call_uuid")
+        callback_url = twilio._url(state, call, "transcript")
+        name = f"crm-{call['token']}"
+
+    if not call_uuid:
+        return
+
+    def _start():
+        time.sleep(1.5)
+        try:
+            twilio._start_live_transcription(state, call_uuid, callback_url, name)
+        except (twilio.TwilioError, KeyError) as exc:
+            with state.lock:
+                call["transcription_started"] = False
+            state.record_activity(f"Could not start live transcript: {exc}", "error")
+
+    threading.Thread(target=_start, daemon=True).start()
 
 def _speaker_for(track):
     value = str(track or "").lower()
