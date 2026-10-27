@@ -116,7 +116,7 @@ def request_refusal(method, path, headers, port):
         return 403, "Cross-origin request refused."
     if method == "POST":
         found = match_route("POST", path)
-        upload = found is not None and found[0] is prospects.post_import
+        upload = found is not None and found[0] in (prospects.post_import, dialer.post_dials_import)
         allowed = UPLOAD_CONTENT_TYPES if upload else ("application/json",)
         if not str(headers.get("Content-Type") or "").strip().lower().startswith(allowed):
             return 415, f"Content-Type must be {' or '.join(allowed)}."
@@ -221,7 +221,7 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
             if handler in (prospects.post_lead, prospects.post_fields, settings.post_settings, dialer.post_timezone, dialer.post_status, dialer.post_pass_next,
                            dialer.post_call_outcome, metrics.post_goal, metrics.post_booking):
                 handler(self, self.read_json(body))
-            elif handler is prospects.post_import:
+            elif handler in (prospects.post_import, dialer.post_dials_import):
                 handler(self, body)
             else:
                 handler(self)

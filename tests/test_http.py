@@ -464,6 +464,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/advance"),
     ("POST", "/api/dials/scan"),
     ("GET", "/api/dials/export.csv"),
+    ("POST", "/api/dials/import"),
     ("POST", "/api/leads/{id}/dial"),
     ("POST", "/api/leads/{id}/status"),
     ("POST", "/api/leads/{id}/call-outcome"),

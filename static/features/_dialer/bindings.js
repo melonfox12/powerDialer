@@ -1,5 +1,5 @@
 import { postJson } from "../../_core/api.js";
-import { applyMutationPayload, mergeLiveState } from "../../_core/sync-state.js";
+import { mergeLiveState } from "../../_core/sync-state.js";
 import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
@@ -11,38 +11,9 @@ import { bindDialerTimezoneMenu } from "./pool-view.js";
 import { startDialing } from "./session.js";
 import { bindCrmStatus } from "./crm-status.js";
 import { bindDialsExport } from "./dials.js";
-async function scanCrm() {
-  const button = byId("scanCrmButton");
-  if (button.disabled) return;
-  button.disabled = true;
-  button.textContent = "Scanning…";
-  try {
-    const result = await postJson("/api/dials/scan");
-    await applyMutationPayload({ state: result.state });
-    render();
-    const synced = result.synced || 0;
-    const repaired = result.repaired?.to_new || 0;
-    const capped = result.no_answer_disqualified || result.disqualified || 0;
-    if (synced || repaired || capped) {
-      const parts = [];
-      if (synced) parts.push(`synced ${synced}`);
-      if (repaired) parts.push(`reset ${repaired} to New`);
-      if (capped) parts.push(`no answer (disqualified) ${capped} (5+ dials)`);
-      showToast(parts.join(", "));
-    } else {
-      showToast("No unsynced prospects");
-    }
-  }
-  catch (error) { showToast(error.message, true); }
-  finally {
-    button.disabled = false;
-    button.textContent = "Scan CRM";
-  }
-}
 
 export function bindDialer() {
   byId("startButton").addEventListener("click", startDialing);
-  byId("scanCrmButton").addEventListener("click", scanCrm);
   bindDialsExport();
   bindCrmStatus();
   byId("stopButton").addEventListener("click", async () => {

@@ -174,6 +174,9 @@ export function setDashboardTab(name, moveFocus = false) {
   if (S.dashboardTab === "prospects") renderTable();
   if (S.dashboardTab === "pool") renderCallerPool();
   render();
+  if (S.dashboardTab === "dials") {
+    import("../features/_dialer/dials.js").then((module) => module.refreshDialsTab());
+  }
   if (S.dashboardTab === "performance") {
     import("../features/performance.js").then((module) => module.repaintPerformanceChart());
   }

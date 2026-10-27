@@ -7,7 +7,7 @@ from io import StringIO
 from shared.vocabulary import canonical_status
 
 # Matches Total dials table columns, then prospect id/timezone, then raw call_log fields.
-_HEADERS = [
+DIALS_CSV_HEADERS = [
     "When",
     "Prospect",
     "Phone",
@@ -106,10 +106,12 @@ def _row(lead, entry):
     }
 
 
-def dials_csv_bytes_for(leads):
+def dials_csv_bytes_for(leads, archived_records=None):
+    from features._prospects.dial_archive import dials_export_rows
+
     output = StringIO(newline="")
-    writer = csv.DictWriter(output, fieldnames=_HEADERS, extrasaction="ignore")
+    writer = csv.DictWriter(output, fieldnames=DIALS_CSV_HEADERS, extrasaction="ignore")
     writer.writeheader()
-    for row in _rows_for_leads(leads):
+    for row in dials_export_rows(leads, archived_records):
         writer.writerow(row)
     return output.getvalue().encode("utf-8-sig")

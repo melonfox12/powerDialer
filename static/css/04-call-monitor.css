@@ -69,6 +69,10 @@
 .activity-message { min-width: 0; overflow-wrap: anywhere; }
 .dial-prospect-link { padding: 0; border: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .dial-prospect-link:hover { color: var(--blue); text-decoration: underline; }
+.dial-prospect-link--removed { color: var(--muted); text-decoration: line-through; cursor: default; }
+.dial-prospect-link--removed:hover { color: var(--muted); text-decoration: line-through; }
+tr.dials-row--removed td { color: var(--muted); }
+tr.dials-row--removed .phone-link { color: var(--muted); }
 .transcript-view-button { max-width: 140px; padding: 5px 0; border: 0; background: transparent; color: var(--blue); font-size: 10px; text-align: left; cursor: pointer; }
 .transcript-view-button:hover:not(:disabled) { color: var(--ink); text-decoration: underline; }
 .transcript-view-button:disabled { color: var(--muted); cursor: default; }

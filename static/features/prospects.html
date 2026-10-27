@@ -3,8 +3,9 @@
                   <div class="pool-table-toolbar">
                     <div><h2>Total dials</h2><span id="dialsTableSummary" class="pool-table-summary">0 dials</span></div>
                     <div class="pool-table-actions">
+                      <button id="importDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
+                      <input id="dialsCsvInput" type="file" accept=".csv,text/csv" hidden>
                       <button id="exportDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↓</span>Export CSV</button>
-                      <button id="scanCrmButton" class="button button-secondary" type="button">Scan CRM</button>
                     </div>
                   </div>
                   <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">

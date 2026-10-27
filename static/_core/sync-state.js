@@ -26,6 +26,8 @@ export function applyLeadsCatalog(catalog) {
   if (!catalog) return;
   state.leads_version = catalog.leads_version;
   state.leads = catalog.leads || [];
+  state.archived_dials = catalog.archived_dials || [];
+  state.dials_version = catalog.dials_version ?? state.dials_version;
   state.pool = catalog.pool || [];
   state.timezone_groups = catalog.timezone_groups || [];
   state.counts = catalog.counts || state.counts;

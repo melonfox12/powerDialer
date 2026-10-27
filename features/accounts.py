@@ -5,6 +5,7 @@ import time
 
 from features.dialer import Dialer, TokenIndex
 from features.metrics import MetricsStore, SupabaseMetricsStore
+from features._prospects.dial_archive import DialArchiveStore
 from features.prospects import ProspectStore
 from features.settings import load_app_settings, save_app_settings
 from shared.config import CRM_PATH, ENV_PATH, METRICS_PATH, PUBLIC_API_PATHS, read_env
@@ -12,10 +13,11 @@ from shared.infra import SupabaseClient
 
 
 class Account:
-    def __init__(self, crm, metrics, dialer):
+    def __init__(self, crm, metrics, dialer, dial_archive):
         self.crm = crm
         self.metrics = metrics
         self.dialer = dialer
+        self.dial_archive = dial_archive
 
 
 class AppRuntime:
@@ -45,10 +47,12 @@ class AppRuntime:
             self.storage_name = "local JSON files"
             crm = ProspectStore(CRM_PATH)
             metrics = MetricsStore(METRICS_PATH)
+            dial_archive = DialArchiveStore(crm_path=CRM_PATH)
             dialer = Dialer(crm, ENV_PATH, metrics=metrics)
+            dialer.dial_archive = dial_archive
             dialer.storage_name = self.storage_name
             dialer.token_index = self.tokens
-            self.local = Account(crm, metrics, dialer)
+            self.local = Account(crm, metrics, dialer, dial_archive)
         self._health = {"ok": True, "storage": self.storage_name}
         return self
 
@@ -79,14 +83,16 @@ class AppRuntime:
             return existing
         crm = ProspectStore(client=self.client, user_id=user_id)
         metrics = SupabaseMetricsStore(self.client, user_id=user_id)
+        dial_archive = DialArchiveStore(client=self.client, user_id=user_id)
         dialer = Dialer(crm, ENV_PATH, metrics=metrics)
+        dialer.dial_archive = dial_archive
         dialer.storage_name = "Supabase"
         dialer.token_index = self.tokens
         dialer.account_user_id = user_id
         dialer.account_email = user.get("email") or ""
         dialer.account_values = load_app_settings(self.client, user_id)
         dialer.settings_saver = lambda active: self.persist_settings(active)
-        account = Account(crm, metrics, dialer)
+        account = Account(crm, metrics, dialer, dial_archive)
         with self.session_lock:
             current = self.sessions.get(user_id)
             if current:

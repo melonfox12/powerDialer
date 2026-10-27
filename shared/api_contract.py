@@ -44,7 +44,7 @@ DIALER_STATE_KEYS = (
 
 LIVE_STATE_KEYS = tuple(key for key in DIALER_STATE_KEYS if key != "pool")
 
-LEADS_CATALOG_KEYS = ("counts", "leads", "leads_version", "pool", "timezone_groups")
+LEADS_CATALOG_KEYS = ("archived_dials", "counts", "dials_version", "leads", "leads_version", "pool", "timezone_groups")
 
 DIALER_SETTINGS_KEYS = (
     "auto_advance_delay",

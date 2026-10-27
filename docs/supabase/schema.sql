@@ -4,6 +4,12 @@ create table if not exists public.prospects (
     data jsonb not null check (jsonb_typeof(data) = 'object')
 );
 
+create table if not exists public.dial_archive (
+    id text primary key,
+    user_id uuid,
+    data jsonb not null check (jsonb_typeof(data) = 'object')
+);
+
 create table if not exists public.dialer_metric_daily (
     user_id uuid not null default '00000000-0000-0000-0000-000000000000',
     day date not null,
@@ -57,6 +63,7 @@ alter table public.dialer_metric_totals
     );
 
 alter table public.prospects enable row level security;
+alter table public.dial_archive enable row level security;
 alter table public.dialer_metric_daily enable row level security;
 alter table public.dialer_metric_totals enable row level security;
 alter table public.dialer_sessions enable row level security;
@@ -69,17 +76,20 @@ create table if not exists public.dialer_settings (
 alter table public.dialer_settings enable row level security;
 
 revoke all on public.prospects from public, anon, authenticated;
+revoke all on public.dial_archive from public, anon, authenticated;
 revoke all on public.dialer_metric_daily from public, anon, authenticated;
 revoke all on public.dialer_metric_totals from public, anon, authenticated;
 revoke all on public.dialer_sessions from public, anon, authenticated;
 revoke all on public.dialer_settings from public, anon, authenticated;
 grant all on public.prospects to service_role;
+grant all on public.dial_archive to service_role;
 grant all on public.dialer_metric_daily to service_role;
 grant all on public.dialer_metric_totals to service_role;
 grant all on public.dialer_sessions to service_role;
 grant all on public.dialer_settings to service_role;
 
 alter table public.prospects add column if not exists user_id uuid;
+alter table public.dial_archive add column if not exists user_id uuid;
 alter table public.dialer_sessions add column if not exists user_id uuid;
 alter table public.dialer_metric_daily add column if not exists user_id uuid;
 alter table public.dialer_metric_totals add column if not exists user_id uuid;
@@ -93,20 +103,24 @@ alter table public.dialer_metric_daily add primary key (user_id, day, metric_key
 alter table public.dialer_metric_totals add primary key (user_id, metric_key);
 
 create index if not exists prospects_user_id_idx on public.prospects (user_id);
+create index if not exists dial_archive_user_id_idx on public.dial_archive (user_id);
 create index if not exists dialer_sessions_user_id_idx on public.dialer_sessions (user_id);
 
 drop policy if exists prospects_own on public.prospects;
+drop policy if exists dial_archive_own on public.dial_archive;
 drop policy if exists dialer_metric_daily_own on public.dialer_metric_daily;
 drop policy if exists dialer_metric_totals_own on public.dialer_metric_totals;
 drop policy if exists dialer_sessions_own on public.dialer_sessions;
 drop policy if exists dialer_settings_own on public.dialer_settings;
 create policy prospects_own on public.prospects for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy dial_archive_own on public.dial_archive for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy dialer_metric_daily_own on public.dialer_metric_daily for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy dialer_metric_totals_own on public.dialer_metric_totals for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy dialer_sessions_own on public.dialer_sessions for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy dialer_settings_own on public.dialer_settings for all to authenticated using (id = auth.uid()::text) with check (id = auth.uid()::text);
 
 grant select, insert, update, delete on public.prospects to authenticated;
+grant select, insert, update, delete on public.dial_archive to authenticated;
 grant select, insert, update, delete on public.dialer_metric_daily to authenticated;
 grant select, insert, update, delete on public.dialer_metric_totals to authenticated;
 grant select, insert, update, delete on public.dialer_sessions to authenticated;

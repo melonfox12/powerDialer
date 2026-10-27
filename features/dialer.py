@@ -245,10 +245,22 @@ def get_dials_export(request):
     from features._prospects.dials_csv_export import dials_csv_bytes_for
 
     try:
-        content = dials_csv_bytes_for(request.account.crm.snapshot())
+        archive = request.account.dial_archive.snapshot()
+        content = dials_csv_bytes_for(request.account.crm.snapshot(), archive)
         request.send_bytes(200, content, "text/csv; charset=utf-8", {
             "Content-Disposition": "attachment; filename=total-dials-export.csv",
         })
+    except OSError as exc:
+        request.report_storage_error(exc)
+
+
+def post_dials_import(request, data):
+    try:
+        result = request.account.dial_archive.import_csv_bytes(data, crm=request.account.crm)
+        request.send_json(200, {"import": result, "state": request.ctx.state()})
+    except ValueError as exc:
+        request._trace_error = str(exc)
+        request.send_json(400, {"error": str(exc)})
     except OSError as exc:
         request.report_storage_error(exc)
 
@@ -275,6 +287,7 @@ ROUTES = [
     ("POST", "/api/advance", post_advance, "POST"),
     ("POST", "/api/dials/scan", post_scan_crm, "POST"),
     ("GET", "/api/dials/export.csv", get_dials_export, "GET reads"),
+    ("POST", "/api/dials/import", post_dials_import, "POST"),
     ("POST", "/api/leads/{id}/dial", post_dial, "POST"),
     ("POST", "/api/leads/{id}/status", post_status, "POST"),
     ("POST", "/api/leads/{id}/call-outcome", post_call_outcome, "POST"),

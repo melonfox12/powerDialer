@@ -1,5 +1,7 @@
 export const state = {
   leads: [],
+  archived_dials: [],
+  dials_version: 0,
   pool: [],
   timezone_groups: [],
   selected_timezone: null,

@@ -29,6 +29,13 @@ def crm_catalog(state, leads=None):
 def leads_catalog(state):
     """Full CRM table payload for GET /api/leads."""
     catalog = crm_catalog(state)
+    archive = getattr(state, "dial_archive", None)
+    if archive is not None:
+        catalog["archived_dials"] = archive.snapshot()
+        catalog["dials_version"] = archive.revision
+    else:
+        catalog["archived_dials"] = []
+        catalog["dials_version"] = 0
     with state.lock:
         in_flight = len([call for call in state.in_flight.values() if call["kind"] == "prospect"])
     catalog["counts"]["calling"] = in_flight

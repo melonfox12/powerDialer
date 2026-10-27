@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 from features._prospects.backend_local import LocalBackend
 from features._prospects.backend_supabase import SupabaseBackend
+from features._prospects.dial_archive import is_dial_archive_storage_lead
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import parse_csv, update_lead_fields
 from shared.dial_policy import (
@@ -52,7 +53,7 @@ class ProspectStore:
 
     def snapshot(self):
         """Every prospect with a current status. Stored records are not rewritten."""
-        leads = self.backend.snapshot()
+        leads = [lead for lead in self.backend.snapshot() if not is_dial_archive_storage_lead(lead)]
         for lead in leads:
             lead["status"] = canonical_status(lead.get("status"))
         return leads
@@ -306,7 +307,13 @@ def get_export(request):
 def delete_lead(request):
     lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/"))
     try:
-        request.account.crm.remove(lead_id)
+        crm = request.account.crm
+        archive = request.account.dial_archive
+        lead = next((item for item in crm.snapshot() if item.get("id") == lead_id), None)
+        if lead is None:
+            raise KeyError("Prospect not found")
+        archive.archive_lead(lead)
+        crm.remove(lead_id)
         request.send_json(200, request.ctx.state())
     except KeyError as exc:
         request._trace_error = str(exc)
