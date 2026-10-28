@@ -19,6 +19,7 @@ from shared.dial_policy import (
 from shared.infra import utc_now
 from shared.vocabulary import (
     CALL_OUTCOME_KEYS,
+    DEFAULT_BUSINESS_TYPE,
     MANUAL_CALLBACK_HOURS,
     NEVER_DIAL_STATUSES,
     STATUS_KEYS,
@@ -56,6 +57,8 @@ class ProspectStore:
         leads = [lead for lead in self.backend.snapshot() if not is_dial_archive_storage_lead(lead)]
         for lead in leads:
             lead["status"] = canonical_status(lead.get("status"))
+            if not str(lead.get("business_type") or "").strip():
+                lead["business_type"] = DEFAULT_BUSINESS_TYPE
         return leads
 
     def repair_dial_statuses(self):

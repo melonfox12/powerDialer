@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from features._dialer import calls
 from features._dialer import queue
 from features._dialer import rules
-from features._dialer import timing
+from features._dialer import slots
 from features._dialer import twilio
 from features._dialer.rules import add_connect
 
@@ -37,7 +37,7 @@ def _drop_line(state, call, answered_by):
             state.record_activity(f"Could not set the callback for {_name(call)}: {exc}", "error")
     label = answered_by.replace("_", " ")
     state.record_activity(f"Dropped {_name(call)} ({label}); 2-hour callback when eligible", "call")
-    timing._schedule_advance(state)
+    slots.request_top_up(state)
     return True
 
 def _pickup(state, call):
@@ -75,48 +75,66 @@ def _pickup(state, call):
     state.record_activity(f"Pickup on the line: {name}. Stay on it or skip.", "call")
     return True
 
+def _amd_should_connect(answered_by):
+    """Bridge the agent only when Twilio says human or could not decide (often a live hello)."""
+    return (answered_by or "unknown").lower() in ("human", "unknown")
+
+def _amd_is_voicemail(answered_by, result_blob):
+    """Hang up on machine signals; do not connect machine_start or finished voicemail beeps."""
+    if _amd_should_connect(answered_by):
+        return False
+    answered_by = (answered_by or "unknown").lower()
+    if answered_by.startswith("machine"):
+        return True
+    blob = (result_blob or "").lower()
+    return any(term in blob for term in ("fax", "answering service", "voicemail"))
+
+def _connect_prospect(state, call):
+    if not call.get("picked_up") and _pickup(state, call):
+        twilio._redirect_call(state, call.get("call_uuid"), twilio._url(state, call, "answer"))
+    kept = call.get("picked_up") and state.active is call
+    return "Live voice is on the line" if kept else "Another line was already live"
+
 def _machine_result(state, call, params):
     answered_by = str(params.get("AnsweredBy") or params.get("MachineDetectionResult") or "unknown").lower()
     state.record_activity(f"Answer detection: {answered_by}", "call")
     result = " ".join(str(params.get(key, "")) for key in (
         "AnsweredBy", "Machine", "machine", "MachineDetection", "MachineDetectionResult", "machine_detection"
     )).lower()
-    machine = any(term in result for term in ("machine", "voicemail", "fax", "answering service"))
-    human = "human" in result and not machine
-    # Twilio could not decide. Connect: a person who answers instantly (a front desk) is real.
-    label = "voicemail" if machine else "human" if human else "unknown"
+    connect = _amd_should_connect(answered_by)
+    voicemail = _amd_is_voicemail(answered_by, result)
+    label = "voicemail" if voicemail else answered_by
     with state.lock:
         if call["cancelled"] or call.get("end_processed"):
             return 200, "text/plain", "OK"
         call["answered_by"] = label
-        if machine:
+        if voicemail:
             call["machine"] = True
             if not call.get("machine_counted"):
                 call["machine_counted"] = True
                 rules._bump(state, "voicemail")
         name = _name(call)
-        if label == "voicemail":
+        if voicemail:
             state.last_event = f"Voicemail on the line: {name}"
-        elif label == "human":
+        elif answered_by == "human":
             state.last_event = f"Live voice: {name}"
         else:
             state.last_event = f"On the line: {name}"
     rules._flush_metrics(state)
-    if machine:
+    if voicemail:
         if not call.get("picked_up"):
             _drop_line(state, call, "voicemail")
         message = "Voicemail hung up"
-    elif label == "unknown" and not call.get("picked_up") and not twilio._call_is_live(state, call.get("call_uuid")):
-        # Twilio reports "unknown" for lines that already hung up. Do not put the agent on a dead line.
-        _drop_line(state, call, calls.DEAD_LINE)
-        message = "Line was already gone"
-    else:
-        if not call.get("picked_up") and _pickup(state, call):
-            twilio._redirect_call(state, call.get("call_uuid"), twilio._url(state, call, "answer"))
-        kept = call.get("picked_up") and state.active is call
-        if kept:
-            message = "Live voice is on the line" if human else "Answer unclear; connected you"
+    elif connect and not call.get("picked_up"):
+        if twilio._call_is_live(state, call.get("call_uuid")):
+            message = _connect_prospect(state, call)
         else:
-            message = "Another line was already live"
+            _drop_line(state, call, calls.DEAD_LINE)
+            message = "Line was already gone"
+    elif not call.get("picked_up"):
+        _drop_line(state, call, answered_by or "unknown")
+        message = "Answer detection did not confirm a person; hung up"
+    else:
+        message = "Another line was already live"
     state.record_activity(message, "call")
     return 200, "text/plain", "OK"

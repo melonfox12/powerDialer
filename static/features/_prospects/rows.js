@@ -76,6 +76,10 @@ function appendLeadColumn(row, lead, column) {
     row.append(prospectCell(lead));
     return;
   }
+  if (column.key === "business_type") {
+    row.append(dataCell(fieldInput(lead, "business_type", lead.business_type || "", "Business type")));
+    return;
+  }
   if (column.key === "business") {
     row.append(dataCell(fieldInput(lead, "business", lead.business || "", "Company")));
     return;

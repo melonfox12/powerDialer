@@ -12,7 +12,7 @@ from shared.infra import utc_now
 from shared.vocabulary import NO_PICKUP_CALLBACK_HOURS
 
 class Part4:
-    def test_fill_slots_waits_until_the_parallel_wave_finishes(self):
+    def test_fill_slots_tops_up_when_a_parallel_line_finishes(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
             crm.leads = [
@@ -42,7 +42,7 @@ class Part4:
             self.assertEqual(len(launched), 3)
             dialer.in_flight.pop(next(iter(dialer.in_flight)))
             dialer.fill_slots()
-            self.assertEqual(len(launched), 3)
+            self.assertEqual(len(launched), 4)
 
     def test_three_lines_dial_at_once_and_caller_ids_rotate(self):
         with tempfile.TemporaryDirectory() as directory:

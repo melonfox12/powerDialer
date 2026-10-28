@@ -1,4 +1,5 @@
 import tempfile
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
@@ -124,20 +125,28 @@ class Part3:
             self.assertNotIn(lead["id"], launched)
             self.assertEqual(launched, [crm.snapshot()[1]["id"]])
 
-    def test_parallel_no_answer_does_not_schedule_advance_while_sibling_rings(self):
+    def test_parallel_no_answer_tops_up_while_a_sibling_still_rings(self):
         with tempfile.TemporaryDirectory() as directory:
-            crm, dialer = self._dialer_with_leads(directory, 2)
+            crm, dialer = self._dialer_with_leads(directory, 3)
             leads = crm.snapshot()
+            dialer.agent_ready = True
+            dialer.callers = ["+15551110001", "+15551110002", "+15551110003"]
             ringing = dialer._new_call("prospect", leads[1])
             ringing["call_uuid"] = "CA-ringing"
             missed = dialer._new_call("prospect", leads[0])
             missed["call_uuid"] = "CA-miss"
-            dialer._call_ended(missed, {"CallStatus": "no-answer", "CallDuration": "0"})
-            self.assertIsNone(dialer.advance_timer)
-            dialer._call_ended(ringing, {"CallStatus": "no-answer", "CallDuration": "0"})
-            self.assertIsNotNone(dialer.advance_timer)
-            if dialer.advance_timer:
-                dialer.advance_timer.cancel()
+            launched = []
+            original_launch = calls._launch_call
+            calls._launch_call = lambda state, call, destination: launched.append(call["lead_id"])
+            try:
+                dialer._call_ended(missed, {"CallStatus": "no-answer", "CallDuration": "0"})
+                time.sleep(0.3)
+                self.assertEqual(launched, [leads[2]["id"]])
+                self.assertIn(ringing["token"], dialer.in_flight)
+            finally:
+                calls._launch_call = original_launch
+                if dialer.advance_timer:
+                    dialer.advance_timer.cancel()
 
     def test_unanswered_call_is_kept_in_the_dial_log(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -234,16 +243,32 @@ class Part3:
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()
 
-    def test_an_unclear_answer_connects_even_when_it_picked_up_instantly(self):
+    def test_an_unclear_answer_still_connects_the_agent(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer_with_leads(directory, 1)
+            dialer.running = True
             call = dialer._new_call("prospect", crm.snapshot()[0])
+            call["call_uuid"] = "CA-unclear"
             dialer.handle_webhook(call["token"], "status", {"CallStatus": "initiated"})
             dialer.handle_webhook(call["token"], "answer", {})
             dialer._machine_result(call, {"AnsweredBy": "unknown"})
             self.assertIs(dialer.active, call)
-            self.assertTrue(call["picked_up"])
+            self.assertTrue(call.get("picked_up"))
             self.assertEqual(call["answered_by"], "unknown")
+            if dialer.advance_timer:
+                dialer.advance_timer.cancel()
+
+    def test_machine_start_hangs_up_without_connecting_the_agent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm, dialer = self._dialer_with_leads(directory, 1)
+            dialer.running = True
+            call = dialer._new_call("prospect", crm.snapshot()[0])
+            call["call_uuid"] = "CA-early-machine"
+            dialer._machine_result(call, {"AnsweredBy": "machine_start"})
+            self.assertIsNone(dialer.active)
+            self.assertFalse(call.get("picked_up"))
+            self.assertEqual(call["answered_by"], "voicemail")
+            self.assertTrue(call.get("skip_closed"))
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()
 

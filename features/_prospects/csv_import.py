@@ -9,23 +9,33 @@ from io import StringIO
 
 from shared.dial_policy import location_text
 from shared.infra import utc_now
-from shared.vocabulary import MANUAL_CALLBACK_HOURS, STATUS_KEYS, TIMEZONE_ALIASES, UTC_OFFSET_ZONES, parse_prospect_status
+from shared.vocabulary import (
+    DEFAULT_BUSINESS_TYPE,
+    MANUAL_CALLBACK_HOURS,
+    STATUS_KEYS,
+    TIMEZONE_ALIASES,
+    UTC_OFFSET_ZONES,
+    parse_prospect_status,
+)
 
 STATUSES = STATUS_KEYS
 PHONE_HEADER_WORDS = ("phone", "mobile", "cell", "tel", "number", "whatsapp")
 BUSINESS_HEADER_WORDS = ("business", "company", "organization", "organisation", "employer", "account", "firm")
 TIMEZONE_HEADER_WORDS = ("timezone", "time zone", "tz")
 REVIEW_HEADER_WORDS = ("review", "rating count", "num reviews", "num_reviews")
+BUSINESS_TYPE_HEADER_WORDS = ("business type", "industry", "vertical", "sector")
 
 TIMEZONE_ABBREVIATION = re.compile(r"\b(e[sd]t|c[sd]t|m[sd]t|p[sd]t|akst|akdt|hst)\b", re.I)
 STATE_HEADER = re.compile(r"\bstate\b", re.I)
 CITY_HEADER = re.compile(r"\bcity\b", re.I)
-JUNK_HEADER = re.compile(r"\b(e-?mail|address|street|city|state|zip|postal|country|url|website|linkedin|notes?|status|id|title|industry|revenue|source|date|fax)\b", re.I)
+JUNK_HEADER = re.compile(r"\b(e-?mail|address|street|city|state|zip|postal|country|url|website|linkedin|notes?|status|id|title|revenue|source|date|fax)\b", re.I)
 SCIENTIFIC_NUMBER = re.compile(r"^(\d)(?:\.(\d+))?[eE]\+?(\d+)$")
 
 # Scraper headers map onto existing lead keys where the CRM already stores that fact.
 # name = Prospect, business = Company, phone = Phone Number, review_count = Total Reviews.
 EXACT_HEADERS = {
+    "business type": "business_type",
+    "industry": "business_type",
     "prospect": "name",
     "company": "business",
     "state": "state",
@@ -272,6 +282,13 @@ def parse_csv(data, known_phones=()):
                               if i not in used and any(word in value.lower() for word in REVIEW_HEADER_WORDS)), None)
     if review_column is not None:
         used.add(review_column)
+    business_type_column = exact.get("business_type")
+    if business_type_column is None:
+        business_type_column = next((i for i, value in enumerate(header or [])
+                                     if i not in used
+                                     and any(word in value.lower() for word in BUSINESS_TYPE_HEADER_WORDS)), None)
+    if business_type_column is not None:
+        used.add(business_type_column)
 
     text_columns = [i for i in range(width) if i not in used and hits[i] <= len(records) // 2
                     and not (header and JUNK_HEADER.search(header[i]))]
@@ -310,9 +327,16 @@ def parse_csv(data, known_phones=()):
         days_since_last_review = _review_count(row[exact["days_since_last_review"]]) if "days_since_last_review" in exact else None
         review_pct_30_days = _optional_decimal(row[exact["review_pct_30_days"]]) if "review_pct_30_days" in exact else None
         recency_source = row[exact["recency_source"]].strip() if "recency_source" in exact else ""
+        if business_type_column is not None:
+            business_type = row[business_type_column].strip()
+        else:
+            business_type = ""
+        if not business_type:
+            business_type = DEFAULT_BUSINESS_TYPE
         leads.append({
             "id": str(uuid.uuid4()),
             "name": name,
+            "business_type": business_type,
             "business": row[business_column].strip() if business_column is not None else "",
             "state": row[state_column].strip() if state_column is not None else "",
             "city": row[city_column].strip() if city_column is not None else "",
@@ -333,6 +357,7 @@ def parse_csv(data, known_phones=()):
 
 _LIMITS = {
     "name": 200,
+    "business_type": 120,
     "business": 200,
     "state": 80,
     "city": 120,
@@ -360,9 +385,11 @@ def build_manual_lead(payload, known_phones=()):
     fields = _extra_fields(payload.get("fields"))
     transcript = _transcript(_text(payload.get("transcript"), "transcript"))
     scheduled_until = (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat() if status == "call" else None
+    business_type = _text(payload.get("business_type") or DEFAULT_BUSINESS_TYPE, "business_type")
     lead = {
         "id": str(uuid.uuid4()),
         "name": name,
+        "business_type": business_type,
         "business": business,
         "state": state,
         "city": city,
@@ -390,6 +417,9 @@ def update_lead_fields(lead, payload, known_phones=()):
     changed = False
     if "name" in payload:
         lead["name"] = _text(payload.get("name"), "name")
+        changed = True
+    if "business_type" in payload:
+        lead["business_type"] = _text(payload.get("business_type"), "business_type")
         changed = True
     if "business" in payload:
         lead["business"] = _text(payload.get("business"), "business")
@@ -419,6 +449,24 @@ def update_lead_fields(lead, payload, known_phones=()):
     if not changed:
         raise ValueError("No prospect fields to update.")
     return lead
+
+
+def apply_business_type_default_to_lead(lead):
+    """Backfill missing business type on stored prospects. Returns True when the lead changed."""
+    if not isinstance(lead, dict):
+        return False
+    if str(lead.get("business_type") or "").strip():
+        return False
+    lead["business_type"] = DEFAULT_BUSINESS_TYPE
+    fields = lead.get("fields") or {}
+    cleaned = {
+        name: value
+        for name, value in fields.items()
+        if str(name).strip().lower() not in ("business type", "industry")
+    }
+    if cleaned != fields:
+        lead["fields"] = cleaned
+    return True
 
 
 def _header_column(header, used, pattern):

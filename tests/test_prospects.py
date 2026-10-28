@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -76,6 +77,7 @@ Too large,,Orkin,CA,San Jose,(408) 555-0000,Pacific,1495,12,1,0.8,exact
         self.assertEqual(info["skipped"], 0)
         mike, bay, orkin = leads
         self.assertEqual(mike["name"], "Mike")
+        self.assertEqual(mike["business_type"], "pest control")
         self.assertEqual(mike["business"], "Mike's Pest Control")
         self.assertEqual(mike["state"], "CA")
         self.assertEqual(mike["city"], "San Francisco")
@@ -111,6 +113,26 @@ Too large,,Orkin,CA,San Jose,(408) 555-0000,Pacific,1495,12,1,0.8,exact
         self.assertEqual(messy[0]["fields"].get("Notes"), "VIP")
         self.assertNotIn("FIT", messy[0]["fields"])
         self.assertNotIn("Fit", messy[0]["fields"])
+
+    def test_csv_business_type_column_and_default(self):
+        typed, _info = parse_csv(
+            b"Business Type,Prospect,Company,Phone\nHVAC,Ada,Engines,2025550199\n"
+        )
+        self.assertEqual(typed[0]["business_type"], "HVAC")
+        default, _info = parse_csv(b"Prospect,Company,Phone\nAda,Engines,2025550199\n")
+        self.assertEqual(default[0]["business_type"], "pest control")
+
+    def test_store_backfills_missing_business_type_on_load(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "crm.json"
+            crm = ProspectStore(path)
+            crm.leads = [prospect()]
+            crm.save()
+            self.assertNotIn("business_type", crm.leads[0])
+            reloaded = ProspectStore(path)
+            saved = json.loads(path.read_text(encoding="utf-8"))[0]
+            self.assertEqual(saved["business_type"], "pest control")
+            self.assertEqual(reloaded.snapshot()[0]["business_type"], "pest control")
 
     def test_csv_state_and_city_become_their_own_columns(self):
         leads, _info = parse_csv(
@@ -177,8 +199,8 @@ Too large,,Orkin,CA,San Jose,(408) 555-0000,Pacific,1495,12,1,0.8,exact
 
     def test_supabase_update_fields_writes_the_cache(self):
         client = FakeSupabaseClient(prospect())
-        crm = ProspectStore(client=client, user_id="user-a")
         client.users["prospect-1"] = "user-a"
+        crm = ProspectStore(client=client, user_id="user-a")
         updated = crm.update_fields("prospect-1", {"business": "Navy", "timezone": "Central"})
         self.assertEqual(updated["business"], "Navy")
         self.assertEqual(crm.snapshot()[0]["timezone"], "Central")

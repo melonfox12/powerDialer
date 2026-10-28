@@ -1,6 +1,6 @@
 """Prospect and agent call endings."""
 
-from features._dialer import calls, queue, timing
+from features._dialer import calls, queue, slots, timing
 from features._dialer import rules
 from features._dialer.rules import record_conversation
 from shared.vocabulary import NEVER_DIAL_STATUSES
@@ -8,7 +8,7 @@ from shared.vocabulary import NEVER_DIAL_STATUSES
 def _call_ended(state, call, params):
     log_entry = None
     should_schedule_advance = False
-    should_refill = False
+    should_top_up = False
     others = []
     with state.lock:
         if call["kind"] == "agent":
@@ -74,9 +74,8 @@ def _call_ended(state, call, params):
                 others = list(state.in_flight.values())
             elif state.running and not was_connected and not pending_already and not outcome_already_chosen:
                 state.last_event = "No answer"
-                should_refill = (
+                should_top_up = (
                     not state.active and not state.pending_outcome and not state.paused
-                    and not state.in_flight
                 )
                 others = []
             else:
@@ -92,7 +91,7 @@ def _call_ended(state, call, params):
             state.record_activity(f"Could not log the call: {exc}", "error")
     if should_schedule_advance:
         timing._schedule_advance(state)
-    elif should_refill:
+    elif should_top_up:
         lead_id = call.get("lead_id")
         if lead_id:
             try:
@@ -101,7 +100,7 @@ def _call_ended(state, call, params):
                     queue.schedule_no_pickup_callback(state, lead_id)
             except (KeyError, ValueError, OSError) as exc:
                 state.record_activity(f"Could not schedule callback for unanswered prospect: {exc}", "error")
-        timing._schedule_advance(state)
+        slots.request_top_up(state)
 
 def _agent_call_ended(state):
     with state.lock:

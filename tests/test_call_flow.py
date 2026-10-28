@@ -213,7 +213,7 @@ class CallFlowTests(unittest.TestCase):
         self.assertTrue(prospect["call_uuid"])
         prospect_calls = [item for item in fake_twilio.payloads if item.get("MachineDetection") == "Enable"]
         self.assertEqual(len(prospect_calls), 1)
-        self.assertEqual(prospect_calls[0]["MachineDetectionSpeechThreshold"], "4000")
+        self.assertEqual(prospect_calls[0]["MachineDetectionSpeechThreshold"], "3200")
         self.assertEqual(prospect_calls[0]["MachineDetectionSpeechEndThreshold"], "1200")
         self.assertEqual(prospect_calls[0]["MachineDetectionTimeout"], "12")
         token = prospect["token"]

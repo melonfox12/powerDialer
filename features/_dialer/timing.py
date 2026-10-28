@@ -12,9 +12,6 @@ def _schedule_advance(state, delay=None):
         rules.clear_stale_active(state)
         if not state.running or state.paused or state.pending_outcome or state.active:
             return
-        # Wait until every parallel prospect line has finished (no-answer, race lost, etc.).
-        if state.in_flight:
-            return
         if state.advance_timer:
             state.advance_timer.cancel()
         seconds = max(0, float(delay if delay is not None else state.settings.get("AUTO_ADVANCE_DELAY_SECONDS", 3)))
@@ -31,10 +28,13 @@ def _advance_queue(state):
         state.advance_at = None
         state.advance_remaining = None
         rules.clear_stale_active(state)
+        prospect_lines = [
+            call for call in state.in_flight.values() if call.get("kind") == "prospect"
+        ]
         should_fill = (
             state.running and not state.paused and state.agent_ready
             and not state.pending_outcome and not state.active
-            and not state.in_flight
+            and len(prospect_lines) < len(state.callers)
         )
     if should_fill:
         slots.fill_slots(state)

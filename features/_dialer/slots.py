@@ -27,6 +27,11 @@ def fill_slots(state):
         state.record_activity(f"Could not start the next call: {exc}", "error")
 
 
+def request_top_up(state):
+    """Fill any open dial slots while other lines may still be ringing."""
+    threading.Thread(target=fill_slots, args=(state,), daemon=True).start()
+
+
 def _place_prospect_call(state):
     _prune_finished_lines(state)
     launches = []
@@ -35,15 +40,14 @@ def _place_prospect_call(state):
         rules.clear_stale_active(state)
         if not state.running or state.paused or not state.agent_ready or state.active or state.pending_outcome:
             return
-        # Do not top up lines mid-wave: launch the next batch only after every parallel
-        # prospect call has finished (no-answer, voicemail, connect, etc.).
-        if state.in_flight:
+        prospect_lines = [
+            call for call in state.in_flight.values() if call.get("kind") == "prospect"
+        ]
+        open_slots = max(0, len(state.callers) - len(prospect_lines))
+        if open_slots <= 0:
             return
-        # Read the prospects under the lock. A fill that waited here must see the dials
-        # another fill just placed, or it could ring the same person again.
         leads = state.crm.snapshot()
-        active_leads = {call["lead_id"] for call in state.in_flight.values()}
-        open_slots = max(0, len(state.callers) - len(state.in_flight))
+        active_leads = {call["lead_id"] for call in state.in_flight.values() if call.get("lead_id")}
         selected = []
         taken = set()
         if open_slots:
@@ -92,9 +96,13 @@ def _check_calling_window(state):
     with state.lock:
         state.calling_window_timer = None
         rules.clear_stale_active(state)
+        prospect_lines = [
+            call for call in state.in_flight.values() if call.get("kind") == "prospect"
+        ]
         should_fill = (
             state.running and not state.paused and state.agent_ready
-            and not state.active and not state.pending_outcome and not state.in_flight
+            and not state.active and not state.pending_outcome
+            and len(prospect_lines) < len(state.callers)
         )
     if should_fill:
         fill_slots(state)

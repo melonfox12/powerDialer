@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from features._prospects.csv_export import csv_bytes_for
-from features._prospects.csv_import import build_manual_lead, parse_csv
+from features._prospects.csv_import import apply_business_type_default_to_lead, build_manual_lead, parse_csv
 from shared.infra import utc_now
 
 PART_LINE_LIMIT = 150
@@ -78,7 +78,13 @@ class LocalBackend:
                     self.leads = data if isinstance(data, list) else []
             except (OSError, json.JSONDecodeError):
                 self.leads = []
+            changed = False
+            for lead in self.leads:
+                if apply_business_type_default_to_lead(lead):
+                    changed = True
             self.expire_due(save=False)
+            if changed:
+                self.save()
 
     def save(self):
         with self.lock:

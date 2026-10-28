@@ -95,7 +95,7 @@ def _create_call(state, call, destination):
             "MachineDetection": "Enable",
             "AsyncAmd": "true",
             "MachineDetectionTimeout": "12",
-            "MachineDetectionSpeechThreshold": "4000",
+            "MachineDetectionSpeechThreshold": "3200",
             "MachineDetectionSpeechEndThreshold": "1200",
             "AsyncAmdStatusCallback": twilio._url(state, call, "machine"),
             "AsyncAmdStatusCallbackMethod": "POST",

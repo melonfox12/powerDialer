@@ -6,6 +6,7 @@ import { importedColumns } from "./query.js";
 import { render } from "../../core.js";
 
 const STANDARD_FIELDS = [
+  ["business_type", "Business Type", "text", "pest control"],
   ["name", "Prospect", "text", ""],
   ["business", "Company", "text", ""],
   ["state", "State", "text", ""],
@@ -121,6 +122,7 @@ async function saveProspect() {
   error.hidden = true;
   try {
     const result = await postJson("/api/leads", {
+      business_type: fieldValue("business_type"),
       name: fieldValue("name"),
       business: fieldValue("business"),
       state: fieldValue("state"),

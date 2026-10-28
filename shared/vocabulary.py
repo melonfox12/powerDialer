@@ -33,6 +33,7 @@ NEVER_DIAL_STATUSES = ("booked", "disqualified", "no_answer_disqualified")
 # Auto-dial pool modes on the Dialer (timezone filter stacks on top).
 DIAL_POOL_STATUSES = ("new", "send_info")
 DEFAULT_DIAL_POOL_STATUS = "new"
+DEFAULT_BUSINESS_TYPE = "pest control"
 DIAL_POOL_STATUS_LABELS = {"new": "New", "send_info": "Send info"}
 # Five or more dials with no live contact → no_answer_disqualified (not sales disqualified).
 NO_ANSWER_DISQUALIFY_MIN_DIALS = 5

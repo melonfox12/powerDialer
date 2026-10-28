@@ -7,13 +7,13 @@ from shared.vocabulary import canonical_status
 # Column order matches the Prospects table in the web CRM (static/features/_prospects/query.js):
 # LEAD_COLUMNS, then imported columns, then scheduled_until and the transcript.
 _LEADING_HEADERS = [
-    "Prospect", "Company", "State", "City", "Phone Number", "Timezone", "Total Reviews", "Call status",
+    "Business Type", "Prospect", "Company", "State", "City", "Phone Number", "Timezone", "Total Reviews", "Call status",
     "Reviews (Last 30 Days)", "Days Since Last Review", "30-Day %", "Recency Source",
 ]
 _TRAILING_HEADERS = ["scheduled_until", "Call transcript"]
 
 _STANDARD_EXPORT_FIELDS = {
-    "name", "business", "state", "city", "phone", "call_status", "call status", "scheduled_until",
+    "name", "business_type", "business type", "industry", "business", "state", "city", "phone", "call_status", "call status", "scheduled_until",
     "call transcript", "prospect", "company", "phone number", "timezone", "time zone", "total reviews",
     "reviews (last 30 days)", "days since last review", "30-day %", "recency source", "fit",
 }
@@ -38,6 +38,7 @@ def csv_bytes_for(leads):
     for lead in leads:
         row = dict(lead.get("fields", {}))
         row.update({
+            "Business Type": lead.get("business_type") or "",
             "Prospect": lead.get("name", ""),
             "Company": lead.get("business", ""),
             "State": location_text(lead, "state"),

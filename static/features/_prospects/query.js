@@ -2,6 +2,7 @@ import { state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 
 export const LEAD_COLUMNS = [
+  { label: "Business Type", key: "business_type", kind: "text" },
   { label: "Prospect", key: "name", kind: "text" },
   { label: "Company", key: "business", kind: "text" },
   { label: "State", key: "state", kind: "text" },
@@ -50,7 +51,7 @@ export function locationText(lead, key) {
 
 export function importedColumns() {
   const columns = [];
-  const standard = /^(name|full name|contact|first name|last name|prospect|business|company|organization|organisation|state|city|phone(?: number| e\.?164)?|mobile|cell|telephone|time\s?zone|tz|call.?status|status|total reviews|reviews \(last 30 days\)|days since last review|30-day %|recency source|fit)$/i;
+  const standard = /^(name|full name|contact|first name|last name|prospect|business type|industry|business|company|organization|organisation|state|city|phone(?: number| e\.?164)?|mobile|cell|telephone|time\s?zone|tz|call.?status|status|total reviews|reviews \(last 30 days\)|days since last review|30-day %|recency source|fit)$/i;
   for (const lead of state.leads) {
     for (const key of Object.keys(lead.fields || {})) {
       if (!standard.test(key) && !columns.includes(key)) columns.push(key);
@@ -99,7 +100,7 @@ export function filteredLeads() {
     if (minRecent != null && (recent == null || recent < minRecent)) return false;
     if (!query) return true;
     const values = [
-      lead.name, lead.business, locationText(lead, "state"), locationText(lead, "city"),
+      lead.business_type, lead.name, lead.business, locationText(lead, "state"), locationText(lead, "city"),
       lead.phone, lead.timezone, lead.status, lead.recency_source,
       lead.review_count, lead.reviews_last_30_days, lead.days_since_last_review, lead.review_pct_30_days,
       ...Object.values(lead.fields || {}),
@@ -120,6 +121,7 @@ export function crmTableSignature() {
     state.pending_outcome?.id || null,
     state.leads.map((lead) => [
       lead.id,
+      lead.business_type,
       lead.name,
       lead.business,
       locationText(lead, "state"),
