@@ -59,6 +59,7 @@ def _pool_leads(state, leads=None):
         busy_ids=_busy_lead_ids(state),
         now=utc_now(),
         selected_timezone=state.selected_timezone,
+        selected_business_type=getattr(state, "selected_business_type", None) or None,
         anchor_id=state.queue_anchor_id,
     )
 

@@ -34,6 +34,7 @@ DIALER_STATE_KEYS = (
     "pool",
     "queue_count",
     "running",
+    "selected_business_type",
     "selected_timezone",
     "session_stats",
     "settings",

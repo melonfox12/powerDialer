@@ -20,3 +20,14 @@ export async function selectDialPoolStatus(poolStatus) {
     showToast(error.message, true);
   }
 }
+
+export async function selectDialBusinessType(businessType) {
+  try {
+    await applyMutationPayload({
+      state: await postJson("/api/timezone", { business_type: businessType || "" }),
+    });
+    render();
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}

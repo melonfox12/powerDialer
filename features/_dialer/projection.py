@@ -10,7 +10,10 @@ def crm_catalog(state, leads=None):
     """Lead rows plus derived pool, timezone counts, and summary counts."""
     leads = leads if leads is not None else state.crm.snapshot()
     pool_status = resolve_pool_status(getattr(state, "dial_pool_status", None))
-    groups = state.crm.timezone_groups(leads_for_timezone_counts(leads, pool_status, utc_now()))
+    business_type = getattr(state, "selected_business_type", None) or None
+    groups = state.crm.timezone_groups(
+        leads_for_timezone_counts(leads, pool_status, utc_now(), selected_business_type=business_type),
+    )
     pool = calls._pool_leads(state, leads)
     return {
         "leads_version": getattr(state.crm, "revision", 0),
@@ -104,6 +107,7 @@ def public_state(state, include_leads=False):
     view["counts"] = dict(catalog["counts"])
     view["counts"]["calling"] = len(view["in_flight"])
     view["selected_timezone"] = state.selected_timezone
+    view["selected_business_type"] = getattr(state, "selected_business_type", None) or ""
     view["dial_pool_status"] = resolve_pool_status(getattr(state, "dial_pool_status", None))
     view["caller_id_group"] = resolve_caller_id_group(
         caller_id_group_for_prospect_timezone(state.selected_timezone),

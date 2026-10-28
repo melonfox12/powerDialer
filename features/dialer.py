@@ -41,8 +41,10 @@ class Dialer(DialerState):
     def set_timezone_filter(self, timezone):
         return queue.set_timezone_filter(self, timezone)
 
-    def set_pool_filters(self, timezone=None, pool_status=None):
-        return queue.set_pool_filters(self, timezone=timezone, pool_status=pool_status)
+    def set_pool_filters(self, timezone=None, pool_status=None, business_type=None):
+        return queue.set_pool_filters(
+            self, timezone=timezone, pool_status=pool_status, business_type=business_type,
+        )
 
     def scan_crm(self):
         return queue.scan_crm(self)
@@ -181,9 +183,10 @@ def get_voice_token(request):
 def post_timezone(request, data):
     timezone = data.get("timezone") if "timezone" in data else None
     pool_status = data.get("pool_status") if "pool_status" in data else None
+    business_type = data.get("business_type") if "business_type" in data else None
     try:
         request.send_json(200, request.account.dialer.set_pool_filters(
-            timezone=timezone, pool_status=pool_status,
+            timezone=timezone, pool_status=pool_status, business_type=business_type,
         ))
     except ValueError as exc:
         request._trace_error = str(exc)

@@ -34,6 +34,14 @@ export const DIAL_POOL_STATUSES = Array.isArray(vocabulary.dialPoolStatuses) && 
   : FALLBACK_DIAL_POOL_STATUSES;
 export const DIAL_POOL_STATUS_LABELS = vocabulary.dialPoolStatusLabels ?? FALLBACK_DIAL_POOL_STATUS_LABELS;
 export const DEFAULT_DIAL_POOL_STATUS = vocabulary.defaultDialPoolStatus || "new";
+const FALLBACK_DIAL_BUSINESS_TYPE_OPTIONS = [
+  { key: "pest control", label: "Pest control" },
+  { key: "hvac", label: "HVAC" },
+];
+export const DIAL_BUSINESS_TYPE_OPTIONS = Array.isArray(vocabulary.dialBusinessTypeOptions)
+  && vocabulary.dialBusinessTypeOptions.length
+  ? vocabulary.dialBusinessTypeOptions
+  : FALLBACK_DIAL_BUSINESS_TYPE_OPTIONS;
 const FALLBACK_CALLER_ID_GROUPS = [
   { key: "eastern", label: "Eastern" },
   { key: "central", label: "Central" },

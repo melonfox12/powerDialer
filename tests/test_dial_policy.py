@@ -31,6 +31,22 @@ def lead(**fields):
 
 
 class DialPolicyTests(unittest.TestCase):
+    def test_pool_respects_business_type_filter(self):
+        rows = [
+            lead(id="pest", business_type="pest control", name="Pest Co"),
+            lead(id="hvac", business_type="HVAC", name="Cool Co", phone="+12025550124"),
+        ]
+        all_pool = pool_leads(rows, pool_status="new", busy_ids=set(), now=utc_now())
+        self.assertEqual({item["id"] for item in all_pool}, {"pest", "hvac"})
+        pest_pool = pool_leads(
+            rows, pool_status="new", busy_ids=set(), now=utc_now(), selected_business_type="pest control",
+        )
+        self.assertEqual([item["id"] for item in pest_pool], ["pest"])
+        hvac_pool = pool_leads(
+            rows, pool_status="new", busy_ids=set(), now=utc_now(), selected_business_type="hvac",
+        )
+        self.assertEqual([item["id"] for item in hvac_pool], ["hvac"])
+
     def test_pool_respects_send_info_mode(self):
         rows = [
             lead(id="n", status="new", name="New Person"),

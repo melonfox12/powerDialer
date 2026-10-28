@@ -53,6 +53,7 @@ class DialerState:
         self.settings = {}
         self.selected_timezone = None
         self.dial_pool_status = "new"
+        self.selected_business_type = ""
         self.activity_log = []
         self.activity_sequence = 0
         self.session = None

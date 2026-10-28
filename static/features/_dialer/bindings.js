@@ -6,7 +6,7 @@ import { showToast } from "../../_core/notify.js";
 import { showSessionSummary } from "./summary.js";
 import { stopProspectWaveform } from "./card.js";
 import { render } from "../../core.js";
-import { selectDialPoolStatus, selectTimezone } from "./pool.js";
+import { selectDialBusinessType, selectDialPoolStatus, selectTimezone } from "./pool.js";
 import { bindDialerTimezoneMenu } from "./pool-view.js";
 import { startDialing } from "./session.js";
 import { bindCrmStatus } from "./crm-status.js";
@@ -35,6 +35,9 @@ export function bindDialer() {
   for (const selector of [byId("dialerPoolStatusFilter"), byId("poolStatusFilter")]) {
     selector?.addEventListener("change", (event) => selectDialPoolStatus(event.target.value));
   }
+  byId("dialerBusinessTypeFilter")?.addEventListener("change", (event) => {
+    selectDialBusinessType(event.target.value);
+  });
   bindDialerTimezoneMenu();
   const callDesk = document.querySelector(".dialer-run-panel");
   callDesk.addEventListener("click", (event) => {

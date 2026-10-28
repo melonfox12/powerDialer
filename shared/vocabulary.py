@@ -34,6 +34,30 @@ NEVER_DIAL_STATUSES = ("booked", "disqualified", "no_answer_disqualified")
 DIAL_POOL_STATUSES = ("new", "send_info")
 DEFAULT_DIAL_POOL_STATUS = "new"
 DEFAULT_BUSINESS_TYPE = "pest control"
+DIAL_BUSINESS_TYPE_OPTIONS = (
+    {"key": "pest control", "label": "Pest control"},
+    {"key": "hvac", "label": "HVAC"},
+)
+DIAL_BUSINESS_TYPE_KEYS = tuple(item["key"] for item in DIAL_BUSINESS_TYPE_OPTIONS)
+
+
+def resolve_dial_business_type(value):
+    """Map API or UI text to a dial-pool business type filter. Empty string means no filter."""
+    folded = str(value or "").strip().casefold()
+    if not folded or folded in ("all", "any"):
+        return ""
+    for key in DIAL_BUSINESS_TYPE_KEYS:
+        if key.casefold() == folded:
+            return key
+    return ""
+
+
+def dial_business_type_label(key):
+    folded = str(key or "").strip().casefold()
+    for item in DIAL_BUSINESS_TYPE_OPTIONS:
+        if item["key"].casefold() == folded:
+            return item["label"]
+    return str(key or "").strip()
 DIAL_POOL_STATUS_LABELS = {"new": "New", "send_info": "Send info"}
 # Five or more dials with no live contact → no_answer_disqualified (not sales disqualified).
 NO_ANSWER_DISQUALIFY_MIN_DIALS = 5
@@ -290,6 +314,7 @@ def browser_vocabulary():
         "dialPoolStatuses": list(DIAL_POOL_STATUSES),
         "dialPoolStatusLabels": dict(DIAL_POOL_STATUS_LABELS),
         "defaultDialPoolStatus": DEFAULT_DIAL_POOL_STATUS,
+        "dialBusinessTypeOptions": [dict(item) for item in DIAL_BUSINESS_TYPE_OPTIONS],
         "dispositions": dict(DISPOSITION_TO_STATUS),
         "outcomeMetric": dict(OUTCOME_METRIC),
         "defaultOutcomeMetric": DEFAULT_OUTCOME_METRIC,

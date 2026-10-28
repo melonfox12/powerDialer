@@ -9,6 +9,7 @@ from shared.infra import utc_now
 from shared.vocabulary import (
     CALLBACK_TIMER_MIGRATION_FIELD,
     CALLBACK_TIMER_MIGRATION_SHIFT_HOURS,
+    DEFAULT_BUSINESS_TYPE,
     DEFAULT_DIAL_POOL_STATUS,
     DIAL_POOL_STATUSES,
     LEGACY_CONNECTED_ANSWERS,
@@ -132,6 +133,15 @@ def is_never_dial_status(status):
 def resolve_pool_status(value):
     status = canonical_status(value or DEFAULT_DIAL_POOL_STATUS)
     return status if status in DIAL_POOL_STATUSES else DEFAULT_DIAL_POOL_STATUS
+
+
+def lead_matches_dial_business_type(lead, selected):
+    """True when the prospect's business type matches the dialer filter (substring, case-insensitive)."""
+    if not selected:
+        return True
+    text = str((lead or {}).get("business_type") or DEFAULT_BUSINESS_TYPE).strip().casefold()
+    target = str(selected).strip().casefold()
+    return bool(target) and target in text
 
 
 def dial_times(lead):
@@ -269,6 +279,7 @@ def pool_leads(
     busy_ids,
     now=None,
     selected_timezone=None,
+    selected_business_type=None,
     anchor_id=None,
 ):
     """Ordered, deduped prospects eligible for auto-dial in the active pool mode."""
@@ -279,6 +290,7 @@ def pool_leads(
         (index, lead) for index, lead in enumerate(leads)
         if canonical_status(lead.get("status")) == pool_status and lead["id"] not in busy_ids
         and not dialed_recently(lead, moment) and not (contact_keys(lead) & off_limits)
+        and lead_matches_dial_business_type(lead, selected_business_type)
     ]
     if selected_timezone:
         zone = selected_timezone
@@ -303,13 +315,14 @@ def pool_leads(
     return people
 
 
-def leads_for_timezone_counts(leads, pool_status, now=None):
+def leads_for_timezone_counts(leads, pool_status, now=None, selected_business_type=None):
     """Prospects that count toward timezone menu buckets for the active pool."""
     moment = now or utc_now()
     pool_status = resolve_pool_status(pool_status)
     return [
         lead for lead in leads
         if canonical_status(lead.get("status")) == pool_status and not dialed_recently(lead, moment)
+        and lead_matches_dial_business_type(lead, selected_business_type)
     ]
 
 

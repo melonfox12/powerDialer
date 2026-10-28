@@ -16,7 +16,9 @@ from shared.vocabulary import (
     caller_id_group_for_prospect_timezone,
     caller_ids_for_group,
     canonical_status,
+    dial_business_type_label,
     resolve_caller_id_group,
+    resolve_dial_business_type,
 )
 
 def maintain_crm(state):
@@ -97,7 +99,7 @@ def _sync_caller_ids_to_prospect_timezone(state):
         state.caller_index = 0
 
 
-def set_pool_filters(state, timezone=None, pool_status=None):
+def set_pool_filters(state, timezone=None, pool_status=None, business_type=None):
     leads = state.crm.snapshot()
     timezone_changed = timezone is not None
     with state.lock:
@@ -108,14 +110,24 @@ def set_pool_filters(state, timezone=None, pool_status=None):
             if parsed not in DIAL_POOL_STATUSES:
                 raise ValueError("Dial pool status must be New or Send info.")
             state.dial_pool_status = parsed
+        if business_type is not None:
+            parsed_type = resolve_dial_business_type(business_type)
+            if str(business_type or "").strip() and not parsed_type:
+                raise ValueError("Business type filter must be Pest control or HVAC.")
+            state.selected_business_type = parsed_type
         if state.session:
             state.queue_total = len(calls._pool_leads(state, leads))
         label = DIAL_POOL_STATUS_LABELS.get(state.dial_pool_status, state.dial_pool_status)
         zone = state.selected_timezone
+        type_label = dial_business_type_label(state.selected_business_type)
+        parts = [label]
+        if type_label:
+            parts.append(type_label)
         if zone:
-            state.last_event = f"Dialing pool: {label} · {zone}"
-        else:
-            state.last_event = f"Dialing pool: {label} · all timezones"
+            parts.append(zone)
+        elif not type_label:
+            parts.append("all timezones")
+        state.last_event = f"Dialing pool: {' · '.join(parts)}"
         should_fill = state.running and state.agent_ready and not state.paused and not state.pending_outcome and not state.active
     if timezone_changed:
         _sync_caller_ids_to_prospect_timezone(state)
@@ -160,6 +172,8 @@ def start(state, priority_lead_id=None):
         where = f" with {label} status"
         if state.selected_timezone:
             where += f" in the {state.selected_timezone} timezone"
+        if state.selected_business_type:
+            where += f" for {dial_business_type_label(state.selected_business_type)}"
         raise ValueError(f"There are no prospects ready to dial{where}. Prospects dialed recently stay out of the queue.")
     with state.lock:
         state.running = True

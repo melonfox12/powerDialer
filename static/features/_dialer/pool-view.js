@@ -5,6 +5,7 @@ import {
   CALLER_ID_GROUPS,
   DEFAULT_CALLER_ID_GROUP,
   DEFAULT_DIAL_POOL_STATUS,
+  DIAL_BUSINESS_TYPE_OPTIONS,
   DIAL_POOL_STATUSES,
   DIAL_POOL_STATUS_LABELS,
   setText,
@@ -22,6 +23,20 @@ export function renderPoolStatusFilters() {
   }
 }
 
+export function renderBusinessTypeFilter() {
+  const select = byId("dialerBusinessTypeFilter");
+  if (!select) return;
+  const selected = state.selected_business_type || "";
+  const known = DIAL_BUSINESS_TYPE_OPTIONS.map((item) => item.key);
+  const options = [new Option("All business types", "")];
+  options.push(...DIAL_BUSINESS_TYPE_OPTIONS.map((item) => new Option(item.label, item.key)));
+  if (selected && !known.includes(selected)) {
+    options.push(new Option(selected, selected));
+  }
+  select.replaceChildren(...options);
+  select.value = known.includes(selected) || selected ? selected : "";
+}
+
 export function renderCallerIdGroupStatus() {
   const selectedKey = state.caller_id_group || DEFAULT_CALLER_ID_GROUP;
   const group = CALLER_ID_GROUPS.find((item) => item.key === selectedKey);
@@ -31,6 +46,7 @@ export function renderCallerIdGroupStatus() {
 
 export function renderTimezoneFilters() {
   renderPoolStatusFilters();
+  renderBusinessTypeFilter();
   renderCallerIdGroupStatus();
   const groups = state.timezone_groups || [];
   const totalNew = groups.reduce((sum, group) => sum + group.count, 0);
@@ -100,8 +116,11 @@ export function renderCallerPool() {
   renderTimezoneFilters();
   setText("poolTabCount", String(pool.length));
   const poolLabel = DIAL_POOL_STATUS_LABELS[state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS] || "New";
+  const typeSuffix = state.selected_business_type
+    ? ` · ${DIAL_BUSINESS_TYPE_OPTIONS.find((item) => item.key === state.selected_business_type)?.label || state.selected_business_type}`
+    : "";
   const zoneSuffix = state.selected_timezone ? ` · ${state.selected_timezone}` : "";
-  setText("poolTableSummary", `${pool.length} ${poolLabel} prospect${pool.length === 1 ? "" : "s"}${zoneSuffix}`);
+  setText("poolTableSummary", `${pool.length} ${poolLabel} prospect${pool.length === 1 ? "" : "s"}${typeSuffix}${zoneSuffix}`);
   const emptyHint = byId("poolTableEmptyHint");
   if (emptyHint) emptyHint.textContent = `Only prospects marked ${poolLabel} appear in this pool.`;
   const body = byId("poolTableBody");
