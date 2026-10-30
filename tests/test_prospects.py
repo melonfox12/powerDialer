@@ -122,6 +122,13 @@ Too large,,Orkin,CA,San Jose,(408) 555-0000,Pacific,1495,12,1,0.8,exact
         default, _info = parse_csv(b"Prospect,Company,Phone\nAda,Engines,2025550199\n")
         self.assertEqual(default[0]["business_type"], "pest control")
 
+    def test_csv_industry_column_as_first_column(self):
+        typed, info = parse_csv(
+            b"Industry,Prospect,Company,Phone\nPlumbing,Bob,Pipes Co,2025550188\n"
+        )
+        self.assertEqual(info["columns"][0], "Industry")
+        self.assertEqual(typed[0]["business_type"], "Plumbing")
+
     def test_store_backfills_missing_business_type_on_load(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "crm.json"

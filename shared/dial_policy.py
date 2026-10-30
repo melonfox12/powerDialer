@@ -135,13 +135,26 @@ def resolve_pool_status(value):
     return status if status in DIAL_POOL_STATUSES else DEFAULT_DIAL_POOL_STATUS
 
 
+def unique_business_types(leads):
+    """Distinct non-empty industry / business_type values from CRM rows, sorted for UI."""
+    seen = {}
+    for lead in leads or []:
+        text = str((lead or {}).get("business_type") or "").strip()
+        if not text:
+            continue
+        folded = text.casefold()
+        if folded not in seen:
+            seen[folded] = text
+    return sorted(seen.values(), key=lambda value: value.casefold())
+
+
 def lead_matches_dial_business_type(lead, selected):
-    """True when the prospect's business type matches the dialer filter (substring, case-insensitive)."""
+    """True when the prospect's industry matches the dialer filter (case-insensitive)."""
     if not selected:
         return True
     text = str((lead or {}).get("business_type") or DEFAULT_BUSINESS_TYPE).strip().casefold()
     target = str(selected).strip().casefold()
-    return bool(target) and target in text
+    return bool(target) and text == target
 
 
 def dial_times(lead):

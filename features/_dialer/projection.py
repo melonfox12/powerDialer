@@ -2,8 +2,8 @@
 
 from features._dialer import calls
 from features._dialer.rules import clear_stale_active, dialer_stage, new_session, recent_streak
-from shared.dial_policy import leads_for_timezone_counts, resolve_pool_status
-from shared.vocabulary import caller_id_group_for_prospect_timezone, resolve_caller_id_group
+from shared.dial_policy import leads_for_timezone_counts, resolve_pool_status, unique_business_types
+from shared.vocabulary import resolve_caller_id_group
 from shared.infra import utc_now
 
 def crm_catalog(state, leads=None):
@@ -20,6 +20,7 @@ def crm_catalog(state, leads=None):
         "leads": leads,
         "pool": pool,
         "timezone_groups": [{"name": name, "count": count} for name, count in groups],
+        "business_type_options": unique_business_types(leads),
         "counts": {
             "total": len(leads),
             "new": sum(lead["status"] == "new" for lead in leads),
@@ -109,9 +110,7 @@ def public_state(state, include_leads=False):
     view["selected_timezone"] = state.selected_timezone
     view["selected_business_type"] = getattr(state, "selected_business_type", None) or ""
     view["dial_pool_status"] = resolve_pool_status(getattr(state, "dial_pool_status", None))
-    view["caller_id_group"] = resolve_caller_id_group(
-        caller_id_group_for_prospect_timezone(state.selected_timezone),
-    )
+    view["caller_id_group"] = resolve_caller_id_group(getattr(state, "caller_id_group", None))
     view["pool"] = catalog["pool"]
     if include_leads:
         view["leads"] = leads

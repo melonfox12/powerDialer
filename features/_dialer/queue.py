@@ -11,9 +11,9 @@ from features._dialer import projection, rules, twilio
 from features._dialer.rules import new_session, session_summary
 from shared.infra import utc_now
 from shared.vocabulary import (
+    CALLER_ID_GROUPS,
     DIAL_POOL_STATUS_LABELS,
     DIAL_POOL_STATUSES,
-    caller_id_group_for_prospect_timezone,
     caller_ids_for_group,
     canonical_status,
     dial_business_type_label,
@@ -78,30 +78,40 @@ def maybe_enforce_dial_caps(state):
     return capped
 
 
-def _caller_group_busy(state):
+def _prospect_lines_busy(state):
     with state.lock:
-        return bool(state.in_flight or state.active or state.pending_outcome)
+        if state.pending_outcome:
+            return True
+        active = state.active
+        if active and active.get("kind") != "agent":
+            return True
+        return any(call.get("kind") != "agent" for call in state.in_flight.values())
 
 
-def _sync_caller_ids_to_prospect_timezone(state):
-    key = resolve_caller_id_group(caller_id_group_for_prospect_timezone(state.selected_timezone))
-    callers = caller_ids_for_group(key)
+def set_caller_id_group(state, key):
+    parsed = str(key or "").strip().lower()
+    if parsed not in CALLER_ID_GROUPS:
+        raise ValueError("Caller ID group must be Eastern, Central, Mountain, or Pacific.")
+    callers = caller_ids_for_group(parsed)
     with state.lock:
         current_key = resolve_caller_id_group(getattr(state, "caller_id_group", None))
-        if current_key == key and list(state.callers) == callers:
-            state.caller_id_group = key
-            return
-    if _caller_group_busy(state):
-        raise ValueError("Finish or stop the current calls before changing the dial timezone.")
+        if current_key == parsed and list(state.callers) == callers:
+            state.caller_id_group = parsed
+            return projection.public_state(state)
+    if _prospect_lines_busy(state):
+        raise ValueError("Finish or stop the current calls before changing caller ID.")
+    label = CALLER_ID_GROUPS[parsed]["label"]
     with state.lock:
-        state.caller_id_group = key
+        state.caller_id_group = parsed
         state.callers = callers
         state.caller_index = 0
+        state.last_event = f"Caller ID: {label}"
+    state.record_activity(f"Caller ID set to {label}", "web")
+    return projection.public_state(state)
 
 
 def set_pool_filters(state, timezone=None, pool_status=None, business_type=None):
     leads = state.crm.snapshot()
-    timezone_changed = timezone is not None
     with state.lock:
         if timezone is not None:
             state.selected_timezone = str(timezone or "").strip() or None
@@ -111,10 +121,7 @@ def set_pool_filters(state, timezone=None, pool_status=None, business_type=None)
                 raise ValueError("Dial pool status must be New or Send info.")
             state.dial_pool_status = parsed
         if business_type is not None:
-            parsed_type = resolve_dial_business_type(business_type)
-            if str(business_type or "").strip() and not parsed_type:
-                raise ValueError("Business type filter must be Pest control or HVAC.")
-            state.selected_business_type = parsed_type
+            state.selected_business_type = resolve_dial_business_type(business_type)
         if state.session:
             state.queue_total = len(calls._pool_leads(state, leads))
         label = DIAL_POOL_STATUS_LABELS.get(state.dial_pool_status, state.dial_pool_status)
@@ -129,8 +136,6 @@ def set_pool_filters(state, timezone=None, pool_status=None, business_type=None)
             parts.append("all timezones")
         state.last_event = f"Dialing pool: {' · '.join(parts)}"
         should_fill = state.running and state.agent_ready and not state.paused and not state.pending_outcome and not state.active
-    if timezone_changed:
-        _sync_caller_ids_to_prospect_timezone(state)
     if should_fill:
         slots.fill_slots(state)
     return projection.public_state(state)
@@ -162,7 +167,6 @@ def start(state, priority_lead_id=None):
     values = state.read_settings()
     state.settings = values
     state.public_base_url = public_url
-    _sync_caller_ids_to_prospect_timezone(state)
     callers = caller_ids_for_group(state.caller_id_group)
     state.record_activity(f"Twilio ready: {len(callers)} rotating caller ID(s)", "api")
     twilio.prepare_browser_voice(state, values)

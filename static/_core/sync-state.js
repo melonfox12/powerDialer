@@ -30,6 +30,7 @@ export function applyLeadsCatalog(catalog) {
   state.dials_version = catalog.dials_version ?? state.dials_version;
   state.pool = catalog.pool || [];
   state.timezone_groups = catalog.timezone_groups || [];
+  state.business_type_options = catalog.business_type_options || [];
   state.counts = catalog.counts || state.counts;
 }
 

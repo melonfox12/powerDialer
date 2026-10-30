@@ -9,6 +9,7 @@ from shared.dial_policy import (
     pool_leads,
     repair_dial_status_for_lead,
     resolve_pool_status,
+    unique_business_types,
 )
 from shared.infra import utc_now
 
@@ -46,6 +47,14 @@ class DialPolicyTests(unittest.TestCase):
             rows, pool_status="new", busy_ids=set(), now=utc_now(), selected_business_type="hvac",
         )
         self.assertEqual([item["id"] for item in hvac_pool], ["hvac"])
+
+    def test_unique_business_types_from_crm(self):
+        rows = [
+            lead(business_type="Plumbing"),
+            lead(id="b", business_type="HVAC", phone="+12025550125"),
+            lead(id="c", business_type="plumbing", phone="+12025550126"),
+        ]
+        self.assertEqual(unique_business_types(rows), ["HVAC", "Plumbing"])
 
     def test_pool_respects_send_info_mode(self):
         rows = [

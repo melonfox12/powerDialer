@@ -42,14 +42,12 @@ DIAL_BUSINESS_TYPE_KEYS = tuple(item["key"] for item in DIAL_BUSINESS_TYPE_OPTIO
 
 
 def resolve_dial_business_type(value):
-    """Map API or UI text to a dial-pool business type filter. Empty string means no filter."""
-    folded = str(value or "").strip().casefold()
+    """Map API or UI text to a dial-pool industry filter. Empty string means no filter."""
+    text = str(value or "").strip()
+    folded = text.casefold()
     if not folded or folded in ("all", "any"):
         return ""
-    for key in DIAL_BUSINESS_TYPE_KEYS:
-        if key.casefold() == folded:
-            return key
-    return ""
+    return text
 
 
 def dial_business_type_label(key):
@@ -167,6 +165,7 @@ TIMEZONE_ALIASES = {
 UTC_OFFSET_ZONES = {-5: "Eastern", -6: "Central", -7: "Mountain", -8: "Pacific", -9: "Alaska", -10: "Hawaii"}
 
 # Rotating outbound caller IDs grouped by the timezone they represent.
+# The dialer picks a group independently of the prospect timezone filter.
 CALLER_ID_GROUP_KEYS = ("eastern", "central", "mountain", "pacific")
 DEFAULT_CALLER_ID_GROUP = "eastern"
 CALLER_ID_GROUPS = {
@@ -189,26 +188,9 @@ CALLER_ID_GROUPS = {
 }
 
 
-PROSPECT_TIMEZONE_TO_CALLER_ID_GROUP = {
-    "Eastern": "eastern",
-    "Central": "central",
-    "Mountain": "mountain",
-    "Pacific": "pacific",
-    "Alaska": "mountain",
-    "Hawaii": "pacific",
-}
-
-
 def resolve_caller_id_group(key):
     parsed = str(key or "").strip().lower()
     return parsed if parsed in CALLER_ID_GROUPS else DEFAULT_CALLER_ID_GROUP
-
-
-def caller_id_group_for_prospect_timezone(timezone_name):
-    zone = str(timezone_name or "").strip()
-    if not zone:
-        return DEFAULT_CALLER_ID_GROUP
-    return PROSPECT_TIMEZONE_TO_CALLER_ID_GROUP.get(zone, DEFAULT_CALLER_ID_GROUP)
 
 
 def caller_ids_for_group(key):

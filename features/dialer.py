@@ -46,6 +46,9 @@ class Dialer(DialerState):
             self, timezone=timezone, pool_status=pool_status, business_type=business_type,
         )
 
+    def set_caller_id_group(self, key):
+        return queue.set_caller_id_group(self, key)
+
     def scan_crm(self):
         return queue.scan_crm(self)
 
@@ -193,6 +196,14 @@ def post_timezone(request, data):
         request.send_json(400, {"error": str(exc)})
 
 
+def post_caller_id_group(request, data):
+    try:
+        request.send_json(200, request.account.dialer.set_caller_id_group(data.get("caller_id_group")))
+    except ValueError as exc:
+        request._trace_error = str(exc)
+        request.send_json(400, {"error": str(exc)})
+
+
 def post_start(request):
     request.send_json(200, request.account.dialer.start())
 
@@ -281,6 +292,7 @@ ROUTES = [
     ("GET", "/api/live", get_live, "GET reads"),
     ("GET", "/api/voice-token", get_voice_token, "voice-token"),
     ("POST", "/api/timezone", post_timezone, "POST"),
+    ("POST", "/api/caller-id-group", post_caller_id_group, "POST"),
     ("POST", "/api/start", post_start, "POST"),
     ("POST", "/api/pause", post_pause, "POST"),
     ("POST", "/api/stop", post_stop, "POST"),

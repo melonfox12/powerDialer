@@ -5,7 +5,6 @@ import {
   CALLER_ID_GROUPS,
   DEFAULT_CALLER_ID_GROUP,
   DEFAULT_DIAL_POOL_STATUS,
-  DIAL_BUSINESS_TYPE_OPTIONS,
   DIAL_POOL_STATUSES,
   DIAL_POOL_STATUS_LABELS,
   setText,
@@ -23,25 +22,47 @@ export function renderPoolStatusFilters() {
   }
 }
 
+function industryFilterOptions() {
+  const fromCatalog = state.business_type_options;
+  if (Array.isArray(fromCatalog) && fromCatalog.length) {
+    return fromCatalog.map((value) => String(value).trim()).filter(Boolean);
+  }
+  const seen = new Map();
+  for (const lead of state.leads || []) {
+    const value = String(lead.business_type || "").trim();
+    if (!value) continue;
+    const folded = value.toLowerCase();
+    if (!seen.has(folded)) seen.set(folded, value);
+  }
+  return [...seen.values()].sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
+}
+
 export function renderBusinessTypeFilter() {
   const select = byId("dialerBusinessTypeFilter");
   if (!select) return;
   const selected = state.selected_business_type || "";
-  const known = DIAL_BUSINESS_TYPE_OPTIONS.map((item) => item.key);
-  const options = [new Option("All business types", "")];
-  options.push(...DIAL_BUSINESS_TYPE_OPTIONS.map((item) => new Option(item.label, item.key)));
-  if (selected && !known.includes(selected)) {
+  const industries = industryFilterOptions();
+  const known = industries.map((value) => value.toLowerCase());
+  const options = [new Option("All industries", "")];
+  options.push(...industries.map((value) => new Option(value, value)));
+  if (selected && !known.includes(selected.toLowerCase())) {
     options.push(new Option(selected, selected));
   }
   select.replaceChildren(...options);
-  select.value = known.includes(selected) || selected ? selected : "";
+  select.value = selected && (known.includes(selected.toLowerCase()) || selected) ? selected : "";
 }
 
 export function renderCallerIdGroupStatus() {
+  const select = byId("dialerCallerIdGroup");
+  if (!select) return;
   const selectedKey = state.caller_id_group || DEFAULT_CALLER_ID_GROUP;
-  const group = CALLER_ID_GROUPS.find((item) => item.key === selectedKey);
-  const label = group?.label || "Eastern";
-  setText("dialerCallerIdStatus", `Caller ID · ${label}`);
+  const keys = CALLER_ID_GROUPS.map((item) => item.key);
+  select.replaceChildren(...CALLER_ID_GROUPS.map((item) => new Option(`Caller ID · ${item.label}`, item.key)));
+  select.value = keys.includes(selectedKey) ? selectedKey : DEFAULT_CALLER_ID_GROUP;
+  select.disabled = Boolean(
+    state.active_lead_id || state.active_lead || state.pending_outcome_id || state.pending_outcome
+    || (state.in_flight && state.in_flight.length),
+  );
 }
 
 export function renderTimezoneFilters() {
@@ -116,9 +137,7 @@ export function renderCallerPool() {
   renderTimezoneFilters();
   setText("poolTabCount", String(pool.length));
   const poolLabel = DIAL_POOL_STATUS_LABELS[state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS] || "New";
-  const typeSuffix = state.selected_business_type
-    ? ` · ${DIAL_BUSINESS_TYPE_OPTIONS.find((item) => item.key === state.selected_business_type)?.label || state.selected_business_type}`
-    : "";
+  const typeSuffix = state.selected_business_type ? ` · ${state.selected_business_type}` : "";
   const zoneSuffix = state.selected_timezone ? ` · ${state.selected_timezone}` : "";
   setText("poolTableSummary", `${pool.length} ${poolLabel} prospect${pool.length === 1 ? "" : "s"}${typeSuffix}${zoneSuffix}`);
   const emptyHint = byId("poolTableEmptyHint");

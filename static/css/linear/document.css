@@ -70,7 +70,8 @@
   margin: 0 0 0 auto;
 }
 .issue-meta .dialer-pool-filter .dialer-pool-status-select,
-.issue-meta .dialer-pool-filter .dialer-business-type-select {
+.issue-meta .dialer-pool-filter .dialer-business-type-select,
+.issue-meta .dialer-pool-filter .dialer-caller-id-select {
   position: static;
   width: auto;
   min-width: 108px;
@@ -90,18 +91,10 @@
   cursor: pointer;
 }
 .issue-meta .dialer-pool-filter .dialer-pool-status-select:hover,
-.issue-meta .dialer-pool-filter .dialer-business-type-select:hover {
+.issue-meta .dialer-pool-filter .dialer-business-type-select:hover,
+.issue-meta .dialer-pool-filter .dialer-caller-id-select:hover {
   background: rgba(255, 255, 255, .04);
   color: var(--ink);
-}
-.issue-meta .dialer-pool-filter .caller-id-group-status {
-  flex: 0 0 auto;
-  padding: 0 4px;
-  color: var(--muted);
-  font-size: 13px;
-  white-space: nowrap;
-  user-select: none;
-  pointer-events: none;
 }
 /* Only the native timezone select is hidden; the menu button drives that filter. */
 .issue-meta .dialer-pool-filter #dialerTimezoneFilter {

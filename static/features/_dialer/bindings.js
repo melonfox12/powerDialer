@@ -6,7 +6,7 @@ import { showToast } from "../../_core/notify.js";
 import { showSessionSummary } from "./summary.js";
 import { stopProspectWaveform } from "./card.js";
 import { render } from "../../core.js";
-import { selectDialBusinessType, selectDialPoolStatus, selectTimezone } from "./pool.js";
+import { selectCallerIdGroup, selectDialBusinessType, selectDialPoolStatus, selectTimezone } from "./pool.js";
 import { bindDialerTimezoneMenu } from "./pool-view.js";
 import { startDialing } from "./session.js";
 import { bindCrmStatus } from "./crm-status.js";
@@ -37,6 +37,9 @@ export function bindDialer() {
   }
   byId("dialerBusinessTypeFilter")?.addEventListener("change", (event) => {
     selectDialBusinessType(event.target.value);
+  });
+  byId("dialerCallerIdGroup")?.addEventListener("change", (event) => {
+    selectCallerIdGroup(event.target.value);
   });
   bindDialerTimezoneMenu();
   const callDesk = document.querySelector(".dialer-run-panel");

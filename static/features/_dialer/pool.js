@@ -31,3 +31,15 @@ export async function selectDialBusinessType(businessType) {
     showToast(error.message, true);
   }
 }
+
+export async function selectCallerIdGroup(group) {
+  try {
+    await applyMutationPayload({
+      state: await postJson("/api/caller-id-group", { caller_id_group: group }),
+    });
+    render();
+  } catch (error) {
+    showToast(error.message, true);
+    render();
+  }
+}

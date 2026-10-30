@@ -6,6 +6,7 @@ export const state = {
   timezone_groups: [],
   selected_timezone: null,
   selected_business_type: "",
+  business_type_options: [],
   dial_pool_status: "new",
   caller_id_group: "eastern",
   metrics: { today: {}, all_time: {}, daily: [] },

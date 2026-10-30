@@ -26,7 +26,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script type="module" src="main.js"></script>
-<script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"call","label":"Callback","color":"--amber","className":"callback"},{"key":"send_info","label":"Send info","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"disqualified","label":"Disqualified","color":"--red","className":"negative"},{"key":"no_answer_disqualified","label":"No answer (disqualified)","color":"--red","className":"no-answer-dq"}],"crmStatusKeys":["new","call","send_info","booked","disqualified","no_answer_disqualified"],"crmStatusLabels":{"new":"New","call":"Callback","send_info":"Send info","booked":"Booked","disqualified":"Disqualified","no_answer_disqualified":"No answer (disqualified)"},"neverDialStatuses":["booked","disqualified","no_answer_disqualified"],"dialPoolStatuses":["new","send_info"],"dialPoolStatusLabels":{"new":"New","send_info":"Send info"},"defaultDialPoolStatus":"new","dispositions":{"booked":"booked","callback":"call","send_info":"send_info","not_interested":"disqualified","no_answer":"call","do_not_call":"disqualified"},"outcomeMetric":{"call":"call_later","send_info":"interested","booked":"booked"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":60,"defaultDailyConversationGoal":20,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"settingKeys":["SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","OPENING_SCRIPT","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"}]}</script></head>
+<script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"call","label":"Callback","color":"--amber","className":"callback"},{"key":"send_info","label":"Send info","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"disqualified","label":"Disqualified","color":"--red","className":"negative"},{"key":"no_answer_disqualified","label":"No answer (disqualified)","color":"--red","className":"no-answer-dq"}],"crmStatusKeys":["new","call","send_info","booked","disqualified","no_answer_disqualified"],"crmStatusLabels":{"new":"New","call":"Callback","send_info":"Send info","booked":"Booked","disqualified":"Disqualified","no_answer_disqualified":"No answer (disqualified)"},"neverDialStatuses":["booked","disqualified","no_answer_disqualified"],"dialPoolStatuses":["new","send_info"],"dialPoolStatusLabels":{"new":"New","send_info":"Send info"},"defaultDialPoolStatus":"new","dialBusinessTypeOptions":[{"key":"pest control","label":"Pest control"},{"key":"hvac","label":"HVAC"}],"dispositions":{"booked":"booked","callback":"call","send_info":"send_info","not_interested":"disqualified","no_answer":"call","do_not_call":"disqualified"},"outcomeMetric":{"call":"call_later","send_info":"interested","booked":"booked"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":30,"defaultDailyConversationGoal":30,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"callerIdGroups":[{"key":"eastern","label":"Eastern"},{"key":"central","label":"Central"},{"key":"mountain","label":"Mountain"},{"key":"pacific","label":"Pacific"}],"defaultCallerIdGroup":"eastern","callbackStatusHours":2,"settingKeys":["SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","OPENING_SCRIPT","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"}]}</script></head>
 <body>
   <div id="loginGate" class="login-gate" hidden>
     <div class="login-card">
@@ -74,7 +74,7 @@
                   <span class="live-indicator"><i></i><span id="liveLabel">Standby</span></span>
                   <span id="lineCount" class="line-count">0 of 0 dialed</span>
                   <div id="callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
-                  <div class="dialer-pool-filter"><select id="dialerPoolStatusFilter" class="dialer-pool-status-select" aria-label="Dial prospects with CRM status"></select><span id="dialerCallerIdStatus" class="caller-id-group-status" aria-live="polite">Caller ID · Eastern</span><span class="visually-hidden" id="dialerTimezoneLabel">Dial from</span><select id="dialerTimezoneFilter" aria-labelledby="dialerTimezoneLabel" aria-hidden="true" tabindex="-1"><option value="">All time zones</option></select><div class="timezone-menu"><button id="dialerTimezoneButton" class="timezone-menu-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="dialerTimezoneList">All time zones</button><ul id="dialerTimezoneList" class="timezone-menu-list" role="listbox" aria-labelledby="dialerTimezoneLabel" hidden></ul></div></div>
+                  <div class="dialer-pool-filter"><select id="dialerPoolStatusFilter" class="dialer-pool-status-select" aria-label="Dial prospects with CRM status"></select><select id="dialerBusinessTypeFilter" class="dialer-business-type-select" aria-label="Dial prospects by business type"></select><select id="dialerCallerIdGroup" class="dialer-caller-id-select" aria-label="Caller ID numbers"></select><span class="visually-hidden" id="dialerTimezoneLabel">Dial from</span><select id="dialerTimezoneFilter" aria-labelledby="dialerTimezoneLabel" aria-hidden="true" tabindex="-1"><option value="">All time zones</option></select><div class="timezone-menu"><button id="dialerTimezoneButton" class="timezone-menu-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="dialerTimezoneList">All time zones</button><ul id="dialerTimezoneList" class="timezone-menu-list" role="listbox" aria-labelledby="dialerTimezoneLabel" hidden></ul></div></div>
                 </div>
 
                 <section class="queue-strip" aria-label="Call queue">
@@ -161,28 +161,28 @@
         <p id="sessionComparison" class="session-comparison" hidden></p>
         <div class="dialog-actions"><button id="startNewSession" class="button button-primary" type="button">Start new session</button></div>
       </section>
-    </dialog>            <section id="metricsPanel" class="metrics-panel" aria-labelledby="metricsTitle" hidden>
+    </dialog>            <section id="metricsPanel" class="metrics-panel dialer-run-panel" aria-labelledby="metricsTitle" hidden>
               <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton" hidden>
-                <div class="performance-document dialer-document">
+                <div class="dialer-document performance-document">
                   <header class="performance-header">
                     <h2 id="metricsTitle" class="visually-hidden">Performance</h2>
-                    <div class="performance-daily-goals" aria-label="Daily goals">
+                    <div class="performance-daily-goals" aria-label="Conversation and talk-time goals">
                       <div class="performance-goal-block">
                         <div class="performance-goal-head">
-                          <span class="performance-goal-label">Conversations today</span>
+                          <span id="dailyConversationLabel" class="performance-goal-label">Conversations this week</span>
                           <span class="performance-goal-value">
                             <strong id="dailyConversationsValue">0</strong>
                             <span class="performance-goal-sep">/</span>
-                            <button id="dailyConversationGoalButton" class="performance-goal-edit" type="button" aria-label="Edit conversation goal">20</button>
+                            <button id="dailyConversationGoalButton" class="performance-goal-edit" type="button" aria-label="Edit conversation goal">30</button>
                           </span>
                         </div>
-                        <div id="dailyConversationTrack" class="performance-goal-track" role="progressbar" aria-labelledby="dailyConversationGoalButton" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0">
+                        <div id="dailyConversationTrack" class="performance-goal-track" role="progressbar" aria-labelledby="dailyConversationGoalButton" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0">
                           <div id="dailyConversationFill" class="performance-goal-fill performance-goal-fill-conversations"></div>
                         </div>
                       </div>
                       <div class="performance-goal-block">
                         <div class="performance-goal-head">
-                          <span class="performance-goal-label">Talk time today</span>
+                          <span id="dailyTalkLabel" class="performance-goal-label">Talk time this week</span>
                           <span class="performance-goal-value">
                             <strong id="dailyTalkValue">0m</strong>
                             <span class="performance-goal-sep">/</span>
@@ -206,24 +206,25 @@
                       </div>
                     </div>
                     <div id="performanceChartLegend" class="performance-line-legend" role="group" aria-label="Chart series"></div>
-                    <div id="performanceLineChart" class="line-chart performance-line-chart" role="img" aria-label="Dials, conversations, and booked over time"></div>
+                    <div id="performanceLineChart" class="line-chart performance-line-chart" role="img" aria-label="Dials, pickups, and booked over time"></div>
                     <p id="performanceChartEmpty" class="performance-chart-empty" role="status" hidden>No activity in this range</p>
                   </section>
 
-                  <section class="performance-funnel-row" aria-label="Funnel conversion rates">
-                    <article class="performance-funnel-card">
-                      <span class="performance-funnel-label">Dials → Connected</span>
-                      <strong id="funnelRateConnect" class="performance-funnel-value">—</strong>
-                      <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateConnectBar"></span></div>
+                  <section class="performance-funnel-row" aria-label="Period totals and conversion rates">
+                    <article class="performance-funnel-card performance-funnel-card-dials">
+                      <span class="performance-funnel-label">Dials</span>
+                      <strong id="funnelCountDials" class="performance-funnel-value">0</strong>
                     </article>
-                    <article class="performance-funnel-card">
-                      <span class="performance-funnel-label">Connected → Conversations</span>
-                      <strong id="funnelRateConversation" class="performance-funnel-value">—</strong>
-                      <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateConversationBar"></span></div>
+                    <article class="performance-funnel-card performance-funnel-card-pickups">
+                      <span class="performance-funnel-label">Pickups</span>
+                      <strong id="funnelRatePickups" class="performance-funnel-value">—</strong>
+                      <span id="funnelDetailPickups" class="performance-funnel-detail"></span>
+                      <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRatePickupsBar"></span></div>
                     </article>
-                    <article class="performance-funnel-card">
-                      <span class="performance-funnel-label">Conversations → Booked</span>
+                    <article class="performance-funnel-card performance-funnel-card-booked">
+                      <span class="performance-funnel-label">Booked</span>
                       <strong id="funnelRateBooked" class="performance-funnel-value">—</strong>
+                      <span id="funnelDetailBooked" class="performance-funnel-detail"></span>
                       <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateBookedBar"></span></div>
                     </article>
                   </section>
@@ -238,7 +239,6 @@
                       <button id="importDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
                       <input id="dialsCsvInput" type="file" accept=".csv,text/csv" hidden>
                       <button id="exportDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↓</span>Export CSV</button>
-                      <button id="scanCrmButton" class="button button-secondary" type="button">Scan CRM</button>
                     </div>
                   </div>
                   <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">
