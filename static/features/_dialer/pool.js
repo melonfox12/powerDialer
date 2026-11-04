@@ -1,5 +1,5 @@
 import { postJson } from "../../_core/api.js";
-import { applyMutationPayload } from "../../_core/sync-state.js";
+import { applyLeadsCatalog, applyMutationPayload, fetchLeadsCatalog } from "../../_core/sync-state.js";
 import { showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 
@@ -15,6 +15,7 @@ export async function selectTimezone(timezone) {
 export async function selectDialPoolStatus(poolStatus) {
   try {
     await applyMutationPayload({ state: await postJson("/api/timezone", { pool_status: poolStatus }) });
+    applyLeadsCatalog(await fetchLeadsCatalog());
     render();
   } catch (error) {
     showToast(error.message, true);

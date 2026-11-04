@@ -9,6 +9,7 @@ import { connectAndCleanup, tearDownVoice } from "./connect.js";
 
 export async function startDialing() {
   byId("startButton").disabled = true;
+  S.voiceConnectBusy = true;
   let sessionStarted = false;
   try {
     const session = await postJson("/api/start");
@@ -25,6 +26,7 @@ export async function startDialing() {
     showToast(errorText(error, "Could not start dialing."), true);
     if (!sessionStarted) openSettings();
   } finally {
+    if (!state.running) S.voiceConnectBusy = false;
     byId("startButton").disabled = state.running;
   }
 }

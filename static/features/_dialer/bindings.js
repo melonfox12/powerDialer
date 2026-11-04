@@ -11,8 +11,10 @@ import { bindDialerTimezoneMenu } from "./pool-view.js";
 import { startDialing } from "./session.js";
 import { bindCrmStatus } from "./crm-status.js";
 import { bindDialsExport } from "./dials.js";
+import { bindNotesSidebar } from "./notes-sidebar.js";
 
 export function bindDialer() {
+  bindNotesSidebar();
   byId("startButton").addEventListener("click", startDialing);
   bindDialsExport();
   bindCrmStatus();

@@ -1,5 +1,5 @@
 import { S, state } from "../../_core/state.js";
-import { byId, setText } from "../../_core/format.js";
+import { byId, setText, DEFAULT_DIAL_POOL_STATUS, DIAL_POOL_STATUS_LABELS } from "../../_core/format.js";
 import { renderCallStage } from "./stage.js";
 import { renderDialerControls } from "./controls.js";
 import { renderOutcomeRow } from "./outcome-row.js";
@@ -32,7 +32,16 @@ export function renderDialer() {
   else if (stage === "dialing" || stage === "ringing") indicator.classList.add("tone-amber", "is-pulsing");
   else if (state.running) indicator.classList.add("tone-amber");
   setText("liveLabel", pending ? "Outcome needed" : active ? "Live" : state.paused ? "Paused" : connected ? "Dialing" : state.running ? "Connecting" : "Standby");
-  setText("lineCount", `${state.session_stats?.dials || 0} of ${state.queue_count ?? state.pool?.length ?? 0} dialed`);
+  const poolMode = state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS;
+  const poolLabel = DIAL_POOL_STATUS_LABELS[poolMode] || "New";
+  const queueSize = state.queue_count ?? state.pool?.length ?? 0;
+  setText("lineCount", `${state.session_stats?.dials || 0} of ${queueSize} ${poolLabel.toLowerCase()} dialed`);
+  const lede = byId("dialerIssueLede");
+  if (lede) {
+    lede.textContent = poolMode === "send_info"
+      ? "Send info pool — three lines dial at once. The first answer stays on the line."
+      : "Three lines dial at once. The first answer stays on the line.";
+  }
   byId("dialerMessage").hidden = !state.last_error;
   setText("dialerMessage", state.last_error || "");
   byId("dialerMessage").classList.toggle("error", Boolean(state.last_error));

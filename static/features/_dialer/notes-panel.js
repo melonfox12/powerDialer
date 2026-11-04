@@ -1,5 +1,6 @@
 import { state } from "../../_core/state.js";
 import { byId, setText } from "../../_core/format.js";
+import { formatPhoneNumber } from "../../_core/phone.js";
 import { leadNotes, notesLeadLabel, persistLeadNotes } from "../../_core/notes.js";
 
 let bound = false;
@@ -50,11 +51,106 @@ function bindNotesPanelOnce() {
   });
 }
 
+function sendInfoLeads() {
+  return (state.leads || [])
+    .filter((lead) => lead.status === "send_info")
+    .sort((left, right) => {
+      const leftLabel = (left.business || left.name || left.phone || "").toLowerCase();
+      const rightLabel = (right.business || right.name || right.phone || "").toLowerCase();
+      return leftLabel.localeCompare(rightLabel, undefined, { sensitivity: "base" });
+    });
+}
+
+function sendInfoListFocused() {
+  const list = byId("sendInfoProspectsList");
+  return Boolean(list?.contains(document.activeElement));
+}
+
+function extraFieldLines(lead) {
+  const lines = [];
+  if (lead.phone) lines.push(`Phone: ${formatPhoneNumber(lead.phone)}`);
+  if (lead.timezone) lines.push(`Timezone: ${lead.timezone}`);
+  if (lead.business && lead.business !== lead.name) lines.push(`Business: ${lead.business}`);
+  for (const [name, value] of Object.entries(lead.fields || {})) {
+    if (/^notes?$/i.test(name.trim())) continue;
+    const text = String(value || "").trim();
+    if (!text) continue;
+    lines.push(`${name}: ${text}`);
+  }
+  return lines;
+}
+
+function renderSendInfoProspectsList() {
+  const list = byId("sendInfoProspectsList");
+  if (!list || sendInfoListFocused()) return;
+
+  const leads = sendInfoLeads();
+  setText("sendInfoProspectsCount", leads.length ? `${leads.length} prospect${leads.length === 1 ? "" : "s"}` : "None");
+
+  const openIds = new Set(
+    [...list.querySelectorAll("details.send-info-prospect-item[open]")].map((node) => node.dataset.leadId),
+  );
+
+  list.replaceChildren();
+  if (!leads.length) {
+    const empty = document.createElement("p");
+    empty.className = "send-info-prospects-empty";
+    empty.textContent = "No Send info prospects in your CRM yet.";
+    list.append(empty);
+    return;
+  }
+
+  for (const lead of leads) {
+    const item = document.createElement("details");
+    item.className = "send-info-prospect-item";
+    item.dataset.leadId = lead.id;
+    item.open = openIds.has(lead.id);
+    item.setAttribute("role", "listitem");
+
+    const summary = document.createElement("summary");
+    summary.className = "send-info-prospect-summary";
+    const title = document.createElement("span");
+    title.className = "send-info-prospect-title";
+    title.textContent = lead.business || lead.name || formatPhoneNumber(lead.phone) || "Prospect";
+    summary.append(title);
+    if (lead.name && lead.business && lead.name !== lead.business) {
+      const subtitle = document.createElement("span");
+      subtitle.className = "send-info-prospect-subtitle";
+      subtitle.textContent = lead.name;
+      summary.append(subtitle);
+    }
+    const notesPreview = leadNotes(lead);
+    if (notesPreview) {
+      const preview = document.createElement("span");
+      preview.className = "send-info-prospect-preview";
+      preview.textContent = notesPreview.length > 72 ? `${notesPreview.slice(0, 72)}…` : notesPreview;
+      summary.append(preview);
+    }
+    item.append(summary);
+
+    const body = document.createElement("div");
+    body.className = "send-info-prospect-body";
+    const notesBlock = document.createElement("p");
+    notesBlock.className = "send-info-prospect-notes";
+    notesBlock.textContent = notesPreview || "No notes yet.";
+    body.append(notesBlock);
+    for (const line of extraFieldLines(lead)) {
+      const row = document.createElement("p");
+      row.className = "send-info-prospect-meta";
+      row.textContent = line;
+      body.append(row);
+    }
+    item.append(body);
+    list.append(item);
+  }
+}
+
 export function renderProspectNotesPanel() {
   bindNotesPanelOnce();
   const panel = byId("prospectNotesPanel");
   const editor = byId("prospectNotesEditor");
   if (!panel || !editor) return;
+  renderSendInfoProspectsList();
 
   const lead = notesPanelLead();
 

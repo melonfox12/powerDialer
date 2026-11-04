@@ -5,9 +5,103 @@
   overflow: hidden;
 }
 .dialer-run-panel.dialer-workspace {
+  --dialer-notes-width: 400px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  grid-template-columns: minmax(0, 1fr) var(--dialer-notes-width);
   grid-template-rows: minmax(0, 1fr);
+}
+.dialer-run-panel.dialer-workspace.notes-collapsed {
+  --dialer-notes-width: 44px;
+}
+.prospect-notes-shell {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  overflow: hidden;
+  background: #16181c;
+  border-left: 1px solid #23252a;
+}
+.prospect-notes-expand-tab {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  padding: 12px 6px;
+  border: 0;
+  background: #16181c;
+  color: #d0d6e0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 510;
+  letter-spacing: 0.04em;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  cursor: pointer;
+}
+.prospect-notes-expand-tab:hover {
+  background: #1c1f24;
+  color: #ffffff;
+}
+.prospect-notes-resize-handle {
+  flex: 0 0 7px;
+  margin: 0 -3px 0 0;
+  cursor: col-resize;
+  touch-action: none;
+  background: linear-gradient(90deg, transparent, #2c3036 45%, #2c3036 55%, transparent);
+  z-index: 1;
+}
+.prospect-notes-resize-handle:hover,
+.prospect-notes-resize-handle.is-dragging,
+.prospect-notes-resize-handle:focus-visible {
+  background: linear-gradient(90deg, transparent, #5e6ad2 45%, #5e6ad2 55%, transparent);
+  outline: none;
+}
+.prospect-notes-inner {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dialer-run-panel.dialer-workspace.notes-collapsed .prospect-notes-inner {
+  display: none;
+}
+.dialer-run-panel.dialer-workspace.notes-collapsed .prospect-notes-resize-handle {
+  display: none;
+}
+.prospect-notes-shell-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px 0;
+}
+.prospect-notes-shell-label {
+  color: #8a8f98;
+  font-size: 11px;
+  font-weight: 510;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.prospect-notes-collapse {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #2c3036;
+  border-radius: 6px;
+  background: #0f1114;
+  color: #d0d6e0;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.prospect-notes-collapse:hover {
+  border-color: #5e6ad2;
+  color: #ffffff;
 }
 .dialer-run-panel.dialer-workspace[hidden] {
   display: none;
@@ -20,15 +114,110 @@
   overflow: hidden;
 }
 .prospect-notes-panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 14px 20px;
+  overflow: hidden;
+}
+.prospect-notes-active,
+.send-info-tracker {
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 20px 18px 24px;
-  border-left: 1px solid #23252a;
-  background: #16181c;
+  overflow: hidden;
+}
+.send-info-tracker-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.send-info-tracker-head h3 {
+  margin: 0;
+  color: #d0d6e0;
+  font-size: 13px;
+  font-weight: 510;
+  letter-spacing: -0.01em;
+}
+.send-info-prospects-count {
+  color: #8a8f98;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.send-info-prospects-list {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 2px;
+  scrollbar-color: #2c3036 transparent;
+  scrollbar-width: thin;
+}
+.send-info-prospects-empty {
+  margin: 0;
+  color: #8a8f98;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.send-info-prospect-item {
+  border: 1px solid #2c3036;
+  border-radius: 8px;
+  background: #0f1114;
+  overflow: hidden;
+}
+.send-info-prospect-item[open] {
+  border-color: #3d4460;
+}
+.send-info-prospect-summary {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+.send-info-prospect-summary::-webkit-details-marker {
+  display: none;
+}
+.send-info-prospect-title {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 510;
+  line-height: 1.35;
+}
+.send-info-prospect-subtitle {
+  color: #e8eaed;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.send-info-prospect-preview {
+  color: #f4f5f7;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.send-info-prospect-body {
+  padding: 0 10px 10px;
+  border-top: 1px solid #23252a;
+}
+.send-info-prospect-notes {
+  margin: 8px 0 0;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.send-info-prospect-meta {
+  margin: 6px 0 0;
+  color: #e8eaed;
+  font-size: 11px;
+  line-height: 1.4;
 }
 .prospect-notes-panel-head {
   display: flex;

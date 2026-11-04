@@ -100,10 +100,10 @@ function bindVoiceCallHandlers(call) {
 
 export async function connectBrowserCall(clientCallToken, { freshDevice = false } = {}) {
   if (!clientCallToken) throw new Error("Missing browser call token.");
+  if (freshDevice) await tearDownVoice({ intentional: true });
   const generation = ++connectGeneration;
   S.voiceConnectBusy = true;
   try {
-    if (freshDevice) await tearDownVoice({ intentional: true });
     const inputId = byId("audioInputSelect").value || "default";
     const audio = inputId === "default" ? true : { deviceId: { exact: inputId } };
     let permissionStream;
@@ -142,10 +142,11 @@ export async function connectBrowserCall(clientCallToken, { freshDevice = false 
 }
 
 export async function connectAndCleanup(clientCallToken, sessionState) {
-  mergeLiveState(sessionState);
-  await refreshLeadsIfStale(sessionState.leads_version);
-  render();
+  S.voiceConnectBusy = true;
   try {
+    mergeLiveState(sessionState);
+    await refreshLeadsIfStale(sessionState.leads_version);
+    render();
     await connectBrowserCall(clientCallToken, { freshDevice: true });
   } catch (error) {
     await postJson("/api/stop").catch(() => {});
@@ -157,6 +158,8 @@ export async function connectAndCleanup(clientCallToken, sessionState) {
     debugEvent("error", "voice connect", message);
     showToast(message, true);
     return error;
+  } finally {
+    S.voiceConnectBusy = false;
   }
   await loadAppState();
   render();

@@ -20,7 +20,7 @@
                 <section class="queue-strip" aria-label="Call queue">
                   <div id="activeCall" class="power-lines"></div>
                 </section>
-                <p class="issue-lede">Three lines dial at once. The first answer stays on the line.</p>
+                <p id="dialerIssueLede" class="issue-lede">Three lines dial at once. The first answer stays on the line.</p>
 
                 <div class="session-momentum" aria-label="Current session progress">
                   <div class="session-goal">
@@ -93,13 +93,32 @@
               </details>
               </div>
               </div>
-              <aside id="prospectNotesPanel" class="prospect-notes-panel" aria-labelledby="prospectNotesTitle">
-                <div class="prospect-notes-panel-head">
-                  <h3 id="prospectNotesTitle">Notes</h3>
-                  <span id="prospectNotesSaveState" class="prospect-notes-save-state" aria-live="polite"></span>
+              <aside id="prospectNotesShell" class="prospect-notes-shell" aria-label="Notes sidebar">
+                <button id="prospectNotesExpandTab" class="prospect-notes-expand-tab" type="button" hidden aria-label="Show notes panel">Notes</button>
+                <div id="prospectNotesResizeHandle" class="prospect-notes-resize-handle" role="separator" aria-orientation="vertical" aria-label="Drag to resize notes panel" tabindex="0"></div>
+                <div class="prospect-notes-inner">
+                  <div class="prospect-notes-shell-head">
+                    <span class="prospect-notes-shell-label">Notes</span>
+                    <button id="prospectNotesCollapse" class="prospect-notes-collapse" type="button" aria-expanded="true" aria-controls="prospectNotesPanel" aria-label="Collapse notes panel" title="Collapse notes panel">›</button>
+                  </div>
+              <div id="prospectNotesPanel" class="prospect-notes-panel">
+                <section class="prospect-notes-active" aria-labelledby="prospectNotesTitle">
+                  <div class="prospect-notes-panel-head">
+                    <h3 id="prospectNotesTitle">Notes</h3>
+                    <span id="prospectNotesSaveState" class="prospect-notes-save-state" aria-live="polite"></span>
+                  </div>
+                  <p id="prospectNotesTarget" class="prospect-notes-target">No prospect on the line</p>
+                  <textarea id="prospectNotesEditor" class="prospect-notes-editor" rows="10" placeholder="Notes for the active prospect…"></textarea>
+                </section>
+                <section class="send-info-tracker" aria-labelledby="sendInfoNotesTitle">
+                  <div class="send-info-tracker-head">
+                    <h3 id="sendInfoNotesTitle">Send info</h3>
+                    <span id="sendInfoProspectsCount" class="send-info-prospects-count" aria-live="polite"></span>
+                  </div>
+                  <div id="sendInfoProspectsList" class="send-info-prospects-list" role="list"></div>
+                </section>
+              </div>
                 </div>
-                <p id="prospectNotesTarget" class="prospect-notes-target">No prospect on the line</p>
-                <textarea id="prospectNotesEditor" class="prospect-notes-editor" rows="10" placeholder="Notes for the active prospect…"></textarea>
               </aside>
             </section>
 <dialog id="sessionSummaryDialog" class="session-summary-dialog" aria-labelledby="sessionSummaryTitle">

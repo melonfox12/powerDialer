@@ -98,10 +98,25 @@
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) auto;
   }
-  .prospect-notes-panel {
-    max-height: 220px;
+  .dialer-run-panel.dialer-workspace {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .dialer-run-panel.dialer-workspace.notes-collapsed {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .prospect-notes-shell {
+    max-height: min(420px, 55vh);
     border-left: 0;
     border-top: 1px solid var(--line);
+  }
+  .prospect-notes-resize-handle {
+    display: none;
+  }
+  .prospect-notes-panel {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(140px, 1fr) minmax(120px, 1fr);
+    overflow: auto;
   }
   .dialer-run-panel { padding: 16px; }
   .dashboard-top-row { grid-template-columns: 1fr; }
