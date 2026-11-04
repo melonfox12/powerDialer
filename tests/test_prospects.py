@@ -114,6 +114,31 @@ Too large,,Orkin,CA,San Jose,(408) 555-0000,Pacific,1495,12,1,0.8,exact
         self.assertNotIn("FIT", messy[0]["fields"])
         self.assertNotIn("Fit", messy[0]["fields"])
 
+    def test_csv_pitch_segment_column_maps_to_lead_field(self):
+        leads, _info = parse_csv(
+            b"Business Type,First name,Last name,Company,Pitch segment,City,State,Phone\n"
+            b"HVAC,Ada,Lovelace,Engines,High reviews,SF,CA,2025550199\n"
+        )
+        lead = leads[0]
+        self.assertEqual(lead["pitch_segment"], "High reviews")
+        self.assertNotIn("Pitch segment", lead.get("fields", {}))
+
+    def test_csv_pitch_segment_underscore_header_maps_to_lead_field(self):
+        leads, _info = parse_csv(b"Company,pitch_segment,Phone\nAcme,Low reviews,2025550199\n")
+        self.assertEqual(leads[0]["pitch_segment"], "Low reviews")
+        self.assertNotIn("pitch_segment", leads[0].get("fields", {}))
+
+    def test_store_promotes_pitch_segment_from_fields_on_load(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "crm.json"
+            crm = ProspectStore(path)
+            crm.leads = [prospect()]
+            crm.leads[0]["fields"] = {"pitch_segment": "VIP segment"}
+            crm.save()
+            reloaded = ProspectStore(path)
+            self.assertEqual(reloaded.snapshot()[0]["pitch_segment"], "VIP segment")
+            self.assertNotIn("pitch_segment", reloaded.snapshot()[0].get("fields", {}))
+
     def test_csv_business_type_column_and_default(self):
         typed, _info = parse_csv(
             b"Business Type,Prospect,Company,Phone\nHVAC,Ada,Engines,2025550199\n"

@@ -8,7 +8,7 @@ from features._prospects.backend_local import LocalBackend
 from features._prospects.backend_supabase import SupabaseBackend
 from features._prospects.dial_archive import is_dial_archive_storage_lead
 from features._prospects.csv_export import csv_bytes_for
-from features._prospects.csv_import import parse_csv, update_lead_fields
+from features._prospects.csv_import import apply_pitch_segment_from_fields, parse_csv, update_lead_fields
 from shared.dial_policy import (
     apply_callback_timer_migration_to_lead,
     apply_dial_cap_to_lead,
@@ -59,6 +59,7 @@ class ProspectStore:
             lead["status"] = canonical_status(lead.get("status"))
             if not str(lead.get("business_type") or "").strip():
                 lead["business_type"] = DEFAULT_BUSINESS_TYPE
+            apply_pitch_segment_from_fields(lead)
         return leads
 
     def repair_dial_statuses(self):

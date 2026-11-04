@@ -3,25 +3,25 @@ import { byId } from "../../_core/format.js";
 
 export const LEAD_COLUMNS = [
   { label: "Business Type", key: "business_type", kind: "text" },
-  { label: "Prospect", key: "name", kind: "text" },
-  { label: "Company", key: "business", kind: "text" },
-  { label: "State", key: "state", kind: "text" },
-  { label: "City", key: "city", kind: "text" },
-  { label: "Phone Number", key: "phone", kind: "text" },
   { label: "Timezone", key: "timezone", kind: "text" },
+  { label: "First name", key: "first_name", kind: "text" },
+  { label: "Last name", key: "last_name", kind: "text" },
+  { label: "Company", key: "business", kind: "text" },
+  { label: "Pitch segment", key: "pitch_segment", kind: "text" },
+  { label: "City", key: "city", kind: "text" },
+  { label: "State", key: "state", kind: "text" },
+  { label: "Business phone", key: "phone", kind: "text" },
+  { label: "LinkedIn profile", key: "linkedin", kind: "text" },
+  { label: "Website", key: "website", kind: "text" },
   { label: "Total Reviews", key: "review_count", kind: "number" },
   { label: "Call status", key: "status", kind: "text" },
-  { label: "Reviews (Last 30 Days)", key: "reviews_last_30_days", kind: "number" },
-  { label: "Days Since Last Review", key: "days_since_last_review", kind: "number" },
-  { label: "30-Day %", key: "review_pct_30_days", kind: "number" },
-  { label: "Recency Source", key: "recency_source", kind: "text" },
 ];
 
 export const TRAILING_COLUMNS = [
   { label: "Call transcript", key: "transcript", kind: "number" },
 ];
 
-let columnSort = { key: "review_pct_30_days", direction: "desc", kind: "number" };
+let columnSort = { key: "review_count", direction: "desc", kind: "number" };
 
 export function currentColumnSort() {
   return columnSort;
@@ -49,9 +49,38 @@ export function locationText(lead, key) {
   return "";
 }
 
+export function splitName(name) {
+  const text = String(name || "").trim();
+  if (!text) return { first: "", last: "" };
+  const space = text.indexOf(" ");
+  if (space < 0) return { first: text, last: "" };
+  return { first: text.slice(0, space), last: text.slice(space + 1).trim() };
+}
+
+export function fieldText(lead, ...aliases) {
+  const wanted = new Set(aliases.map((alias) => alias.trim().toLowerCase()));
+  for (const [name, value] of Object.entries(lead?.fields || {})) {
+    if (wanted.has(name.trim().toLowerCase())) return String(value || "").trim();
+  }
+  return "";
+}
+
+function pitchSegmentFieldKey(name) {
+  return String(name || "").trim().toLowerCase().replace(/[\s_]+/g, "");
+}
+
+export function pitchSegmentText(lead) {
+  const direct = String(lead?.pitch_segment || "").trim();
+  if (direct) return direct;
+  for (const [name, value] of Object.entries(lead?.fields || {})) {
+    if (pitchSegmentFieldKey(name) === "pitchsegment") return String(value || "").trim();
+  }
+  return "";
+}
+
 export function importedColumns() {
   const columns = [];
-  const standard = /^(name|full name|contact|first name|last name|prospect|business type|industry|business|company|organization|organisation|state|city|phone(?: number| e\.?164)?|mobile|cell|telephone|time\s?zone|tz|call.?status|status|total reviews|reviews \(last 30 days\)|days since last review|30-day %|recency source|fit)$/i;
+  const standard = /^(name|full name|contact|first name|last name|prospect|business type|industry|business|company|organization|organisation|pitch segment|state|city|phone(?: number| e\.?164)?|mobile|cell|telephone|business phone|time\s?zone|tz|linkedin(?: profile| url)?|website|url|call.?status|status|total reviews|reviews \(last 30 days\)|days since last review|30-day %|recency source|fit)$/i;
   for (const lead of state.leads) {
     for (const key of Object.keys(lead.fields || {})) {
       if (!standard.test(key) && !columns.includes(key)) columns.push(key);
@@ -99,10 +128,14 @@ export function filteredLeads() {
     if (maxTotal != null && (total == null || total > maxTotal)) return false;
     if (minRecent != null && (recent == null || recent < minRecent)) return false;
     if (!query) return true;
+    const { first, last } = splitName(lead.name);
     const values = [
-      lead.business_type, lead.name, lead.business, locationText(lead, "state"), locationText(lead, "city"),
-      lead.phone, lead.timezone, lead.status, lead.recency_source,
-      lead.review_count, lead.reviews_last_30_days, lead.days_since_last_review, lead.review_pct_30_days,
+      lead.business_type, lead.timezone, first, last, lead.business, pitchSegmentText(lead),
+      locationText(lead, "city"), locationText(lead, "state"), lead.phone,
+      fieldText(lead, "LinkedIn profile", "LinkedIn", "linkedin profile", "linkedin"),
+      fieldText(lead, "Website", "website", "url"),
+      lead.status, lead.review_count,
+      lead.recency_source, lead.reviews_last_30_days, lead.days_since_last_review, lead.review_pct_30_days,
       ...Object.values(lead.fields || {}),
     ];
     return values.some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
@@ -119,25 +152,28 @@ export function crmTableSignature() {
     byId("maxTotalReviews")?.value || "",
     byId("minRecentReviews")?.value || "",
     state.pending_outcome?.id || null,
-    state.leads.map((lead) => [
-      lead.id,
-      lead.business_type,
-      lead.name,
-      lead.business,
-      locationText(lead, "state"),
-      locationText(lead, "city"),
-      lead.phone,
-      lead.timezone,
-      lead.review_count,
-      lead.reviews_last_30_days,
-      lead.days_since_last_review,
-      lead.review_pct_30_days,
-      lead.recency_source,
-      lead.status,
-      lead.scheduled_until,
-      lead.fields,
-      lead.transcript?.length || 0,
-    ]),
+    state.leads.map((lead) => {
+      const { first, last } = splitName(lead.name);
+      return [
+        lead.id,
+        lead.business_type,
+        lead.timezone,
+        first,
+        last,
+        lead.business,
+        pitchSegmentText(lead),
+        locationText(lead, "city"),
+        locationText(lead, "state"),
+        lead.phone,
+        fieldText(lead, "LinkedIn profile", "LinkedIn", "linkedin profile", "linkedin"),
+        fieldText(lead, "Website", "website", "url"),
+        lead.review_count,
+        lead.status,
+        lead.scheduled_until,
+        lead.fields,
+        lead.transcript?.length || 0,
+      ];
+    }),
   ]);
 }
 
@@ -178,6 +214,19 @@ function sortValue(lead) {
   if (columnSort.kind === "number") {
     if (key === "transcript") return lead.transcript?.length || 0;
     return numberOrNull(lead[key]);
+  }
+  if (key === "first_name" || key === "last_name") {
+    const part = splitName(lead.name)[key === "first_name" ? "first" : "last"];
+    return part || null;
+  }
+  if (key === "linkedin") {
+    return fieldText(lead, "LinkedIn profile", "LinkedIn", "linkedin profile", "linkedin") || null;
+  }
+  if (key === "website") {
+    return fieldText(lead, "Website", "website", "url") || null;
+  }
+  if (key === "pitch_segment") {
+    return pitchSegmentText(lead) || null;
   }
   if (key === "state" || key === "city") {
     return locationText(lead, key) || null;

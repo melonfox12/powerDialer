@@ -1,7 +1,10 @@
 import { selectedLeadIds, selection } from "./selection.js";
-import { createCrmStatusSelect, fillTimezoneSelect, initials } from "../../_core/format.js";
+import { createCrmStatusSelect, fillTimezoneSelect } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
-import { LEAD_COLUMNS, locationText } from "./query.js";
+import { LEAD_COLUMNS, fieldText, locationText, pitchSegmentText, splitName } from "./query.js";
+
+const LINKEDIN_FIELD = "LinkedIn profile";
+const WEBSITE_FIELD = "Website";
 import { openTranscript } from "./transcript.js";
 
 export function appendLeadRows(body, leads, extras, onSelection) {
@@ -72,8 +75,32 @@ function appendLeadColumn(row, lead, column) {
     row.append(statusCell(lead));
     return;
   }
-  if (column.key === "name") {
-    row.append(prospectCell(lead));
+  if (column.key === "first_name") {
+    row.append(namePartCell(lead, "first"));
+    return;
+  }
+  if (column.key === "last_name") {
+    row.append(namePartCell(lead, "last"));
+    return;
+  }
+  if (column.key === "linkedin") {
+    row.append(dataCell(fieldInput(
+      lead,
+      "fields",
+      fieldText(lead, LINKEDIN_FIELD, "LinkedIn", "linkedin profile", "linkedin"),
+      "LinkedIn profile",
+      LINKEDIN_FIELD,
+    )));
+    return;
+  }
+  if (column.key === "website") {
+    row.append(dataCell(fieldInput(
+      lead,
+      "fields",
+      fieldText(lead, WEBSITE_FIELD, "website", "url"),
+      "Website",
+      WEBSITE_FIELD,
+    )));
     return;
   }
   if (column.key === "business_type") {
@@ -82,6 +109,10 @@ function appendLeadColumn(row, lead, column) {
   }
   if (column.key === "business") {
     row.append(dataCell(fieldInput(lead, "business", lead.business || "", "Company")));
+    return;
+  }
+  if (column.key === "pitch_segment") {
+    row.append(dataCell(fieldInput(lead, "pitch_segment", pitchSegmentText(lead), "Pitch segment")));
     return;
   }
   if (column.key === "state") {
@@ -100,33 +131,55 @@ function appendLeadColumn(row, lead, column) {
     row.append(dataCell(timezoneInput(lead)));
     return;
   }
-  if (column.key === "review_pct_30_days") {
-    row.append(metricCell(formatPercent(lead.review_pct_30_days)));
-    return;
-  }
   if (column.kind === "number") {
     row.append(metricCell(formatCount(lead[column.key])));
     return;
   }
-  row.append(metricCell(lead.recency_source || "—"));
+  row.append(metricCell("—"));
 }
 
-function prospectCell(lead) {
-  const contact = document.createElement("td");
-  const contactWrap = document.createElement("div");
-  contactWrap.className = "contact-cell";
-  const avatar = document.createElement("span");
-  avatar.className = "contact-avatar";
-  avatar.textContent = initials(lead.name || lead.business);
-  const copy = document.createElement("span");
-  copy.className = "contact-copy";
-  const name = fieldInput(lead, "name", lead.name || "", "Prospect name");
-  const subline = document.createElement("span");
-  subline.textContent = lead.business || "Prospect";
-  copy.append(name, subline);
-  contactWrap.append(avatar, copy);
-  contact.append(contactWrap);
-  return contact;
+function namePartCell(lead, part) {
+  const { first, last } = splitName(lead.name);
+  const value = part === "first" ? first : last;
+  const label = part === "first" ? "First name" : "Last name";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "cell-editor";
+  input.value = value;
+  input.placeholder = "—";
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", `${label} for ${lead.name || lead.business || lead.phone || "prospect"}`);
+  input.dataset.savedValue = value;
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      input.value = input.dataset.savedValue;
+      event.preventDefault();
+      input.blur();
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      input.blur();
+    }
+  });
+  input.addEventListener("change", () => {
+    const trimmed = input.value.trim();
+    if (trimmed === input.dataset.savedValue) {
+      input.value = input.dataset.savedValue;
+      return;
+    }
+    const other = splitName(lead.name)[part === "first" ? "last" : "first"];
+    const nextFirst = part === "first" ? trimmed : other;
+    const nextLast = part === "last" ? trimmed : other;
+    const value = [nextFirst, nextLast].filter(Boolean).join(" ");
+    document.dispatchEvent(new CustomEvent("prospect-field", {
+      detail: { lead, field: "name", value, previous: lead.name || "", input },
+    }));
+  });
+  input.addEventListener("blur", () => {
+    document.dispatchEvent(new CustomEvent("prospect-field-blur"));
+  });
+  const cell = document.createElement("td");
+  cell.append(input);
+  return cell;
 }
 
 function phoneCell(lead) {
@@ -156,15 +209,6 @@ function formatCount(value) {
   if (value === null || value === undefined || value === "") return "—";
   const number = Number(value);
   return Number.isFinite(number) ? String(number) : "—";
-}
-
-function formatPercent(value) {
-  if (value === null || value === undefined || value === "") return "—";
-  const number = Number(value);
-  if (!Number.isFinite(number)) return "—";
-  const rounded = Math.round(number * 1000) / 1000;
-  const text = Number.isInteger(rounded) ? String(rounded) : String(rounded);
-  return `${text}%`;
 }
 
 function dataCell(control) {

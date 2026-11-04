@@ -38,6 +38,8 @@ EXACT_HEADERS = {
     "industry": "business_type",
     "prospect": "name",
     "company": "business",
+    "pitch segment": "pitch_segment",
+    "pitchsegment": "pitch_segment",
     "state": "state",
     "city": "city",
     "phone number": "phone",
@@ -149,7 +151,7 @@ def _optional_decimal(value):
 
 
 def _header_key(value):
-    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+    return re.sub(r"[\s_]+", " ", str(value or "").strip().lower()).strip()
 
 
 def _exact_columns(header):
@@ -320,6 +322,8 @@ def parse_csv(data, known_phones=()):
         located = {index for index in (state_column, city_column) if index is not None}
         located.update(ignored)
         located.update(exact[field] for field in METRIC_FIELDS if field in exact)
+        if "pitch_segment" in exact:
+            located.add(exact["pitch_segment"])
         fields = {headers[index]: value for index, value in enumerate(row) if value and index not in located}
         timezone = _timezone(row[timezone_column]) if timezone_column is not None else None
         review_count = _review_count(row[review_column]) if review_column is not None else None
@@ -338,6 +342,7 @@ def parse_csv(data, known_phones=()):
             "name": name,
             "business_type": business_type,
             "business": row[business_column].strip() if business_column is not None else "",
+            "pitch_segment": row[exact["pitch_segment"]].strip() if "pitch_segment" in exact else "",
             "state": row[state_column].strip() if state_column is not None else "",
             "city": row[city_column].strip() if city_column is not None else "",
             "phone": phone,
@@ -359,6 +364,7 @@ _LIMITS = {
     "name": 200,
     "business_type": 120,
     "business": 200,
+    "pitch_segment": 120,
     "state": 80,
     "city": 120,
     "timezone": 80,
@@ -371,6 +377,7 @@ def build_manual_lead(payload, known_phones=()):
         raise ValueError("Prospect details must be an object.")
     name = _text(payload.get("name"), "name")
     business = _text(payload.get("business"), "business")
+    pitch_segment = _text(payload.get("pitch_segment"), "pitch_segment")
     state = _text(payload.get("state"), "state")
     city = _text(payload.get("city"), "city")
     phone = _phone(payload.get("phone"))
@@ -391,6 +398,7 @@ def build_manual_lead(payload, known_phones=()):
         "name": name,
         "business_type": business_type,
         "business": business,
+        "pitch_segment": pitch_segment,
         "state": state,
         "city": city,
         "phone": phone,
@@ -424,6 +432,10 @@ def update_lead_fields(lead, payload, known_phones=()):
     if "business" in payload:
         lead["business"] = _text(payload.get("business"), "business")
         changed = True
+    if "pitch_segment" in payload:
+        lead["pitch_segment"] = _text(payload.get("pitch_segment"), "pitch_segment")
+        _forget_location_alias(lead, "pitch segment")
+        changed = True
     if "state" in payload:
         lead["state"] = _text(payload.get("state"), "state")
         _forget_location_alias(lead, "state")
@@ -449,6 +461,34 @@ def update_lead_fields(lead, payload, known_phones=()):
     if not changed:
         raise ValueError("No prospect fields to update.")
     return lead
+
+
+def _is_pitch_segment_field(name):
+    key = re.sub(r"[\s_]+", "", str(name or "").strip().casefold())
+    return key == "pitchsegment"
+
+
+def apply_pitch_segment_from_fields(lead):
+    """Promote Pitch segment from imported extra columns. Returns True when the lead changed."""
+    if not isinstance(lead, dict):
+        return False
+    if str(lead.get("pitch_segment") or "").strip():
+        return False
+    fields = lead.get("fields") or {}
+    for name, value in fields.items():
+        if not _is_pitch_segment_field(name):
+            continue
+        text = str(value or "").strip()
+        if not text:
+            return False
+        lead["pitch_segment"] = text
+        lead["fields"] = {
+            field_name: field_value
+            for field_name, field_value in fields.items()
+            if not _is_pitch_segment_field(field_name)
+        }
+        return True
+    return False
 
 
 def apply_business_type_default_to_lead(lead):
