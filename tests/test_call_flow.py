@@ -189,10 +189,17 @@ class CallFlowTests(unittest.TestCase):
         self.assertEqual(status, 403)
         self.assertEqual(raw, b"Invalid Twilio signature")
 
+        status, stopped = self.json_app("POST", "/api/voice/rejoin", {})
+        self.assertEqual(status, 400)
+
         status, started = self.json_app("POST", "/api/start", {})
         self.assertEqual(status, 200)
         self.assertEqual(started["caller_ids"], ["+18607354163", "+18607521887", "+18607824999"])
         agent_token = started["client_call_token"]
+        status, rejoin = self.json_app("POST", "/api/voice/rejoin", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(rejoin["client_call_token"], agent_token)
+        self.assertFalse(rejoin["agent_ready"])
         self.assertTrue(started["running"])
         self.assertFalse(started["agent_ready"])
 

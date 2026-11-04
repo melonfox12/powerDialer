@@ -40,6 +40,13 @@ def leads_catalog(state):
     else:
         catalog["archived_dials"] = []
         catalog["dials_version"] = 0
+    records = getattr(state, "dial_records", None)
+    if records is not None:
+        catalog["dial_records"] = records.list_summaries()
+        catalog["dial_records_version"] = records.revision
+    else:
+        catalog["dial_records"] = []
+        catalog["dial_records_version"] = 0
     with state.lock:
         in_flight = len([call for call in state.in_flight.values() if call["kind"] == "prospect"])
     catalog["counts"]["calling"] = in_flight

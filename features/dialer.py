@@ -52,8 +52,21 @@ class Dialer(DialerState):
     def scan_crm(self):
         return queue.scan_crm(self)
 
+    def backfill_new_dial_callbacks(self):
+        count = queue.sync_new_unpicked_dial_callbacks(self)
+        if count:
+            noun = "prospect" if count == 1 else "prospects"
+            self.record_activity(
+                f"One-time fix: 2-hour callback on {count} {noun} still New in the current dial log",
+                "web",
+            )
+        return count
+
     def start(self, priority_lead_id=None):
         return queue.start(self, priority_lead_id)
+
+    def rejoin_browser_voice(self):
+        return queue.rejoin_browser_voice(self)
 
     def _new_call(self, kind, lead):
         call = calls._new_call(self, kind, lead)
@@ -208,6 +221,14 @@ def post_start(request):
     request.send_json(200, request.account.dialer.start())
 
 
+def post_voice_rejoin(request):
+    try:
+        request.send_json(200, request.account.dialer.rejoin_browser_voice())
+    except ValueError as exc:
+        request._trace_error = str(exc)
+        request.send_json(400, {"error": str(exc)})
+
+
 def post_pause(request):
     request.send_json(200, request.account.dialer.pause())
 
@@ -234,6 +255,16 @@ def post_advance(request):
 
 def post_scan_crm(request):
     request.send_json(200, request.account.dialer.scan_crm())
+
+
+def post_backfill_new_dial_callbacks(request):
+    count = request.account.dialer.backfill_new_dial_callbacks()
+    try:
+        state = request.ctx.state()
+    except OSError as exc:
+        request.ctx.log(f"Callbacks backfilled but state refresh failed: {exc}", "error")
+        state = request.account.dialer.public_state(include_leads=False)
+    request.send_json(200, {"updated": count, "state": state})
 
 
 def post_dial(request):
@@ -279,6 +310,36 @@ def post_dials_import(request, data):
         request.report_storage_error(exc)
 
 
+def post_dials_record_snapshot(request, data):
+    from features._prospects.dial_records import snapshot_active_dials
+
+    try:
+        saved = snapshot_active_dials(
+            request.account.crm,
+            request.account.dial_archive,
+            request.account.dial_records,
+            title=(data or {}).get("title"),
+        )
+        request.send_json(200, {"record": saved, "state": request.ctx.state()})
+    except ValueError as exc:
+        request._trace_error = str(exc)
+        request.send_json(400, {"error": str(exc)})
+    except OSError as exc:
+        request.report_storage_error(exc)
+
+
+def get_dials_record(request):
+    record_id = urllib.parse.unquote(
+        request._trace_path.removeprefix("/api/dials/records/").strip("/"),
+    )
+    record = request.account.dial_records.get_record(record_id)
+    if record is None:
+        request._trace_error = "Record not found"
+        request.send_json(404, {"error": "Record not found"})
+        return
+    request.send_json(200, {"record": record})
+
+
 def post_call_outcome(request, data):
     lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/").removesuffix("/call-outcome"))
     dialer = request.account.dialer
@@ -291,6 +352,7 @@ ROUTES = [
     ("GET", "/api/leads", get_leads, "GET reads"),
     ("GET", "/api/live", get_live, "GET reads"),
     ("GET", "/api/voice-token", get_voice_token, "voice-token"),
+    ("POST", "/api/voice/rejoin", post_voice_rejoin, "POST"),
     ("POST", "/api/timezone", post_timezone, "POST"),
     ("POST", "/api/caller-id-group", post_caller_id_group, "POST"),
     ("POST", "/api/start", post_start, "POST"),
@@ -301,8 +363,11 @@ ROUTES = [
     ("POST", "/api/next/skip", post_pass_next, "POST"),
     ("POST", "/api/advance", post_advance, "POST"),
     ("POST", "/api/dials/scan", post_scan_crm, "POST"),
+    ("POST", "/api/dials/backfill-new-callbacks", post_backfill_new_dial_callbacks, "POST"),
     ("GET", "/api/dials/export.csv", get_dials_export, "GET reads"),
     ("POST", "/api/dials/import", post_dials_import, "POST"),
+    ("POST", "/api/dials/records/snapshot", post_dials_record_snapshot, "POST"),
+    ("GET", "/api/dials/records/{id}", get_dials_record, "GET reads"),
     ("POST", "/api/leads/{id}/dial", post_dial, "POST"),
     ("POST", "/api/leads/{id}/status", post_status, "POST"),
     ("POST", "/api/leads/{id}/call-outcome", post_call_outcome, "POST"),

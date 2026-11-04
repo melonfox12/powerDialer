@@ -5,6 +5,7 @@ import { LEAD_COLUMNS, fieldText, locationText, pitchSegmentText, splitName } fr
 
 const LINKEDIN_FIELD = "LinkedIn profile";
 const WEBSITE_FIELD = "Website";
+import { appendNotesCell } from "../../_core/notes.js";
 import { openTranscript } from "./transcript.js";
 
 export function appendLeadRows(body, leads, extras, onSelection) {
@@ -47,6 +48,8 @@ export function appendLeadRows(body, leads, extras, onSelection) {
     for (const column of extras) {
       row.append(dataCell(fieldInput(lead, "fields", lead.fields?.[column] || "", column, column)));
     }
+
+    appendNotesCell(row, lead, { compact: true });
 
     const transcriptCell = document.createElement("td");
     const transcriptButton = document.createElement("button");

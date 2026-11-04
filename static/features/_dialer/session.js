@@ -3,10 +3,9 @@ import { loadAppState } from "../../_core/sync-state.js";
 import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
-import { stopProspectWaveform } from "./card.js";
 import { render } from "../../core.js";
 import { openSettings } from "../settings.js";
-import { connectAndCleanup } from "./connect.js";
+import { connectAndCleanup, tearDownVoice } from "./connect.js";
 
 export async function startDialing() {
   byId("startButton").disabled = true;
@@ -20,10 +19,7 @@ export async function startDialing() {
     if (failure) return;
   } catch (error) {
     if (sessionStarted) await postJson("/api/stop").catch(() => {});
-    S.voiceDevice?.destroy();
-    S.voiceDevice = null;
-    S.voiceCall = null;
-    stopProspectWaveform();
+    await tearDownVoice({ intentional: true });
     await loadAppState().catch(() => {});
     render();
     showToast(errorText(error, "Could not start dialing."), true);

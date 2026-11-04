@@ -87,6 +87,38 @@ class Part1:
         self.assertEqual(stored["transcript"][0]["text"], "I'll send that over today.")
         self.assertEqual(crm.snapshot()[0]["transcript"], stored["transcript"])
 
+    def test_agent_leg_inbound_is_agent_and_outbound_is_prospect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = [prospect()]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            prospect_call = dialer._new_call("prospect", prospect())
+            agent = dialer._new_call("agent", None)
+            agent["transcription_prospect_token"] = prospect_call["token"]
+            dialer.active = prospect_call
+
+            dialer._transcription_event(agent, {
+                "TranscriptionEvent": "transcription-content",
+                "TranscriptionData": json.dumps({"transcript": "Hi, this is Max."}),
+                "Track": "inbound_track",
+                "Timestamp": "2026-10-01T14:00:00+00:00",
+                "SequenceId": "1",
+                "Final": "true",
+            })
+            dialer._transcription_event(agent, {
+                "TranscriptionEvent": "transcription-content",
+                "TranscriptionData": json.dumps({"transcript": "Hello?"}),
+                "Track": "outbound_track",
+                "Timestamp": "2026-10-01T14:00:01+00:00",
+                "SequenceId": "2",
+                "Final": "true",
+            })
+
+            saved = ProspectStore(Path(directory) / "crm.json").snapshot()[0]["transcript"]
+            self.assertEqual([item["speaker"] for item in saved], ["Agent", "Prospect"])
+            self.assertEqual(saved[0]["text"], "Hi, this is Max.")
+            self.assertEqual(saved[1]["text"], "Hello?")
+
     def test_final_call_transcription_events_are_saved_to_the_prospect(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")

@@ -49,12 +49,16 @@ LEADS_CATALOG_KEYS = (
     "archived_dials",
     "business_type_options",
     "counts",
+    "dial_records",
+    "dial_records_version",
     "dials_version",
     "leads",
     "leads_version",
     "pool",
     "timezone_groups",
 )
+
+DIAL_RECORD_SUMMARY_KEYS = ("dial_count", "id", "saved_at", "title")
 
 DIALER_SETTINGS_KEYS = (
     "auto_advance_delay",

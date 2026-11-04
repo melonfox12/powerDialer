@@ -4,6 +4,78 @@
   padding: 0;
   overflow: hidden;
 }
+.dialer-run-panel.dialer-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  grid-template-rows: minmax(0, 1fr);
+}
+.dialer-run-panel.dialer-workspace[hidden] {
+  display: none;
+}
+.dialer-workspace-main {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.prospect-notes-panel {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 18px 24px;
+  border-left: 1px solid #23252a;
+  background: #16181c;
+  overflow: auto;
+}
+.prospect-notes-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.prospect-notes-panel-head h3 {
+  margin: 0;
+  color: #d0d6e0;
+  font-size: 13px;
+  font-weight: 510;
+  letter-spacing: -0.01em;
+}
+.prospect-notes-save-state {
+  color: #8a8f98;
+  font-size: 11px;
+}
+.prospect-notes-target {
+  margin: 0;
+  color: #8a8f98;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.prospect-notes-editor {
+  flex: 1 1 auto;
+  min-height: 160px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #2c3036;
+  border-radius: 8px;
+  background: #0f1114;
+  color: #d0d6e0;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+}
+.prospect-notes-editor:focus {
+  border-color: #5e6ad2;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(94, 106, 210, 0.25);
+}
+.prospect-notes-editor:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .dialer-document {
   flex: 1 1 auto;
   min-height: 0;

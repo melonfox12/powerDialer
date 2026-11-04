@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from features._prospects.backend_local import LocalBackend
 from features._prospects.backend_supabase import SupabaseBackend
 from features._prospects.dial_archive import is_dial_archive_storage_lead
+from features._prospects.dial_records import is_dial_records_storage_lead
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import apply_pitch_segment_from_fields, parse_csv, update_lead_fields
 from shared.dial_policy import (
@@ -54,7 +55,10 @@ class ProspectStore:
 
     def snapshot(self):
         """Every prospect with a current status. Stored records are not rewritten."""
-        leads = [lead for lead in self.backend.snapshot() if not is_dial_archive_storage_lead(lead)]
+        leads = [
+            lead for lead in self.backend.snapshot()
+            if not is_dial_archive_storage_lead(lead) and not is_dial_records_storage_lead(lead)
+        ]
         for lead in leads:
             lead["status"] = canonical_status(lead.get("status"))
             if not str(lead.get("business_type") or "").strip():
@@ -208,6 +212,15 @@ class ProspectStore:
             transcript.sort(key=lambda item: item.get("timestamp", ""))
             self.backend.save_locked(lead)
             return dict(lead)
+
+    def clear_all_call_logs(self):
+        """Remove every call_log row while keeping prospects and transcripts."""
+        with self.lock:
+            leads = self.backend.leads_locked()
+            for lead in leads:
+                if lead.get("call_log"):
+                    lead["call_log"] = []
+                    self.backend.save_locked(lead)
 
     def append_call_log(self, lead_id, entry, replace_id=None):
         record = {

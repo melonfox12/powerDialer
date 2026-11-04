@@ -1,16 +1,41 @@
 <div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
                 <section class="pool-table-panel" aria-label="Total dials">
                   <div class="pool-table-toolbar">
-                    <div><h2>Total dials</h2><span id="dialsTableSummary" class="pool-table-summary">0 dials</span></div>
+                    <div>
+                      <h2 id="dialsViewHeading">Total dials</h2>
+                      <span id="dialsTableSummary" class="pool-table-summary">0 dials</span>
+                    </div>
+                    <div class="dials-subnav" role="tablist" aria-label="Total dials views">
+                      <button id="dialsCurrentViewButton" class="dials-subnav-link is-active" type="button" role="tab" aria-selected="true" data-dials-subview="current">Current record</button>
+                      <button id="dialsGalleryViewButton" class="dials-subnav-link" type="button" role="tab" aria-selected="false" data-dials-subview="gallery">Saved records</button>
+                    </div>
                     <div class="pool-table-actions">
+                      <button id="backfillNewDialCallbacksButton" class="button button-quiet" type="button">Fix New → 2h callback</button>
+                      <button id="saveDialsRecordButton" class="button button-quiet" type="button">Save &amp; new record</button>
                       <button id="importDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
                       <input id="dialsCsvInput" type="file" accept=".csv,text/csv" hidden>
                       <button id="exportDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↓</span>Export CSV</button>
                     </div>
                   </div>
-                  <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">
-                    <table id="dialsTable"><thead><tr><th>When</th><th>Prospect</th><th>Phone</th><th>Business</th><th>Reviews</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsTableBody"></tbody></table>
-                    <div id="dialsTableEmpty" class="empty-state"><h2>No dials yet</h2><p>Calls and skips show up here, newest first.</p></div>
+                  <div id="dialsCurrentPanel" class="dials-view-panel">
+                    <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">
+                      <table id="dialsTable"><thead><tr><th>When</th><th>Prospect</th><th>Phone</th><th>Business</th><th>Reviews</th><th>Notes</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsTableBody"></tbody></table>
+                      <div id="dialsTableEmpty" class="empty-state"><h2>No dials yet</h2><p>Calls and skips show up here, newest first.</p></div>
+                    </div>
+                  </div>
+                  <div id="dialsGalleryPanel" class="dials-view-panel" hidden>
+                    <div id="dialsGalleryToolbar" class="dials-gallery-toolbar" hidden>
+                      <button id="dialsGalleryBackButton" class="button button-quiet" type="button">← All saved records</button>
+                      <span id="dialsGalleryRecordTitle" class="dials-gallery-record-title"></span>
+                    </div>
+                    <div id="dialsRecordsGallery" class="dials-records-gallery" role="list" aria-label="Saved dial records"></div>
+                    <div id="dialsRecordsGalleryEmpty" class="empty-state"><h2>No saved records</h2><p>Save the current record to start a fresh dial log while keeping past lists here.</p></div>
+                    <div id="dialsSavedRecordPanel" class="dials-view-panel" hidden>
+                      <div class="table-scroll pool-table-scroll" role="region" aria-label="Saved dial record" tabindex="0">
+                        <table id="dialsSavedTable"><thead><tr><th>When</th><th>Prospect</th><th>Phone</th><th>Business</th><th>Reviews</th><th>Notes</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsSavedTableBody"></tbody></table>
+                        <div id="dialsSavedTableEmpty" class="empty-state"><h2>No dials in this record</h2></div>
+                      </div>
+                    </div>
                   </div>
                 </section>
               </div>
@@ -66,7 +91,7 @@
                     <label class="pool-timezone-filter"><span>Timezone</span><select id="poolTimezoneFilter" aria-label="Filter caller pool by timezone"><option value="">All time zones</option></select></label>
                   </div>
                   <div class="table-scroll pool-table-scroll" role="region" aria-label="New prospect pool table" tabindex="0">
-                    <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
+                    <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Status</th><th>Notes</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
                     <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p id="poolTableEmptyHint">Only prospects in the selected pool status appear here.</p></div>
                   </div>
                 </section>

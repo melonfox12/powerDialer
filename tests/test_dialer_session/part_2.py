@@ -51,7 +51,8 @@ class Part2:
             dialer._call_ended(call, {"CallDuration": "30"})
             self.assertEqual(dialer.session["conversations"], 1)
             self.assertIsNone(dialer.pending_outcome)
-            self.assertEqual(crm.snapshot()[0]["status"], "new")
+            self.assertEqual(crm.snapshot()[0]["status"], "call")
+            self.assertTrue(crm.snapshot()[0]["scheduled_until"])
             dialer.pending_outcome = lead["id"]
             dialer.update_status(lead["id"], "send_info")
             self.assertEqual(crm.snapshot()[0]["status"], "send_info")

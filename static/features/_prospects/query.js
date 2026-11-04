@@ -18,6 +18,7 @@ export const LEAD_COLUMNS = [
 ];
 
 export const TRAILING_COLUMNS = [
+  { label: "Notes", key: "notes", kind: "text" },
   { label: "Call transcript", key: "transcript", kind: "number" },
 ];
 
@@ -80,7 +81,7 @@ export function pitchSegmentText(lead) {
 
 export function importedColumns() {
   const columns = [];
-  const standard = /^(name|full name|contact|first name|last name|prospect|business type|industry|business|company|organization|organisation|pitch segment|state|city|phone(?: number| e\.?164)?|mobile|cell|telephone|business phone|time\s?zone|tz|linkedin(?: profile| url)?|website|url|call.?status|status|total reviews|reviews \(last 30 days\)|days since last review|30-day %|recency source|fit)$/i;
+  const standard = /^(name|full name|contact|first name|last name|prospect|business type|industry|business|company|organization|organisation|pitch segment|state|city|phone(?: number| e\.?164)?|mobile|cell|telephone|business phone|time\s?zone|tz|linkedin(?: profile| url)?|website|url|call.?status|status|notes|note|total reviews|reviews \(last 30 days\)|days since last review|30-day %|recency source|fit)$/i;
   for (const lead of state.leads) {
     for (const key of Object.keys(lead.fields || {})) {
       if (!standard.test(key) && !columns.includes(key)) columns.push(key);
@@ -171,6 +172,7 @@ export function crmTableSignature() {
         lead.status,
         lead.scheduled_until,
         lead.fields,
+        fieldText(lead, "Notes", "notes", "note"),
         lead.transcript?.length || 0,
       ];
     }),
@@ -227,6 +229,9 @@ function sortValue(lead) {
   }
   if (key === "pitch_segment") {
     return pitchSegmentText(lead) || null;
+  }
+  if (key === "notes") {
+    return fieldText(lead, "Notes", "notes", "note") || null;
   }
   if (key === "state" || key === "city") {
     return locationText(lead, key) || null;

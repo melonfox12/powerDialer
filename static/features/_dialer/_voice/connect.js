@@ -16,7 +16,31 @@ export function takeLatestVoiceError() {
   return error;
 }
 
-export async function createVoiceDevice() {
+async function ensureDeviceRegistered(device) {
+  if (typeof device.register !== "function") return;
+  const Registered = window.Twilio?.Device?.State?.Registered;
+  if (Registered && device.state === Registered) return;
+  await device.register();
+}
+
+export async function destroyVoiceDevice() {
+  const device = S.voiceDevice;
+  S.voiceDevice = null;
+  if (!device) return;
+  try {
+    if (typeof device.unregister === "function") await device.unregister();
+  } catch (error) {
+    console.warn("Twilio device unregister:", error);
+  }
+  try {
+    device.destroy();
+  } catch (error) {
+    console.warn("Twilio device destroy:", error);
+  }
+}
+
+export async function createVoiceDevice({ fresh = false } = {}) {
+  if (fresh && S.voiceDevice) await destroyVoiceDevice();
   if (S.voiceDevice) return S.voiceDevice;
   if (!window.Twilio?.Device) {
     throw new Error("The Twilio Voice SDK did not load. Check your internet connection and reload the app.");
@@ -42,6 +66,7 @@ export async function createVoiceDevice() {
   });
   S.voiceDevice.audio.on("deviceChange", () => refreshAudioDevices().catch((error) => showToast(errorText(error, "Could not refresh audio devices."), true)));
   S.voiceDevice.audio.on("inputVolume", (volume) => setMicLevel(volume * 100));
+  await ensureDeviceRegistered(S.voiceDevice);
   await applyVoiceAudioDevices();
   return S.voiceDevice;
 }

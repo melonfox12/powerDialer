@@ -1,5 +1,5 @@
-import { request } from "../../_core/api.js";
-import { state } from "../../_core/state.js";
+import { postJson, request } from "../../_core/api.js";
+import { S, state } from "../../_core/state.js";
 import { applyLeadsCatalog, applyMutationPayload, fetchLeadsCatalog } from "../../_core/sync-state.js";
 import { byId, createCrmStatusSelect, crmStatusOptionText, crmStatusMenuOpen, setText } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
@@ -8,6 +8,7 @@ import { formatTranscriptCsvCell, openTranscript } from "../../_core/transcript.
 import { render } from "../../core.js";
 import { focusProspect } from "../_prospects/table.js";
 import { locationText } from "../_prospects/query.js";
+import { createNotesTextarea, leadNotes, notesEditorFocused } from "../../_core/notes.js";
 
 let lastDialsSignature = null;
 let dialsRenderDeferred = false;
@@ -150,19 +151,174 @@ export async function refreshDialsTab() {
   render();
 }
 
+function setDialsSubView(name) {
+  S.dialsSubView = name;
+  if (name !== "record") {
+    S.selectedDialRecordId = null;
+    S.selectedDialRecord = null;
+  }
+  renderDials();
+}
+
+async function openSavedDialRecord(recordId) {
+  try {
+    const payload = await request(`/api/dials/records/${encodeURIComponent(recordId)}`);
+    S.selectedDialRecordId = recordId;
+    S.selectedDialRecord = payload.record;
+    S.dialsSubView = "record";
+    renderDials();
+  } catch (error) {
+    console.error("Could not load saved dial record:", error);
+    showToast(error?.message || "Could not load that record.", true);
+  }
+}
+
+export async function backfillNewDialCallbacks() {
+  const button = byId("backfillNewDialCallbacksButton");
+  if (button) button.disabled = true;
+  try {
+    const result = await postJson("/api/dials/backfill-new-callbacks");
+    await applyMutationPayload(result);
+    const count = result.updated || 0;
+    if (!count) {
+      showToast("No New prospects in the current dial log needed a callback.", true);
+    } else {
+      showToast(`Set 2-hour callback on ${count} prospect${count === 1 ? "" : "s"} still marked New.`);
+    }
+    render();
+  } catch (error) {
+    showToast(error?.message || "Callback backfill failed.", true);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+async function saveDialsRecordAndReset() {
+  const button = byId("saveDialsRecordButton");
+  const rows = dialRows(state.leads, state.archived_dials);
+  if (!rows.length) {
+    showToast("There are no dials in the current record to save.", true);
+    return;
+  }
+  const title = window.prompt("Name this record (optional):", "") ?? "";
+  if (title === null) return;
+  button.disabled = true;
+  button.textContent = "Saving…";
+  try {
+    const payload = await postJson("/api/dials/records/snapshot", { title: title.trim() });
+    await applyMutationPayload(payload);
+    S.dialsSubView = "current";
+    S.selectedDialRecordId = null;
+    S.selectedDialRecord = null;
+    lastDialsSignature = null;
+    showToast(`Saved ${payload.record?.dial_count || rows.length} dial${rows.length === 1 ? "" : "s"}. New record started.`);
+    render();
+  } catch (error) {
+    console.error("Save dial record failed:", error);
+    showToast(error?.message || "Could not save the record.", true);
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save & new record";
+  }
+}
+
+function formatRecordWhen(iso) {
+  const date = new Date(iso || "");
+  if (Number.isNaN(date.getTime())) return "Saved record";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function renderDialsGallery() {
+  const gallery = byId("dialsRecordsGallery");
+  const empty = byId("dialsRecordsGalleryEmpty");
+  const savedPanel = byId("dialsSavedRecordPanel");
+  const toolbar = byId("dialsGalleryToolbar");
+  const records = state.dial_records || [];
+  const viewing = S.dialsSubView === "record" && S.selectedDialRecord;
+
+  gallery.hidden = Boolean(viewing);
+  empty.classList.toggle("visible", !viewing && records.length === 0);
+  toolbar.hidden = !viewing;
+  savedPanel.hidden = !viewing;
+
+  if (viewing) {
+    setText("dialsGalleryRecordTitle", S.selectedDialRecord.title || "Saved record");
+    const rows = dialRows([], S.selectedDialRecord.records || []);
+    paintDialsTable("dialsSavedTableBody", "dialsSavedTable", "dialsSavedTableEmpty", rows, { readOnly: true });
+    setText("dialsTableSummary", `${rows.length} dial${rows.length === 1 ? "" : "s"} · saved`);
+    setText("dialsTabCount", String(dialRows(state.leads, state.archived_dials).length));
+    return;
+  }
+
+  gallery.replaceChildren(...records.map((record) => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "dials-record-card";
+    card.role = "listitem";
+    card.addEventListener("click", () => openSavedDialRecord(record.id));
+    const title = document.createElement("strong");
+    title.className = "dials-record-card-title";
+    title.textContent = record.title || "Saved record";
+    const meta = document.createElement("span");
+    meta.className = "dials-record-card-meta";
+    meta.textContent = `${record.dial_count || 0} dial${record.dial_count === 1 ? "" : "s"} · ${formatRecordWhen(record.saved_at)}`;
+    card.append(title, meta);
+    return card;
+  }));
+  setText("dialsTableSummary", `${records.length} saved record${records.length === 1 ? "" : "s"}`);
+  setText("dialsTabCount", String(dialRows(state.leads, state.archived_dials).length));
+}
+
 export function bindDialsExport() {
   byId("importDialsButton")?.addEventListener("click", () => byId("dialsCsvInput")?.click());
   byId("dialsCsvInput")?.addEventListener("change", (event) => {
     const file = event.target.files?.[0];
     if (file) importDialsCsv(file);
   });
-  const button = byId("exportDialsButton");
-  if (button) button.addEventListener("click", exportDialsCsv);
+  byId("exportDialsButton")?.addEventListener("click", exportDialsCsv);
+  byId("backfillNewDialCallbacksButton")?.addEventListener("click", () => backfillNewDialCallbacks());
+  byId("saveDialsRecordButton")?.addEventListener("click", () => saveDialsRecordAndReset());
+  byId("dialsCurrentViewButton")?.addEventListener("click", () => setDialsSubView("current"));
+  byId("dialsGalleryViewButton")?.addEventListener("click", () => setDialsSubView("gallery"));
+  byId("dialsGalleryBackButton")?.addEventListener("click", () => setDialsSubView("gallery"));
 }
 
 export function renderDials() {
+  const currentPanel = byId("dialsCurrentPanel");
+  const galleryPanel = byId("dialsGalleryPanel");
+  const subView = S.dialsSubView === "record" ? "gallery" : S.dialsSubView;
+  const onGallery = subView === "gallery";
+
+  byId("dialsCurrentViewButton")?.classList.toggle("is-active", !onGallery);
+  byId("dialsGalleryViewButton")?.classList.toggle("is-active", onGallery);
+  byId("dialsCurrentViewButton")?.setAttribute("aria-selected", onGallery ? "false" : "true");
+  byId("dialsGalleryViewButton")?.setAttribute("aria-selected", onGallery ? "true" : "false");
+  currentPanel.hidden = onGallery;
+  galleryPanel.hidden = !onGallery;
+
+  const importBtn = byId("importDialsButton");
+  const exportBtn = byId("exportDialsButton");
+  const saveBtn = byId("saveDialsRecordButton");
+  const backfillBtn = byId("backfillNewDialCallbacksButton");
+  if (importBtn) importBtn.hidden = onGallery;
+  if (exportBtn) exportBtn.hidden = onGallery;
+  if (saveBtn) saveBtn.hidden = onGallery;
+  if (backfillBtn) backfillBtn.hidden = onGallery;
+  setText("dialsViewHeading", onGallery ? "Saved records" : "Total dials");
+
+  if (onGallery) {
+    renderDialsGallery();
+    return;
+  }
+
   const table = byId("dialsTable");
-  if (crmStatusMenuOpen(table)) {
+  if (crmStatusMenuOpen(table) || notesEditorFocused(table)) {
     dialsRenderDeferred = true;
     return;
   }
@@ -173,25 +329,31 @@ export function renderDials() {
   if (!dialsRenderDeferred && signature === lastDialsSignature) return;
   dialsRenderDeferred = false;
   lastDialsSignature = signature;
-  const body = byId("dialsTableBody");
+  paintDialsTable("dialsTableBody", "dialsTable", "dialsTableEmpty", rows, { readOnly: false });
+}
+
+function paintDialsTable(bodyId, tableId, emptyId, rows, { readOnly }) {
+  const body = byId(bodyId);
   body.replaceChildren(...rows.map(({ leadId, entry, archivedRecord }) => {
     const resolved = resolveDialCrmLead(leadId, archivedRecord);
     const { crmLead, snapshot, crmDeleted, focusId } = resolved;
     const displayLead = crmLead || snapshot;
+    const removed = readOnly || crmDeleted;
     const row = document.createElement("tr");
     row.dataset.leadId = leadId;
-    if (crmDeleted) row.classList.add("dials-row--removed");
+    if (removed) row.classList.add("dials-row--removed");
     row.append(cell(dialWhen(entry.ended_at || entry.started_at)));
-    row.append(prospectCell(focusId, displayLead, crmDeleted));
+    row.append(prospectCell(focusId, displayLead, removed, readOnly));
     row.append(phoneCell(displayLead));
     row.append(cell(displayLead?.business || "—"));
     row.append(cell(reviewText(displayLead)));
+    row.append(notesCell(crmLead, snapshot, crmDeleted, readOnly || removed));
     row.append(transcriptCell(focusId, displayLead));
-    row.append(statusCell(crmLead, snapshot, crmDeleted));
+    row.append(statusCell(crmLead, snapshot, removed, readOnly));
     return row;
   }));
-  byId("dialsTable").hidden = rows.length === 0;
-  byId("dialsTableEmpty").classList.toggle("visible", rows.length === 0);
+  byId(tableId).hidden = rows.length === 0;
+  byId(emptyId).classList.toggle("visible", rows.length === 0);
 }
 
 function archivedLead(record) {
@@ -272,6 +434,7 @@ function dialsTableSignature(rows) {
       statusLead?.business || "",
       String(statusLead?.review_count ?? ""),
       String(statusLead?.transcript?.length ?? 0),
+      leadNotes(statusLead),
       statusLead?.status || "",
       statusLead?.scheduled_until || "",
       state.pending_outcome?.id === (crmLead?.id || leadId) ? "1" : "0",
@@ -334,14 +497,17 @@ function reviewText(lead) {
   return "—";
 }
 
-function prospectCell(leadId, lead, crmDeleted) {
+function prospectCell(leadId, lead, crmDeleted, readOnly = false) {
   const cell = document.createElement("td");
   const button = document.createElement("button");
   button.type = "button";
   button.className = crmDeleted ? "dial-prospect-link dial-prospect-link--removed" : "dial-prospect-link";
   const name = lead?.name || "Unnamed prospect";
   button.textContent = name;
-  if (crmDeleted) {
+  if (readOnly) {
+    button.disabled = true;
+    button.title = "Saved record snapshot";
+  } else if (crmDeleted) {
     button.title = "Removed from CRM";
     button.addEventListener("click", () => showToast("This prospect was removed from the CRM.", true));
   } else {
@@ -367,6 +533,23 @@ function phoneCell(lead) {
   return cell;
 }
 
+function notesCell(crmLead, snapshot, crmDeleted, readOnly) {
+  const cell = document.createElement("td");
+  cell.className = "notes-cell";
+  const lead = crmLead || snapshot;
+  if (readOnly || crmDeleted || !crmLead) {
+    const preview = document.createElement("div");
+    preview.className = "notes-preview";
+    const text = leadNotes(lead);
+    preview.textContent = text || "—";
+    if (text) preview.title = text;
+    cell.append(preview);
+    return cell;
+  }
+  cell.append(createNotesTextarea(crmLead, { compact: true }));
+  return cell;
+}
+
 function transcriptCell(focusId, lead) {
   const cell = document.createElement("td");
   const button = document.createElement("button");
@@ -383,10 +566,10 @@ function transcriptCell(focusId, lead) {
   return cell;
 }
 
-function statusCell(crmLead, snapshot, crmDeleted) {
+function statusCell(crmLead, snapshot, crmDeleted, readOnly = false) {
   const cell = document.createElement("td");
   cell.className = "status-cell";
-  if (crmDeleted) {
+  if (readOnly || crmDeleted) {
     cell.textContent = snapshot ? crmStatusOptionText(snapshot.status, snapshot) : "—";
     return cell;
   }

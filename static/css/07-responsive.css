@@ -94,6 +94,15 @@
 
 @media (max-width: 820px) {
   .dialer-document .power-lines { grid-template-columns: 1fr; }
+  .dialer-run-panel.dialer-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .prospect-notes-panel {
+    max-height: 220px;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
   .dialer-run-panel { padding: 16px; }
   .dashboard-top-row { grid-template-columns: 1fr; }
   .queue-strip-content { align-items: stretch; flex-direction: column; gap: 5px; }

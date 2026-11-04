@@ -2,6 +2,8 @@ export const state = {
   leads: [],
   archived_dials: [],
   dials_version: 0,
+  dial_records: [],
+  dial_records_version: 0,
   pool: [],
   timezone_groups: [],
   selected_timezone: null,
@@ -37,6 +39,11 @@ export const S = {
   lastLiveTranscriptKey: "",
   voiceDevice: null,
   voiceCall: null,
+  expectVoiceDisconnect: false,
+  voiceConnectBusy: false,
+  voiceRejoinBusy: false,
+  voiceRejoinPending: false,
+  lastVoiceRejoinAt: 0,
   micTestStream: null,
   micTestRecorder: null,
   micTestContext: null,
@@ -64,6 +71,9 @@ export const S = {
   sensoryActivityPrimed: false,
   accessToken: null,
   googleAuthEnabled: false,
+  dialsSubView: "current",
+  selectedDialRecordId: null,
+  selectedDialRecord: null,
 };
 
 export const statMemory = {};

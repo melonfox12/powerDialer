@@ -6,6 +6,7 @@ import { renderOutcomeRow } from "./outcome-row.js";
 import { renderCrmStatus } from "./crm-status.js";
 import { renderQueueStrip } from "./queue.js";
 import { renderSessionMomentum } from "./session-goal.js";
+import { renderProspectNotesPanel } from "./notes-panel.js";
 
 export function renderDialer() {
   const stage = state.stage || "idle";
@@ -44,4 +45,5 @@ export function renderDialer() {
   renderOutcomeRow(pending);
   renderSessionMomentum();
   renderCallStage(stage, target);
+  renderProspectNotesPanel();
 }

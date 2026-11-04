@@ -10,6 +10,7 @@ import {
   mergeLiveState,
 } from "../../_core/sync-state.js";
 import { render } from "../../core.js";
+import { maybeRejoinVoice } from "./connect.js";
 
 export function processSensoryActivity(activity) {
   const keyFor = (entry) => `${entry.timestamp || ""}:${entry.source || ""}:${entry.message || ""}`;
@@ -51,6 +52,9 @@ export async function refreshState() {
       if (metricsResult) state.metrics = metricsResult;
     }
     processSensoryActivity(state.activity_log || []);
+    if (state.running && !state.agent_ready) {
+      maybeRejoinVoice().catch(() => {});
+    }
     render();
   } catch (error) {
     showToast(error.message, true);

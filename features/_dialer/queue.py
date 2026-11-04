@@ -14,12 +14,60 @@ from shared.vocabulary import (
     CALLER_ID_GROUPS,
     DIAL_POOL_STATUS_LABELS,
     DIAL_POOL_STATUSES,
+    NEVER_DIAL_STATUSES,
     caller_ids_for_group,
     canonical_status,
     dial_business_type_label,
     resolve_caller_id_group,
     resolve_dial_business_type,
 )
+
+
+def _callback_still_active(lead, now=None):
+    if canonical_status(lead.get("status")) != "call" or not lead.get("scheduled_until"):
+        return False
+    try:
+        due = datetime.fromisoformat(str(lead["scheduled_until"]))
+    except ValueError:
+        return False
+    if due.tzinfo is None:
+        due = due.replace(tzinfo=timezone.utc)
+    moment = (now or utc_now()).replace(microsecond=0)
+    return due > moment
+
+def _lead_in_current_dial_log(lead):
+    """True when this prospect has rows in the active Total dials log (not a live connect)."""
+    log = lead.get("call_log") or []
+    if not log:
+        return False
+    if any(item.get("connected") is True for item in log):
+        return False
+    return True
+
+
+def sync_new_unpicked_dial_callbacks(state):
+    """Backfill: prospects still New with rows in the current dial log → Callback (2h)."""
+    updated = 0
+    for lead in state.crm.snapshot():
+        status = canonical_status(lead.get("status"))
+        if status in NEVER_DIAL_STATUSES:
+            continue
+        if status != "new":
+            continue
+        if not _lead_in_current_dial_log(lead):
+            continue
+        if _callback_still_active(lead):
+            continue
+        due = (utc_now().replace(microsecond=0) + calls.NO_PICKUP_CALLBACK).isoformat()
+        state.crm.set_status(lead["id"], "call", due)
+        updated += 1
+        log = lead.get("call_log") or []
+        if not any(item.get("answered_by") == "skipped" for item in log):
+            remember_skip(state, lead["id"], utc_now())
+    if updated:
+        rules._flush_metrics(state)
+    return updated
+
 
 def maintain_crm(state):
     """CRM backfill and callback dial-list repair. Never call from GET /api/state or /api/live."""
@@ -28,6 +76,10 @@ def maintain_crm(state):
         noun = "prospect" if shifted == 1 else "prospects"
         state.record_activity(f"Updated callback timers on {shifted} {noun} (48h → 2h)", "dialer")
     remember_open_skips(state)
+    backfilled = sync_new_unpicked_dial_callbacks(state)
+    if backfilled:
+        noun = "prospect" if backfilled == 1 else "prospects"
+        state.record_activity(f"Set 2-hour callback on {backfilled} {noun} still marked New after a dial", "dialer")
     maybe_enforce_dial_caps(state)
 
 
@@ -54,11 +106,16 @@ def scan_crm(state):
         noun = "prospect" if capped == 1 else "prospects"
         state.record_activity(f"Marked {capped} {noun} no answer (disqualified) (5+ dials)", "web")
     remember_open_skips(state)
+    backfilled = sync_new_unpicked_dial_callbacks(state)
+    if backfilled:
+        noun = "prospect" if backfilled == 1 else "prospects"
+        state.record_activity(f"Set 2-hour callback on {backfilled} {noun} still marked New after a dial", "web")
     return {
         "synced": synced,
         "repaired": dial_caps,
         "no_answer_disqualified": capped,
         "disqualified": capped,
+        "callback_backfill": backfilled,
         "state": projection.public_state(state),
     }
 
@@ -206,10 +263,39 @@ def start(state, priority_lead_id=None):
         agent_call = calls._new_call(state, "agent", None)
         state.agent_call_token = agent_call["token"]
         slots._schedule_calling_window_check(state)
+    backfilled = sync_new_unpicked_dial_callbacks(state)
+    if backfilled:
+        noun = "prospect" if backfilled == 1 else "prospects"
+        state.record_activity(
+            f"Set 2-hour callback on {backfilled} {noun} still marked New after a dial",
+            "dialer",
+        )
     rules._flush_metrics(state)
     view = projection.public_state(state)
     view["client_call_token"] = agent_call["token"]
     return view
+
+
+def rejoin_browser_voice(state):
+    """Issue a desk token so the browser can re-enter the conference mid-session."""
+    with state.lock:
+        if not state.running:
+            raise ValueError("Dialer is not running.")
+        call = state.calls.get(state.agent_call_token) if state.agent_call_token else None
+        if not call or call["kind"] != "agent" or call.get("cancelled"):
+            call = calls._new_call(state, "agent", None)
+            state.agent_call_token = call["token"]
+        state.agent_ready = False
+        state.last_event = "Connecting computer audio"
+        if not state.pending_outcome and state.paused:
+            state.paused = False
+        token = call["token"]
+    state.record_activity("Browser audio rejoin requested", "web")
+    rules._flush_metrics(state)
+    view = projection.public_state(state)
+    view["client_call_token"] = token
+    return view
+
 
 def _current_queue_id(state, leads):
     with state.lock:
@@ -342,10 +428,40 @@ def schedule_callback(state, lead_id, scheduled_until=None, log_skip=True):
     return lead
 
 
+def should_schedule_unconnected_callback(state, call):
+    """True when this ended dial should get the automatic 2-hour callback (no live conversation)."""
+    lead_id = call.get("lead_id")
+    if not lead_id or call.get("picked_up"):
+        return False
+    if call.get("outcome_chosen") or call.get("outcome"):
+        return False
+    if state.pending_outcome == lead_id and (call.get("wrapping") or call.get("picked_up")):
+        return False
+    return True
+
+
+def apply_unconnected_dial_callback(state, call):
+    """Set Callback (2h) after no-answer, skip, cancel, race-lost, voicemail, etc."""
+    if not should_schedule_unconnected_callback(state, call):
+        return None
+    return schedule_no_pickup_callback(state, call["lead_id"])
+
+
 def schedule_no_pickup_callback(state, lead_id):
-    """After no pickup, set CRM to Callback with a 2-hour timer. Skips booked/disqualified and active callbacks."""
+    """After a dial attempt, set Callback with a 2-hour timer when the prospect may be dialed again.
+
+    Applies to New and Send info (and refreshes an expired callback). Skips booked/disqualified and
+    a callback that is still in the future.
+    """
     lead = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
-    if lead is None or lead.get("status") != "new":
+    if lead is None:
+        return None
+    status = canonical_status(lead.get("status"))
+    if status in NEVER_DIAL_STATUSES:
+        return None
+    if _callback_still_active(lead):
+        return None
+    if status not in DIAL_POOL_STATUSES and status != "call":
         return None
     due = (utc_now().replace(microsecond=0) + calls.NO_PICKUP_CALLBACK).isoformat()
     return state.crm.set_status(lead_id, "call", due)
@@ -355,6 +471,11 @@ def schedule_dropped_callback(state, lead_id):
     """Put a line we dropped (lost race, etc.) on the same no-pickup callback as a no-answer."""
     return schedule_no_pickup_callback(state, lead_id)
 
+
+def after_unconnected_dial(state, call):
+    """Single entry point after any unconnected dial attempt (drop, hangup, skip)."""
+    return apply_unconnected_dial_callback(state, call)
+
 def pass_next(state, lead_id=None):
     lead_id = str(lead_id or "").strip() or _current_queue_id(state, state.crm.snapshot())
     if not lead_id:
@@ -363,8 +484,14 @@ def pass_next(state, lead_id=None):
     lead = next((item for item in leads if item["id"] == lead_id), None)
     if lead is None:
         raise KeyError("Prospect not found")
-    if lead.get("status") == "new":
-        lead = schedule_callback(state, lead_id)
+    status = canonical_status(lead.get("status"))
+    if status in DIAL_POOL_STATUSES:
+        updated = schedule_no_pickup_callback(state, lead_id)
+        if updated:
+            lead = updated
+            remember_skip(state, lead_id, utc_now())
+        else:
+            lead = schedule_callback(state, lead_id)
     else:
         remember_skip(state, lead_id, utc_now())
     with state.lock:

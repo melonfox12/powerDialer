@@ -1,4 +1,4 @@
-import { state } from "../../_core/state.js";
+import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { renderCallMonitor } from "./monitor.js";
@@ -6,7 +6,7 @@ import { renderCallMonitor } from "./monitor.js";
 export function renderDialerControls(stage) {
   byId("startButton").disabled = state.running;
   byId("startButton").hidden = stage !== "idle";
-  byId("stopButton").disabled = !state.running;
+  byId("stopButton").disabled = !state.running || S.voiceConnectBusy;
   byId("stopButton").hidden = stage === "idle";
   document.querySelector(".dialer-controls").dataset.controls = stage;
   const caller = state.current_caller_id || "";

@@ -32,7 +32,7 @@ def _drop_line(state, call, answered_by):
             state.record_activity(f"Could not log the call for {_name(call)}: {exc}", "error")
     if lead_id and not call.get("picked_up"):
         try:
-            queue.schedule_no_pickup_callback(state, lead_id)
+            queue.apply_unconnected_dial_callback(state, call)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not set the callback for {_name(call)}: {exc}", "error")
     label = answered_by.replace("_", " ")

@@ -7,7 +7,8 @@
 
         <div class="dashboard-stack">
           <div class="dashboard-top-row">
-            <section id="dialerTabPanel" class="dialer-run-panel" aria-labelledby="liveTitle" tabindex="0">
+            <section id="dialerTabPanel" class="dialer-run-panel dialer-workspace" aria-labelledby="liveTitle" tabindex="0">
+              <div class="dialer-workspace-main">
               <div class="dialer-document">
                 <div class="issue-meta">
                   <span class="live-indicator"><i></i><span id="liveLabel">Standby</span></span>
@@ -91,6 +92,15 @@
                 </section>
               </details>
               </div>
+              </div>
+              <aside id="prospectNotesPanel" class="prospect-notes-panel" aria-labelledby="prospectNotesTitle">
+                <div class="prospect-notes-panel-head">
+                  <h3 id="prospectNotesTitle">Notes</h3>
+                  <span id="prospectNotesSaveState" class="prospect-notes-save-state" aria-live="polite"></span>
+                </div>
+                <p id="prospectNotesTarget" class="prospect-notes-target">No prospect on the line</p>
+                <textarea id="prospectNotesEditor" class="prospect-notes-editor" rows="10" placeholder="Notes for the active prospect…"></textarea>
+              </aside>
             </section>
 <dialog id="sessionSummaryDialog" class="session-summary-dialog" aria-labelledby="sessionSummaryTitle">
       <section class="session-summary-content">

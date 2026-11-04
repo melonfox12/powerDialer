@@ -3,12 +3,13 @@
 from features._dialer import calls, queue, slots, timing
 from features._dialer import rules
 from features._dialer.rules import record_conversation
-from shared.vocabulary import NEVER_DIAL_STATUSES
+
 
 def _call_ended(state, call, params):
     log_entry = None
     should_schedule_advance = False
     should_top_up = False
+    offer_callback = False
     others = []
     with state.lock:
         if call["kind"] == "agent":
@@ -25,14 +26,22 @@ def _call_ended(state, call, params):
                 state.active = None
             if state.pending_outcome == call.get("lead_id"):
                 state.pending_outcome = None
+            offer_callback = queue.should_schedule_unconnected_callback(state, call)
+            if offer_callback:
+                try:
+                    queue.apply_unconnected_dial_callback(state, call)
+                except (KeyError, ValueError, OSError) as exc:
+                    state.record_activity(f"Could not schedule callback after skip: {exc}", "error")
             return
         call["end_processed"] = True
+        pending_already = state.pending_outcome == call.get("lead_id")
         if call["cancelled"] and not call.get("picked_up"):
             state.in_flight.pop(call["token"], None)
             if state.active is call:
                 state.active = None
             if call.get("call_uuid"):
                 log_entry = calls._dial_record(call, 0, calls.CANCELLED)
+            offer_callback = queue.should_schedule_unconnected_callback(state, call)
         else:
             was_connected = bool(call.get("picked_up")) or state.active is call
             call["handled"] = True
@@ -42,7 +51,6 @@ def _call_ended(state, call, params):
                 state.active = None
             rules.clear_stale_active(state)
             outcome_already_chosen = call.get("outcome_chosen")
-            pending_already = state.pending_outcome == call.get("lead_id")
             prospect_hung_up = was_connected and not pending_already and not call.get("wrapping")
             duration = 0
             if was_connected:
@@ -66,17 +74,20 @@ def _call_ended(state, call, params):
                 state.last_event = (
                     "Prospect hung up" if prospect_hung_up else "Call ended"
                 )
-                # Agent-initiated hangup sets pending_outcome and waits for disposition.
-                # Prospect-side hangup keeps the queue moving after the auto-advance delay.
                 should_schedule_advance = (
                     prospect_hung_up or (not pending_already and not state.pending_outcome)
                 )
                 others = list(state.in_flight.values())
-            elif state.running and not was_connected and not pending_already and not outcome_already_chosen:
-                state.last_event = "No answer"
+            elif not was_connected and not pending_already and not outcome_already_chosen:
+                if state.running:
+                    state.last_event = "No answer"
                 should_top_up = (
-                    not state.active and not state.pending_outcome and not state.paused
+                    state.running
+                    and not state.active
+                    and not state.pending_outcome
+                    and not state.paused
                 )
+                offer_callback = queue.should_schedule_unconnected_callback(state, call)
                 others = []
             else:
                 others = []
@@ -89,22 +100,19 @@ def _call_ended(state, call, params):
             queue.maybe_enforce_dial_caps(state)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call: {exc}", "error")
+    if offer_callback and call.get("lead_id"):
+        try:
+            queue.apply_unconnected_dial_callback(state, call)
+        except (KeyError, ValueError, OSError) as exc:
+            state.record_activity(f"Could not schedule callback after dial: {exc}", "error")
     if should_schedule_advance:
         timing._schedule_advance(state)
     elif should_top_up:
-        lead_id = call.get("lead_id")
-        if lead_id:
-            try:
-                lead = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
-                if lead and lead.get("status") not in NEVER_DIAL_STATUSES:
-                    queue.schedule_no_pickup_callback(state, lead_id)
-            except (KeyError, ValueError, OSError) as exc:
-                state.record_activity(f"Could not schedule callback for unanswered prospect: {exc}", "error")
         slots.request_top_up(state)
+
 
 def _agent_call_ended(state):
     with state.lock:
         state.agent_ready = False
         if state.running and not state.pending_outcome:
-            state.paused = True
-            state.last_event = "Computer audio disconnected; dialer paused"
+            state.last_event = "Computer audio disconnected; reconnecting…"

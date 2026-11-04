@@ -56,6 +56,7 @@ async function saveLeadField({ lead, field, value, previous, extra, input }) {
     const result = await postJson(`/api/leads/${encodeURIComponent(lead.id)}/fields`, payload);
     await applyMutationPayload(result);
     byId("saveState").textContent = "All changes saved";
+    if (input.isConnected) input.dataset.savedValue = String(value ?? "").trim();
     input.blur();
     render();
   } catch (error) {

@@ -129,6 +129,7 @@ main {
   height: 100%;
 }
 .dialer-run-panel[hidden],
+.dialer-run-panel.dialer-workspace[hidden],
 .metrics-panel[hidden] { display: none; }
 .call-monitor-disclosure[open]::details-content {
   display: flex;

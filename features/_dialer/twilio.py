@@ -114,7 +114,7 @@ def _start_live_transcription(state, call_uuid, callback_url, name):
                        "StatusCallbackMethod": "POST",
                        "InboundTrackLabel": "prospect",
                        "OutboundTrackLabel": "agent",
-                       "PartialResults": "false",
+                       "PartialResults": "true",
                        "LanguageCode": "en-US",
                        "SpeechModel": "telephony",
                        "EnableAutomaticPunctuation": "true",

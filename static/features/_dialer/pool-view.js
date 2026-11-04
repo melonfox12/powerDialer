@@ -9,6 +9,7 @@ import {
   DIAL_POOL_STATUS_LABELS,
   setText,
 } from "../../_core/format.js";
+import { appendNotesCell, notesEditorFocused } from "../../_core/notes.js";
 import { openTranscript } from "../../_core/transcript.js";
 
 export function renderPoolStatusFilters() {
@@ -133,6 +134,7 @@ export function bindDialerTimezoneMenu() {
 }
 
 export function renderCallerPool() {
+  if (notesEditorFocused("poolTable")) return;
   const pool = state.pool || [];
   renderTimezoneFilters();
   setText("poolTabCount", String(pool.length));
@@ -169,6 +171,7 @@ export function renderCallerPool() {
     statusLabel.textContent = CRM_STATUS_LABELS[lead.status] || lead.status || "New";
     status.append(statusLabel);
     row.append(status);
+    appendNotesCell(row, lead, { compact: true });
     const transcript = document.createElement("td");
     const button = document.createElement("button");
     const count = lead.transcript?.length || 0;

@@ -28,6 +28,8 @@ export function applyLeadsCatalog(catalog) {
   state.leads = catalog.leads || [];
   state.archived_dials = catalog.archived_dials || [];
   state.dials_version = catalog.dials_version ?? state.dials_version;
+  state.dial_records = catalog.dial_records || [];
+  state.dial_records_version = catalog.dial_records_version ?? state.dial_records_version;
   state.pool = catalog.pool || [];
   state.timezone_groups = catalog.timezone_groups || [];
   state.business_type_options = catalog.business_type_options || [];

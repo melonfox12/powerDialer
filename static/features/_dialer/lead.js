@@ -3,10 +3,9 @@ import { loadAppState, mergeLiveState } from "../../_core/sync-state.js";
 import { S, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
-import { stopProspectWaveform } from "./card.js";
 import { render } from "../../core.js";
 import { openSettings } from "../settings.js";
-import { connectAndCleanup, prospectLabel } from "./connect.js";
+import { connectAndCleanup, prospectLabel, tearDownVoice } from "./connect.js";
 
 export async function dialLead(lead) {
   byId("startButton").disabled = true;
@@ -40,10 +39,7 @@ export async function dialLead(lead) {
     if (!cleaned) {
       if (sessionStarted) {
         await postJson("/api/stop").catch(() => {});
-        S.voiceDevice?.destroy();
-        S.voiceDevice = null;
-        S.voiceCall = null;
-        stopProspectWaveform();
+        await tearDownVoice({ intentional: true });
       }
       await loadAppState().catch(() => {});
       render();

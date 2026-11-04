@@ -3,7 +3,7 @@
 import threading
 
 from features._dialer._call_events import ended, pickup, transcript
-from features._dialer import slots
+from features._dialer import queue, slots
 from features._dialer import projection, rules, twilio
 from features._dialer.twilio import escape_xml
 from shared.vocabulary import OUTCOME_METRIC
@@ -131,22 +131,18 @@ def skip_active(state):
         )
         if not call:
             raise ValueError("There is no prospect call to skip.")
+        lead_id = call.get("lead_id")
+        picked_up = bool(call.get("picked_up")) or state.active is call
+    if not picked_up and lead_id:
+        return queue.pass_next(state, lead_id)
+    with state.lock:
         call_uuid = call.get("call_uuid")
-        if call.get("picked_up") or state.active is call:
-            call["wrapping"] = True
-            call["handled"] = True
-            state.pending_outcome = call["lead_id"] if state.running else None
-            state.last_event = "Prospect skipped; choose a disposition" if state.running else "Prospect skipped"
-        else:
-            call["handled"] = True
-            call["cancelled"] = True
-            call["state"] = "skipped"
-            state.active = None
-            state.in_flight.pop(call["token"], None)
-            state.pending_outcome = call["lead_id"] if state.running else None
-            state.last_event = "Prospect skipped; choose a disposition" if state.running else "Prospect skipped"
-    if not state.running:
-        state.crm.set_status(call["lead_id"], "call")
+        call["wrapping"] = True
+        call["handled"] = True
+        state.pending_outcome = lead_id if state.running else None
+        state.last_event = "Prospect skipped; choose a disposition" if state.running else "Prospect skipped"
+    if not state.running and lead_id:
+        queue.schedule_callback(state, lead_id)
         rules._bump(state, OUTCOME_METRIC["call"])
         rules._flush_metrics(state)
     state.record_activity("Prospect skipped; choose a disposition", "call")

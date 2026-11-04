@@ -168,11 +168,9 @@ class Part3:
             self.assertEqual(saved[0]["id"], "CA-miss")
             self.assertEqual(saved[0]["answered_by"], "no_answer")
             self.assertTrue(saved[0]["started_at"])
-            self.assertIsNotNone(dialer.advance_timer)
             kept = crm.snapshot()[0]
             self.assertEqual(kept["status"], "call")
             self.assertTrue(kept["scheduled_until"])
-            dialer.advance_timer.cancel()
 
     def _dialer_with_leads(self, directory, count):
         crm = ProspectStore(Path(directory) / "crm.json")

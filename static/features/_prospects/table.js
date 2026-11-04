@@ -126,7 +126,8 @@ function ensureSortMenu() {
 
 function fieldEditorFocused() {
   const active = document.activeElement;
-  return active instanceof HTMLElement && active.classList.contains("cell-editor") && byId("crmTable")?.contains(active);
+  if (!(active instanceof HTMLElement) || !byId("crmTable")?.contains(active)) return false;
+  return active.classList.contains("cell-editor") || active.classList.contains("notes-editor");
 }
 
 export function renderTable() {

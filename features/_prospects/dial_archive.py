@@ -203,6 +203,11 @@ class LocalDialArchiveStore:
                 self.save()
         return added
 
+    def replace_all(self, records):
+        with self.lock:
+            self.records = [dict(item) for item in (records or [])]
+            self.save()
+
     def archive_lead(self, lead):
         records = []
         log = lead.get("call_log") or []
@@ -341,6 +346,48 @@ class SupabaseDialArchiveStore:
             self._use_blob = False
             self._touch()
             return len(additions)
+
+    def replace_all(self, records):
+        with self.lock:
+            cleaned = [dict(item) for item in (records or [])]
+            if self._use_blob:
+                self._save_blob(cleaned)
+                self._cache = cleaned
+                self._touch()
+                return
+            try:
+                rows = self.client.select_all("dial_archive", self._scope({"select": "id"}))
+                for row in rows:
+                    row_id = row.get("id")
+                    if row_id:
+                        self.client.request(
+                            "DELETE",
+                            "dial_archive",
+                            self._scope({"id": f"eq.{row_id}"}),
+                        )
+                if cleaned:
+                    payload = [
+                        {"id": item["id"], "user_id": self.user_id, "data": item}
+                        for item in cleaned
+                    ]
+                    for start in range(0, len(payload), 500):
+                        self.client.request(
+                            "POST",
+                            "dial_archive",
+                            {"on_conflict": "id"},
+                            payload[start:start + 500],
+                            "resolution=merge-duplicates,return=minimal",
+                        )
+                self._cache = cleaned
+                self._use_blob = False
+                self._touch()
+            except OSError as exc:
+                if not self._table_missing(exc):
+                    raise
+                self._use_blob = True
+                self._save_blob(cleaned)
+                self._cache = cleaned
+                self._touch()
 
     def archive_lead(self, lead):
         records = []

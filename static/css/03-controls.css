@@ -31,6 +31,10 @@ tbody tr:last-child td { border-bottom: 0; }
 .contact-copy .cell-editor { color: var(--ink); font-weight: 590; }
 .phone-cell .cell-editor { font-family: var(--mono); font-size: 11px; }
 td:has(.cell-editor) { overflow: visible; }
+.notes-cell { min-width: 140px; max-width: 220px; vertical-align: top; }
+.notes-editor { width: 100%; min-width: 0; min-height: 52px; height: auto; padding: 6px 8px; resize: vertical; line-height: 1.35; }
+.notes-editor-compact { min-height: 44px; max-height: 120px; }
+.notes-preview { max-height: 72px; overflow: hidden; font-size: 12px; line-height: 1.35; color: var(--muted); white-space: pre-wrap; }
 .status-cell { position: relative; overflow: visible; }
 .status-cell:focus-within { z-index: 3; }
 .status-select { max-width: 188px; min-width: 115px; height: 27px; padding: 0 25px 0 9px; border: 1px solid transparent; border-radius: var(--radius-full); appearance: auto; font-size: 11px; font-weight: 510; cursor: pointer; }
