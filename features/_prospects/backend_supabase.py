@@ -61,7 +61,6 @@ class SupabaseBackend:
                 except ValueError:
                     due = now
                 if due <= now:
-                    lead["status"] = "new"
                     lead["scheduled_until"] = None
                     self._write(lead)
                     self._touch()

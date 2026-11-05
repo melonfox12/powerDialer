@@ -11,11 +11,13 @@ from features._prospects.dial_records import is_dial_records_storage_lead
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import apply_pitch_segment_from_fields, parse_csv, update_lead_fields
 from shared.dial_policy import (
+    apply_static_callback_status,
     apply_total_dials_callback_status,
     apply_callback_timer_migration_to_lead,
     apply_dial_cap_to_lead,
     dial_cap_reached,
     lead_has_live_contact,
+    lead_ids_with_dial_on_local_date,
     repair_dial_status_for_lead,
 )
 from shared.infra import utc_now
@@ -24,6 +26,10 @@ from shared.vocabulary import (
     DEFAULT_BUSINESS_TYPE,
     MANUAL_CALLBACK_HOURS,
     NEVER_DIAL_STATUSES,
+    NOV5_2026_STATIC_CALLBACK_DATE,
+    PIPELINE_FIRST_STEP,
+    PIPELINE_SEND_INFO_STEP,
+    PIPELINE_STEP_KEYS,
     STATUS_KEYS,
     canonical_status,
     parse_prospect_status,
@@ -122,7 +128,10 @@ class ProspectStore:
         return self.backend.csv_bytes()
 
     def add_lead(self, payload):
-        return self.backend.add_lead(payload)
+        lead = self.backend.add_lead(payload)
+        if canonical_status(lead.get("status")) == "send_info":
+            lead = self.set_pipeline_step(lead["id"], PIPELINE_SEND_INFO_STEP)
+        return lead
 
     def update_fields(self, lead_id, payload):
         with self.lock:
@@ -131,6 +140,28 @@ class ProspectStore:
             lead = _copy_of(leads, lead_id)
             others = (item.get("phone") for item in leads if item["id"] != lead_id)
             update_lead_fields(lead, payload, others)
+            self.backend.save_locked(lead)
+            return dict(lead)
+
+    def set_pipeline_step(self, lead_id, step):
+        step = str(step or "").strip()
+        if step not in PIPELINE_STEP_KEYS:
+            raise ValueError("Unknown pipeline step.")
+        with self.lock:
+            leads = self.backend.leads_locked()
+            self.backend.expire_locked(leads)
+            lead = _copy_of(leads, lead_id)
+            if canonical_status(lead.get("status")) not in ("send_info", "call", "booked"):
+                raise ValueError("This prospect status cannot be moved on the pipeline board.")
+            previous = str(lead.get("pipeline_step") or "").strip()
+            entered_at = utc_now().isoformat()
+            if previous != step:
+                lead.setdefault("pipeline_history", []).append({
+                    "step": step,
+                    "entered_at": entered_at,
+                })
+            lead["pipeline_step"] = step
+            lead["pipeline_step_entered_at"] = entered_at
             self.backend.save_locked(lead)
             return dict(lead)
 
@@ -160,12 +191,6 @@ class ProspectStore:
             leads = self.backend.leads_locked()
             self.backend.expire_locked(leads)
             lead = _copy_of(leads, lead_id)
-            if (
-                not repair
-                and canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES
-                and status not in NEVER_DIAL_STATUSES
-            ):
-                raise ValueError("Booked and disqualified prospects stay out of the queue for good.")
             previous = canonical_status(lead.get("status"))
             changed_at = utc_now().isoformat()
             if previous != status:
@@ -175,6 +200,16 @@ class ProspectStore:
                     "changed_at": changed_at,
                 })
             lead["status"] = status
+            if status == "send_info" and previous != "send_info":
+                step = PIPELINE_SEND_INFO_STEP
+                prior_step = str(lead.get("pipeline_step") or "").strip()
+                if prior_step != step:
+                    lead.setdefault("pipeline_history", []).append({
+                        "step": step,
+                        "entered_at": changed_at,
+                    })
+                lead["pipeline_step"] = step
+                lead["pipeline_step_entered_at"] = changed_at
             if status == "booked" and not lead.get("booked_at"):
                 lead["booked_at"] = changed_at
             if scheduled_until:
@@ -270,6 +305,31 @@ class ProspectStore:
                     updated += 1
         return updated
 
+    def migrate_nov5_2026_static_callbacks(self, archived_rows=()):
+        """One-time: Nov 5 Total dials + New (or timed Callback) → static Callback (pipeline Dialed)."""
+        updated = 0
+        with self.lock:
+            leads = self.backend.leads_locked()
+            self.backend.expire_locked(leads)
+            dialed_ids = lead_ids_with_dial_on_local_date(
+                leads, archived_rows, NOV5_2026_STATIC_CALLBACK_DATE,
+            )
+            for lead in leads:
+                if lead.get("id") not in dialed_ids:
+                    continue
+                status = canonical_status(lead.get("status"))
+                if status == "new":
+                    pass
+                elif status == "call" and lead.get("scheduled_until"):
+                    pass
+                else:
+                    continue
+                patched = _copy_of(leads, lead["id"])
+                if apply_static_callback_status(patched):
+                    self.backend.save_locked(patched)
+                    updated += 1
+        return updated
+
     def set_call_outcome(self, lead_id, call_ids, outcome):
         """Tag the call-log entry stored under any of call_ids. Returns False when no entry has been written yet."""
         if outcome not in CALL_OUTCOME_KEYS:
@@ -319,6 +379,13 @@ def post_fields(request, data):
     request.send_json(200, {"lead": lead, "state": request.ctx.state()})
 
 
+def post_pipeline_step(request, data):
+    lead_id = urllib.parse.unquote(request._trace_path.removeprefix("/api/leads/").removesuffix("/pipeline"))
+    step = data.get("step", PIPELINE_FIRST_STEP)
+    lead = request.account.crm.set_pipeline_step(lead_id, step)
+    request.send_json(200, {"lead": lead, "state": request.ctx.state()})
+
+
 def post_import(request, data):
     result = request.account.crm.add_csv(data)
     request.account.dialer.maintain_crm()
@@ -362,6 +429,7 @@ def delete_lead(request):
 ROUTES = [
     ("POST", "/api/leads", post_lead, "POST"),
     ("POST", "/api/leads/{id}/fields", post_fields, "POST"),
+    ("POST", "/api/leads/{id}/pipeline", post_pipeline_step, "POST"),
     ("POST", "/api/import", post_import, "POST"),
     ("GET", "/api/export.csv", get_export, "GET reads"),
     ("DELETE", "/api/leads/{id}", delete_lead, "DELETE"),

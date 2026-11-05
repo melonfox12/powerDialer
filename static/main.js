@@ -3,6 +3,7 @@ import { bindAuth, initAuth, showLoginGate } from "./features/auth.js";
 import { bindNavigation, renderTable } from "./core.js";
 import { bindCallMonitor, bindDialer, bindKeyboard, bindSessionGoal, bindVoice, startPolling } from "./features/dialer.js";
 import { bindPerformance } from "./features/performance.js";
+import "./features/pipeline.js";
 import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "./features/prospects.js";
 import { bindSettings } from "./features/settings.js";
 import { arcadeSensory, startArcade } from "./features/arcade.js";

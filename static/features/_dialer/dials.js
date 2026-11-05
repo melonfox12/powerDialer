@@ -193,6 +193,27 @@ export async function backfillNewDialCallbacks() {
   }
 }
 
+export async function backfillNov5StaticCallbacks() {
+  const button = byId("backfillNov5StaticCallbacksButton");
+  if (button) button.disabled = true;
+  try {
+    const result = await postJson("/api/dials/backfill-nov5-static-callbacks");
+    await applyMutationPayload(result);
+    applyLeadsCatalog(await fetchLeadsCatalog());
+    const count = result.updated || 0;
+    if (!count) {
+      showToast("No Nov 5 Total dials rows matched New or timed Callback.", true);
+    } else {
+      showToast(`Set static callback on ${count} prospect${count === 1 ? "" : "s"} dialed Nov 5.`);
+    }
+    render();
+  } catch (error) {
+    showToast(error?.message || "Nov 5 backfill failed.", true);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 async function saveDialsRecordAndReset() {
   const button = byId("saveDialsRecordButton");
   const rows = dialRows(state.leads, state.archived_dials);
@@ -283,6 +304,7 @@ export function bindDialsExport() {
   });
   byId("exportDialsButton")?.addEventListener("click", exportDialsCsv);
   byId("backfillNewDialCallbacksButton")?.addEventListener("click", () => backfillNewDialCallbacks());
+  byId("backfillNov5StaticCallbacksButton")?.addEventListener("click", () => backfillNov5StaticCallbacks());
   byId("saveDialsRecordButton")?.addEventListener("click", () => saveDialsRecordAndReset());
   byId("dialsCurrentViewButton")?.addEventListener("click", () => setDialsSubView("current"));
   byId("dialsGalleryViewButton")?.addEventListener("click", () => setDialsSubView("gallery"));
@@ -306,10 +328,12 @@ export function renderDials() {
   const exportBtn = byId("exportDialsButton");
   const saveBtn = byId("saveDialsRecordButton");
   const backfillBtn = byId("backfillNewDialCallbacksButton");
+  const nov5Btn = byId("backfillNov5StaticCallbacksButton");
   if (importBtn) importBtn.hidden = onGallery;
   if (exportBtn) exportBtn.hidden = onGallery;
   if (saveBtn) saveBtn.hidden = onGallery;
   if (backfillBtn) backfillBtn.hidden = onGallery;
+  if (nov5Btn) nov5Btn.hidden = onGallery;
   setText("dialsViewHeading", onGallery ? "Saved records" : "Total dials");
 
   if (onGallery) {

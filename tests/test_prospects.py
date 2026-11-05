@@ -5,6 +5,7 @@ from pathlib import Path
 
 from features._prospects.csv_import import build_manual_lead, parse_csv
 from features.prospects import ProspectStore
+from shared.vocabulary import PIPELINE_SEND_INFO_STEP
 from tests.test_transcript_storage.fixtures import FakeSupabaseClient, prospect
 
 
@@ -50,6 +51,19 @@ class ManualProspectTests(unittest.TestCase):
             saved = ProspectStore(Path(directory) / "crm.json").snapshot()[0]
             self.assertEqual(saved["name"], "Ada Lovelace")
             self.assertEqual(saved["fields"], {"City": "London"})
+
+    def test_send_info_status_places_pipeline_on_call_1_and_manual_step_sticks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = [prospect()]
+            crm.save()
+            updated = crm.set_status("prospect-1", "send_info")
+            self.assertEqual(updated["pipeline_step"], PIPELINE_SEND_INFO_STEP)
+            moved = crm.set_pipeline_step("prospect-1", "email_1")
+            self.assertEqual(moved["pipeline_step"], "email_1")
+            crm.set_status("prospect-1", "call")
+            back = crm.set_status("prospect-1", "send_info")
+            self.assertEqual(back["pipeline_step"], PIPELINE_SEND_INFO_STEP)
 
     def test_field_update_rejects_bad_and_duplicate_phones(self):
         with tempfile.TemporaryDirectory() as directory:

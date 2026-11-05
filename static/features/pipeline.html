@@ -1,0 +1,16 @@
+            <div id="pipelineTabPanel" class="dashboard-tab-panel pool-tab-panel pipeline-tab-panel" role="tabpanel" aria-labelledby="pipelineTabButton" hidden>
+              <section class="pipeline-board-panel" aria-label="Send info pipeline">
+                <div class="pipeline-board-toolbar">
+                  <div>
+                    <h2 id="pipelineViewHeading">Pipeline</h2>
+                    <p class="pipeline-board-lede">Callbacks sit in Dialed, Send info in Call 1, then follow the sequence. Drag cards to move steps; timers restart on each move.</p>
+                  </div>
+                  <span id="pipelineBoardSummary" class="pool-table-summary" aria-live="polite">0 on board</span>
+                </div>
+                <div id="pipelineBoard" class="pipeline-board" role="list"></div>
+                <div id="pipelineBoardEmpty" class="empty-state pipeline-board-empty" hidden>
+                  <h2>No Send info prospects yet</h2>
+                  <p>Callbacks appear in Dialed. Send info prospects appear in Call 1.</p>
+                </div>
+              </section>
+            </div>

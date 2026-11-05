@@ -56,6 +56,30 @@ class DialPolicyTests(unittest.TestCase):
         ]
         self.assertEqual(unique_business_types(rows), ["HVAC", "Plumbing"])
 
+    def test_new_pool_includes_static_callbacks_not_timed(self):
+        now = utc_now()
+        rows = [
+            lead(id="new1", name="New Person", business="Alpha Co", phone="+12025550121"),
+            lead(
+                id="cb_ready",
+                name="Callback Ready",
+                business="Beta Co",
+                status="call",
+                scheduled_until=None,
+                phone="+12025550122",
+            ),
+            lead(
+                id="cb_wait",
+                name="Callback Waiting",
+                business="Gamma Co",
+                status="call",
+                scheduled_until=(now + timedelta(hours=1)).isoformat(),
+                phone="+12025550123",
+            ),
+        ]
+        pool_ids = {item["id"] for item in pool_leads(rows, pool_status="new", busy_ids=set(), now=now)}
+        self.assertEqual(pool_ids, {"new1", "cb_ready"})
+
     def test_pool_respects_send_info_mode(self):
         rows = [
             lead(id="n", status="new", name="New Person"),

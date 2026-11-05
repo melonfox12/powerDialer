@@ -3,17 +3,25 @@ import { renderCallerPool, renderTable } from "./registry.js";
 import { render } from "./render.js";
 import { S } from "./state.js";
 
-const DASHBOARD_TABS = ["dialer", "performance", "prospects", "pool", "dials"];
+const DASHBOARD_TABS = ["dialer", "performance", "pipeline", "prospects", "pool", "dials"];
 const TAB_ORDER_KEY = "prospect-desk-sidebar-order";
 const TAB_ACTIVE_KEY = "prospect-desk-dashboard-tab";
 const TAB_BUTTONS = {
   dialer: "dialerTabButton",
   performance: "performanceTabButton",
+  pipeline: "pipelineTabButton",
   prospects: "prospectsTabButton",
   pool: "poolTabButton",
   dials: "dialsTabButton",
 };
-const TAB_TITLES = { dialer: "Dialer", performance: "Performance", prospects: "Prospects", pool: "Caller pool", dials: "Total dials" };
+const TAB_TITLES = {
+  dialer: "Dialer",
+  performance: "Performance",
+  pipeline: "Pipeline",
+  prospects: "Prospects",
+  pool: "Caller pool",
+  dials: "Total dials",
+};
 
 export function normalizeTabOrder(order) {
   const next = [];
@@ -165,7 +173,9 @@ export function setDashboardTab(name, moveFocus = false) {
   }
   byId("dialerTabPanel").hidden = S.dashboardTab !== "dialer";
   byId("metricsPanel").hidden = S.dashboardTab !== "performance";
-  for (const tab of ["performance", "prospects", "pool", "dials"]) byId(`${tab}TabPanel`).hidden = S.dashboardTab !== tab;
+  for (const tab of ["performance", "pipeline", "prospects", "pool", "dials"]) {
+    byId(`${tab}TabPanel`).hidden = S.dashboardTab !== tab;
+  }
   setText("pageTitle", TAB_TITLES[S.dashboardTab]);
   if (S.dashboardTab === "performance") {
     S.performanceFetchedAt = 0;
@@ -176,6 +186,9 @@ export function setDashboardTab(name, moveFocus = false) {
   render();
   if (S.dashboardTab === "dials") {
     import("../features/_dialer/dials.js").then((module) => module.refreshDialsTab());
+  }
+  if (S.dashboardTab === "pipeline") {
+    import("../features/pipeline.js").then((module) => module.renderPipelineBoardAndRemember());
   }
   if (S.dashboardTab === "performance") {
     import("../features/performance.js").then((module) => module.repaintPerformanceChart());

@@ -42,19 +42,19 @@ class Part5:
             calls._launch_call = original
         return launched
 
-    def test_closed_prospects_never_go_back_to_new_or_callback(self):
+    def test_crm_allows_any_status_change_from_terminal_statuses(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, _dialer = self._dialer(directory, [
                 _lead("booked", "+12025550101", status="booked"),
                 _lead("closed", "+12025550102", status="disqualified"),
                 _lead("dnc", "+12025550103", status="do_not_call"),
             ])
-            for lead_id in ("booked", "closed", "dnc"):
-                for status in ("new", "call"):
-                    with self.assertRaises(ValueError):
-                        crm.set_status(lead_id, status)
-            self.assertEqual({lead["id"]: lead["status"] for lead in crm.snapshot()},
-                             {"booked": "booked", "closed": "disqualified", "dnc": "disqualified"})
+            crm.set_status("closed", "new")
+            crm.set_status("booked", "call")
+            self.assertEqual(
+                {lead["id"]: lead["status"] for lead in crm.snapshot()},
+                {"booked": "call", "closed": "new", "dnc": "disqualified"},
+            )
             crm.set_status("booked", "disqualified")
             self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
 

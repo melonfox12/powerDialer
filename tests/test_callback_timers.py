@@ -160,6 +160,52 @@ class CallbackTimerTests(unittest.TestCase):
         self.assertTrue(apply_total_dials_callback_status(lead, {"connected": False}))
         self.assertEqual(lead["status"], "call")
 
+    def test_nov5_migration_static_callback_for_matching_new_leads(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from features.prospects import ProspectStore
+
+        with TemporaryDirectory() as directory:
+            crm_path = Path(directory) / "crm.json"
+            crm = ProspectStore(crm_path)
+            crm.leads = [
+                {
+                    "id": "match",
+                    "name": "Match",
+                    "phone": "+12025550101",
+                    "status": "new",
+                    "created_at": "2026-11-05T14:00:00+00:00",
+                    "call_log": [{"id": "d1", "started_at": "2026-11-05T15:00:00+00:00"}],
+                    "fields": {},
+                },
+                {
+                    "id": "timed_cb",
+                    "name": "Timed",
+                    "phone": "+12025550102",
+                    "status": "call",
+                    "scheduled_until": "2099-01-01T00:00:00+00:00",
+                    "call_log": [{"id": "d2", "started_at": "2026-11-05T15:00:00+00:00"}],
+                    "fields": {},
+                },
+                {
+                    "id": "wrong_day",
+                    "name": "Wrong",
+                    "phone": "+12025550103",
+                    "status": "new",
+                    "call_log": [{"id": "d3", "started_at": "2026-11-04T15:00:00+00:00"}],
+                    "fields": {},
+                },
+            ]
+            crm.save()
+            crm = ProspectStore(crm_path)
+            self.assertEqual(crm.migrate_nov5_2026_static_callbacks(), 2)
+            by_id = {item["id"]: item for item in crm.snapshot()}
+            self.assertEqual(by_id["match"]["status"], "call")
+            self.assertIsNone(by_id["match"].get("scheduled_until"))
+            self.assertIsNone(by_id["timed_cb"].get("scheduled_until"))
+            self.assertEqual(by_id["wrong_day"]["status"], "new")
+
 
 if __name__ == "__main__":
     unittest.main()

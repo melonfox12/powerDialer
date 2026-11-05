@@ -82,7 +82,7 @@ tr.dials-row--removed .phone-link { color: var(--muted); }
 .outcome-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .outcome-btn { min-height: 52px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: transparent; color: var(--ink-secondary); font-size: 15px; font-weight: 510; cursor: pointer; transition: border-color .15s ease, background-color .15s ease, color .15s ease; }
 .outcome-btn:disabled { opacity: .4; cursor: not-allowed; }
-.outcome-btn-call:hover:not(:disabled) { border-color: var(--amber); background: var(--amber-soft); color: var(--amber); }
+.outcome-btn-call:hover:not(:disabled) { border-color: var(--callback); background: var(--callback-soft); color: var(--callback); }
 .outcome-btn-send-info:hover:not(:disabled) { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
 .outcome-btn-booked, .outcome-btn-booked:hover:not(:disabled) { border-color: var(--success); background: var(--success-soft); color: var(--success); }
 .outcome-btn-disqualified:hover:not(:disabled) { border-color: var(--red); background: var(--red-soft); color: var(--red); }

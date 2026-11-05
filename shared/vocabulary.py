@@ -4,7 +4,7 @@ import json
 
 STATUSES = (
     {"key": "new", "label": "New", "color": "--muted", "className": "neutral"},
-    {"key": "call", "label": "Callback", "color": "--amber", "className": "callback"},
+    {"key": "call", "label": "Callback", "color": "--callback", "className": "callback"},
     {"key": "send_info", "label": "Send info", "color": "--blue", "className": "info"},
     {"key": "booked", "label": "Booked", "color": "--success", "className": "positive"},
     {"key": "disqualified", "label": "Disqualified", "color": "--red", "className": "negative"},
@@ -80,6 +80,10 @@ CALLBACK_TIMER_MIGRATION_SHIFT_HOURS = LEGACY_NO_PICKUP_CALLBACK_HOURS - NO_PICK
 # Legacy name kept for imports; automatic no-pickup callbacks use NO_PICKUP_CALLBACK_HOURS.
 DROPPED_CALLBACK_MINUTES = NO_PICKUP_CALLBACK_HOURS * 60
 CALLBACK_TIMER_MIGRATION_FIELD = "callback_timer_48h_to_2h"
+# One-time backfill: Nov 5 dials + New + created that day → static Callback.
+NOV5_2026_STATIC_CALLBACK_DATE = "2026-11-05"
+NOV5_2026_STATIC_CALLBACK_MIGRATION_FLAG = "nov5_2026_static_callback_v2"
+NOV5_2026_STATIC_CALLBACK_SETTING = "NOV5_2026_STATIC_CALLBACK_DONE"
 
 DISPOSITION_TO_STATUS = {
     "booked": "booked",
@@ -141,6 +145,31 @@ TREND_DAILY_LIMIT_DAYS = 84
 
 STAGES = ("idle", "dialing", "ringing", "connected", "wrapup", "paused")
 CALL_STATES = ("creating", "calling agent", "ringing", "live", "cancelled", "ended", "skipped")
+
+# CRM pipeline kanban (Send info follow-up). Steps are fixed; spacing drives the ready timer.
+PIPELINE_DIALED_STEP = "dialed"
+PIPELINE_SEND_INFO_STEP = "call_1"
+# Pipeline card status menu (subset of CRM statuses).
+PIPELINE_CRM_STATUS_KEYS = ("send_info", "call", "disqualified", "booked")
+PIPELINE_STEPS = (
+    {"key": "dialed", "label": "Dialed", "wait_hours": 0},
+    {"key": "call_1", "label": "Call 1", "wait_hours": 0},
+    {"key": "email_1", "label": "Email 1", "wait_hours": 36},
+    {"key": "linkedin_add", "label": "LinkedIn add request", "wait_hours": 36},
+    {"key": "call_2", "label": "Call 2", "wait_hours": 36},
+    {"key": "email_2", "label": "Email 2", "wait_hours": 36},
+    {"key": "linkedin_message", "label": "LinkedIn message", "wait_hours": 36},
+    {"key": "call_3", "label": "Call 3", "wait_hours": 36},
+    {"key": "email_3", "label": "Email 3", "wait_hours": 36},
+    {"key": "any_channel", "label": "Any channel (every 60–90 days)", "wait_hours": 75 * 24},
+)
+PIPELINE_STEP_KEYS = tuple(item["key"] for item in PIPELINE_STEPS)
+PIPELINE_FIRST_STEP = PIPELINE_STEP_KEYS[0]
+PIPELINE_WAIT_BY_KEY = {item["key"]: item["wait_hours"] for item in PIPELINE_STEPS}
+
+
+def pipeline_wait_hours(step_key):
+    return PIPELINE_WAIT_BY_KEY.get(str(step_key or "").strip(), PIPELINE_WAIT_BY_KEY[PIPELINE_FIRST_STEP])
 
 TIMEZONE_NAMES = {
     "Eastern": "America/New_York",
@@ -317,6 +346,11 @@ def browser_vocabulary():
         ],
         "defaultCallerIdGroup": DEFAULT_CALLER_ID_GROUP,
         "callbackStatusHours": NO_PICKUP_CALLBACK_HOURS,
+        "pipelineSteps": [dict(item) for item in PIPELINE_STEPS],
+        "pipelineFirstStep": PIPELINE_FIRST_STEP,
+        "pipelineDialedStep": PIPELINE_DIALED_STEP,
+        "pipelineSendInfoStep": PIPELINE_SEND_INFO_STEP,
+        "pipelineCrmStatusKeys": list(PIPELINE_CRM_STATUS_KEYS),
         "settingKeys": list(SETTING_KEYS),
         "secretInputs": [dict(item) for item in SECRET_INPUTS],
     }

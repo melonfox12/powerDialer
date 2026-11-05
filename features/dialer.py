@@ -167,8 +167,18 @@ class Dialer(DialerState):
         return settings_feature.daily_goal(parsed)
 
 
+def _maybe_run_nov5_static_callback_migration(request):
+    dialer = request.account.dialer
+    if getattr(dialer, "_nov5_static_callback_migration_checked", False):
+        return
+    dialer._nov5_static_callback_migration_checked = True
+    archive = getattr(dialer, "dial_archive", None) or request.account.dial_archive
+    queue.ensure_nov5_static_callback_migration(dialer, archive)
+
+
 def get_state(request):
     try:
+        _maybe_run_nov5_static_callback_migration(request)
         request.send_json(200, request.account.dialer.public_state(include_leads=False))
     except OSError as exc:
         request.report_storage_error(exc)
@@ -176,6 +186,7 @@ def get_state(request):
 
 def get_leads(request):
     try:
+        _maybe_run_nov5_static_callback_migration(request)
         request.send_json(200, request.account.dialer.leads_catalog())
     except OSError as exc:
         request.report_storage_error(exc)
@@ -264,6 +275,18 @@ def post_backfill_new_dial_callbacks(request):
     except OSError as exc:
         request.ctx.log(f"Callbacks backfilled but state refresh failed: {exc}", "error")
         state = request.account.dialer.public_state(include_leads=False)
+    request.send_json(200, {"updated": count, "state": state})
+
+
+def post_backfill_nov5_static_callbacks(request):
+    dialer = request.account.dialer
+    archive = getattr(dialer, "dial_archive", None) or request.account.dial_archive
+    count = queue.ensure_nov5_static_callback_migration(dialer, archive, force=True)
+    try:
+        state = request.ctx.state()
+    except OSError as exc:
+        request.ctx.log(f"Nov 5 backfill finished but state refresh failed: {exc}", "error")
+        state = dialer.public_state(include_leads=False)
     request.send_json(200, {"updated": count, "state": state})
 
 
@@ -364,6 +387,7 @@ ROUTES = [
     ("POST", "/api/advance", post_advance, "POST"),
     ("POST", "/api/dials/scan", post_scan_crm, "POST"),
     ("POST", "/api/dials/backfill-new-callbacks", post_backfill_new_dial_callbacks, "POST"),
+    ("POST", "/api/dials/backfill-nov5-static-callbacks", post_backfill_nov5_static_callbacks, "POST"),
     ("GET", "/api/dials/export.csv", get_dials_export, "GET reads"),
     ("POST", "/api/dials/import", post_dials_import, "POST"),
     ("POST", "/api/dials/records/snapshot", post_dials_record_snapshot, "POST"),

@@ -3,6 +3,7 @@
 Constants live in shared.vocabulary; this module is the only place for rules that combine them.
 """
 
+import random
 from datetime import datetime, timedelta, timezone
 
 from shared.infra import utc_now
@@ -92,6 +93,109 @@ def lead_has_live_contact(lead):
 def total_dial_count(lead):
     """Rows on Total dials: one per call_log entry."""
     return len(lead.get("call_log") or [])
+
+
+DIAL_LOG_LOCAL_TIMEZONE = "America/New_York"
+
+
+def dial_entry_calendar_date(entry):
+    item = entry or {}
+    for key in ("started_at", "ended_at"):
+        text = str(item.get(key) or "")
+        if len(text) >= 10:
+            return text[:10]
+    return ""
+
+
+def dial_entry_local_calendar_dates(entry, tz_name=DIAL_LOG_LOCAL_TIMEZONE):
+    """Local calendar dates for a dial row (matches Total dials “today” for Eastern ops)."""
+    from zoneinfo import ZoneInfo
+
+    dates = set()
+    zone = ZoneInfo(tz_name)
+    item = entry or {}
+    for key in ("started_at", "ended_at"):
+        text = str(item.get(key) or "").strip()
+        if not text:
+            continue
+        parsed = text.replace("Z", "+00:00")
+        try:
+            moment = datetime.fromisoformat(parsed)
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=timezone.utc)
+            dates.add(moment.astimezone(zone).date().isoformat())
+        except ValueError:
+            if len(text) >= 10:
+                dates.add(text[:10])
+    return dates
+
+
+def lead_created_on_date(lead, date_prefix):
+    return str((lead or {}).get("created_at") or "").startswith(str(date_prefix or ""))
+
+
+def lead_has_dial_on_date(lead, date_prefix, archived_rows=()):
+    prefix = str(date_prefix or "")
+    if not prefix:
+        return False
+    for entry in (lead or {}).get("call_log") or []:
+        if prefix in dial_entry_local_calendar_dates(entry) or dial_entry_calendar_date(entry) == prefix:
+            return True
+    if not (lead or {}).get("call_log") and (lead or {}).get("transcript"):
+        stamps = sorted(
+            line.get("timestamp") or ""
+            for line in (lead or {}).get("transcript") or []
+            if line.get("timestamp")
+        )
+        stub = {"started_at": stamps[0] if stamps else "", "ended_at": stamps[-1] if stamps else ""}
+        if prefix in dial_entry_local_calendar_dates(stub):
+            return True
+    lead_id = (lead or {}).get("id")
+    for row in archived_rows or ():
+        if lead_id and str(row.get("lead_id") or "") not in ("", lead_id):
+            continue
+        wrapped = row.get("entry") if isinstance(row, dict) else None
+        entry = wrapped or row
+        if prefix in dial_entry_local_calendar_dates(entry) or dial_entry_calendar_date(entry) == prefix:
+            return True
+    return False
+
+
+def lead_ids_with_dial_on_local_date(leads, archived_rows, date_iso):
+    """Prospect ids with any Total dials row on date_iso (live log, archive, transcript stub)."""
+    from features._prospects.dial_records import collect_active_dial_records
+
+    target = str(date_iso or "")
+    if not target:
+        return set()
+    ids = set()
+    for record in collect_active_dial_records(leads, archived_rows):
+        entry = record.get("entry") or {}
+        if target not in dial_entry_local_calendar_dates(entry):
+            continue
+        lead_id = str(record.get("lead_id") or "").strip()
+        if lead_id:
+            ids.add(lead_id)
+    return ids
+
+
+def apply_static_callback_status(lead, changed_at=None):
+    """Callback with no timer — dial pool + pipeline Dialed (ready)."""
+    from shared.infra import utc_now
+
+    moment = (changed_at or utc_now()).isoformat()
+    previous = canonical_status(lead.get("status"))
+    if previous != "call" or lead.get("scheduled_until"):
+        if previous != "call":
+            lead.setdefault("status_history", []).append({
+                "from_status": previous,
+                "to_status": "call",
+                "changed_at": moment,
+            })
+        lead["status"] = "call"
+        lead["scheduled_until"] = None
+        return True
+    return False
 
 
 def apply_total_dials_callback_status(lead, entry=None, now=None):
@@ -224,6 +328,33 @@ def callback_due(lead):
     return moment
 
 
+def is_dialable_callback(lead, now=None):
+    """Callback status with no timer or an elapsed timer — eligible for the New dial pool."""
+    if canonical_status(lead.get("status")) != "call":
+        return False
+    moment = now or utc_now()
+    due = callback_due(lead)
+    if due is None:
+        return True
+    return due <= moment
+
+
+def matches_dial_pool(lead, pool_status, now=None):
+    """Whether a prospect belongs in the active dial-pool mode."""
+    moment = now or utc_now()
+    status = canonical_status(lead.get("status"))
+    pool_status = resolve_pool_status(pool_status)
+    if pool_status == "send_info":
+        return status == "send_info"
+    if pool_status == "new":
+        if status == "new":
+            return True
+        if status == "call":
+            return is_dialable_callback(lead, moment)
+        return False
+    return status == pool_status
+
+
 def apply_callback_timer_migration_to_lead(lead, now):
     """One-time per lead: shift open callbacks forward after the 48h → 2h policy change."""
     if lead.get("status") != "call" or not lead.get("scheduled_until"):
@@ -237,7 +368,6 @@ def apply_callback_timer_migration_to_lead(lead, now):
         return False
     new_due = due - CALLBACK_TIMER_MIGRATION_SHIFT
     if new_due <= now:
-        lead["status"] = "new"
         lead["scheduled_until"] = None
     else:
         lead["scheduled_until"] = new_due.isoformat()
@@ -298,7 +428,7 @@ def off_limits_contact_keys(leads, busy_ids, now, pool_status):
     keys = set()
     for lead in leads:
         if (
-            canonical_status(lead.get("status")) != pool_status
+            not matches_dial_pool(lead, pool_status, now)
             or lead["id"] in busy_ids
             or dialed_recently(lead, now)
         ):
@@ -322,7 +452,7 @@ def pool_leads(
     off_limits = off_limits_contact_keys(leads, busy_ids, moment, pool_status)
     indexed = [
         (index, lead) for index, lead in enumerate(leads)
-        if canonical_status(lead.get("status")) == pool_status and lead["id"] not in busy_ids
+        if matches_dial_pool(lead, pool_status, moment) and lead["id"] not in busy_ids
         and not dialed_recently(lead, moment) and not (contact_keys(lead) & off_limits)
         and lead_matches_dial_business_type(lead, selected_business_type)
     ]
@@ -332,7 +462,10 @@ def pool_leads(
             (index, lead) for index, lead in indexed
             if lead["id"] == anchor_id or (lead.get("timezone") or "Unknown") == zone
         ]
-    indexed.sort(key=lambda item: (bool(item[1].get("passed_at")), item[1].get("passed_at") or "", item[0]))
+    if pool_status == "new":
+        random.shuffle(indexed)
+    else:
+        indexed.sort(key=lambda item: (bool(item[1].get("passed_at")), item[1].get("passed_at") or "", item[0]))
     ordered = [lead for _index, lead in indexed]
     if anchor_id:
         held = [lead for lead in ordered if lead["id"] == anchor_id]
@@ -355,7 +488,7 @@ def leads_for_timezone_counts(leads, pool_status, now=None, selected_business_ty
     pool_status = resolve_pool_status(pool_status)
     return [
         lead for lead in leads
-        if canonical_status(lead.get("status")) == pool_status and not dialed_recently(lead, moment)
+        if matches_dial_pool(lead, pool_status, moment) and not dialed_recently(lead, moment)
         and lead_matches_dial_business_type(lead, selected_business_type)
     ]
 

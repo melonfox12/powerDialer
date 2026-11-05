@@ -24,7 +24,7 @@
 .status-pie-legend strong { color: var(--ink-secondary); font-family: var(--mono); font-size: 9px; font-weight: 500; white-space: nowrap; }
 .status-pie-swatch { width: 7px; height: 7px; border-radius: 50%; }
 .status-pie-new { background: var(--muted); }
-.status-pie-call { background: var(--amber); }
+.status-pie-call { background: var(--callback); }
 .status-pie-send_info { background: var(--blue); }
 .status-pie-booked { background: var(--success); }
 .status-pie-disqualified { background: var(--red); }

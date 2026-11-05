@@ -66,6 +66,63 @@ export const CONVERSATION_MIN_SECONDS = vocabulary.conversationMinSeconds;
 export const HEATMAP_UNLOCK_DIALS = vocabulary.heatmapUnlockDials;
 export const HEATMAP_MIN_BUCKET_DIALS = vocabulary.heatmapMinBucketDials;
 
+const FALLBACK_PIPELINE_STEPS = [
+  { key: "dialed", label: "Dialed", wait_hours: 0 },
+  { key: "call_1", label: "Call 1", wait_hours: 0 },
+  { key: "email_1", label: "Email 1", wait_hours: 36 },
+  { key: "linkedin_add", label: "LinkedIn add request", wait_hours: 36 },
+  { key: "call_2", label: "Call 2", wait_hours: 36 },
+  { key: "email_2", label: "Email 2", wait_hours: 36 },
+  { key: "linkedin_message", label: "LinkedIn message", wait_hours: 36 },
+  { key: "call_3", label: "Call 3", wait_hours: 36 },
+  { key: "email_3", label: "Email 3", wait_hours: 36 },
+  { key: "any_channel", label: "Any channel (every 60–90 days)", wait_hours: 75 * 24 },
+];
+export const PIPELINE_STEPS = Array.isArray(vocabulary.pipelineSteps) && vocabulary.pipelineSteps.length
+  ? vocabulary.pipelineSteps
+  : FALLBACK_PIPELINE_STEPS;
+export const PIPELINE_STEP_KEYS = PIPELINE_STEPS.map((item) => item.key);
+export const PIPELINE_FIRST_STEP = vocabulary.pipelineFirstStep || PIPELINE_STEP_KEYS[0] || "dialed";
+export const PIPELINE_DIALED_STEP = vocabulary.pipelineDialedStep || "dialed";
+export const PIPELINE_SEND_INFO_STEP = vocabulary.pipelineSendInfoStep || "call_1";
+const FALLBACK_PIPELINE_CRM_STATUS_KEYS = ["send_info", "call", "disqualified", "booked"];
+export const PIPELINE_CRM_STATUS_KEYS = Array.isArray(vocabulary.pipelineCrmStatusKeys)
+  && vocabulary.pipelineCrmStatusKeys.length
+  ? vocabulary.pipelineCrmStatusKeys
+  : FALLBACK_PIPELINE_CRM_STATUS_KEYS;
+const PIPELINE_WAIT_HOURS = Object.fromEntries(PIPELINE_STEPS.map((item) => [item.key, item.wait_hours]));
+
+export function pipelineWaitHours(stepKey) {
+  return PIPELINE_WAIT_HOURS[stepKey] ?? PIPELINE_WAIT_HOURS[PIPELINE_FIRST_STEP] ?? 36;
+}
+
+export function pipelineReadyAt(stepKey, enteredAtIso) {
+  const entered = Date.parse(enteredAtIso || "");
+  if (Number.isNaN(entered)) return "";
+  const ready = entered + pipelineWaitHours(stepKey) * 3600 * 1000;
+  return new Date(ready).toISOString();
+}
+
+export function pipelineStepReady(stepKey, enteredAtIso, now = Date.now()) {
+  if (stepKey === PIPELINE_SEND_INFO_STEP || stepKey === PIPELINE_DIALED_STEP) return true;
+  const due = Date.parse(pipelineReadyAt(stepKey, enteredAtIso));
+  return !Number.isNaN(due) && now >= due;
+}
+
+export function pipelineCountdown(stepKey, enteredAtIso, now = Date.now()) {
+  const readyAt = pipelineReadyAt(stepKey, enteredAtIso);
+  const due = Date.parse(readyAt);
+  if (Number.isNaN(due)) return "";
+  if (now >= due) return "Ready for next step";
+  const totalSeconds = Math.ceil((due - now) / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (days > 0) return `Next in ${days}d ${hours}h`;
+  if (hours > 0) return `Next in ${hours}h ${minutes}m`;
+  return `Next in ${minutes}m`;
+}
+
 export function fillTimezoneSelect(select, selected = "Unknown") {
   const current = String(selected || "Unknown");
   const names = ["Unknown", ...Object.keys(TIMEZONE_NAMES)];
@@ -212,6 +269,9 @@ export function appendStatusPill(parent, lead) {
 export function startStatusClock() {
   const tick = () => {
     const now = Date.now();
+    if (document.querySelector("[data-pipeline-timer]")) {
+      import("../features/pipeline.js").then((module) => module.tickPipelineTimers()).catch(() => {});
+    }
     for (const node of document.querySelectorAll("[data-callback-until]")) {
       const countdown = callbackCountdown(node.dataset.callbackUntil, now);
       const text = `${node.dataset.callbackPrefix || "Callback "}${countdown}`;

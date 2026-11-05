@@ -236,7 +236,9 @@ class Part3:
             self.assertEqual(crm.snapshot()[1]["status"], "call")
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], [])
             move_back(2)
-            self.assertEqual(crm.snapshot()[1]["status"], "new")
+            expired = crm.snapshot()[1]
+            self.assertEqual(expired["status"], "call")
+            self.assertIsNone(expired["scheduled_until"])
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], ["prospect-1"])
             if dialer.advance_timer:
                 dialer.advance_timer.cancel()

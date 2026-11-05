@@ -138,6 +138,9 @@ LEAD_OPTIONAL_KEYS = (
     "booked_at",
     "call_log",
     "passed_at",
+    "pipeline_history",
+    "pipeline_step",
+    "pipeline_step_entered_at",
     "status_history",
 )
 

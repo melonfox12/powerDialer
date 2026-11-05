@@ -116,7 +116,6 @@ class LocalBackend:
                     except ValueError:
                         due = now
                     if due <= now:
-                        lead["status"] = "new"
                         lead["scheduled_until"] = None
                         changed = True
             if changed and save:

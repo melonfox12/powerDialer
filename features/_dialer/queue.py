@@ -10,10 +10,13 @@ from features._dialer import calls, slots, timing
 from features._dialer import projection, rules, twilio
 from features._dialer.rules import new_session, session_summary
 from shared.infra import utc_now
+from features._prospects.migration_flags import mark_migration_done, migration_done
 from shared.vocabulary import (
     CALLER_ID_GROUPS,
     DIAL_POOL_STATUS_LABELS,
     DIAL_POOL_STATUSES,
+    NOV5_2026_STATIC_CALLBACK_MIGRATION_FLAG,
+    NOV5_2026_STATIC_CALLBACK_SETTING,
     caller_ids_for_group,
     canonical_status,
     dial_business_type_label,
@@ -27,6 +30,53 @@ def repair_total_dials_callbacks(state):
     updated = state.crm.repair_total_dials_callbacks()
     if updated:
         rules._flush_metrics(state)
+    return updated
+
+
+def _nov5_static_callback_migration_done(state):
+    if str(getattr(state, "account_values", {}).get(NOV5_2026_STATIC_CALLBACK_SETTING, "")).lower() == "true":
+        return True
+    path = getattr(state.crm.backend, "path", None)
+    if path is not None:
+        return migration_done(str(path), NOV5_2026_STATIC_CALLBACK_MIGRATION_FLAG)
+    return False
+
+
+def _mark_nov5_static_callback_migration_done(state):
+    state.account_values[NOV5_2026_STATIC_CALLBACK_SETTING] = "true"
+    saver = getattr(state, "settings_saver", None)
+    if saver and getattr(state, "account_user_id", None):
+        try:
+            saver(state)
+        except OSError:
+            pass
+    path = getattr(state.crm.backend, "path", None)
+    if path is not None:
+        mark_migration_done(str(path), NOV5_2026_STATIC_CALLBACK_MIGRATION_FLAG)
+
+
+def ensure_nov5_static_callback_migration(state, dial_archive, *, force=False):
+    """One-time backfill for Nov 5, 2026 dialed prospects still marked New."""
+    if not force and _nov5_static_callback_migration_done(state):
+        return 0
+    archived = []
+    if dial_archive is not None:
+        try:
+            archived = dial_archive.snapshot()
+        except OSError:
+            archived = []
+    updated = state.crm.migrate_nov5_2026_static_callbacks(archived)
+    if updated > 0 or force:
+        _mark_nov5_static_callback_migration_done(state)
+    if updated:
+        rules._flush_metrics(state)
+        noun = "prospect" if updated == 1 else "prospects"
+        state.record_activity(
+            f"Set static callback on {updated} {noun} dialed Nov 5 (one-time backfill)",
+            "web",
+        )
+    elif force:
+        state.record_activity("Nov 5 static callback backfill: no matching prospects found.", "web")
     return updated
 
 
