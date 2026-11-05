@@ -39,7 +39,7 @@ def _storage_call(state, call):
     return None
 
 
-def _speaker_for(track, call_kind):
+def _speaker_for(track, call_kind, track_label=""):
     value = str(track or "").lower()
     inbound = "inbound" in value
     outbound = "outbound" in value
@@ -48,11 +48,19 @@ def _speaker_for(track, call_kind):
             return "Agent"
         if outbound:
             return "Prospect"
-        return ""
-    if inbound:
+    elif inbound:
         return "Prospect"
-    if outbound:
+    elif outbound:
         return "Agent"
+    label = str(track_label or track or "").lower()
+    if label in ("agent", "outbound_track_label"):
+        return "Agent" if call_kind == "agent" else "Prospect"
+    if label in ("prospect", "customer", "inbound_track_label"):
+        return "Prospect" if call_kind == "agent" else "Agent"
+    if "agent" in label and "prospect" not in label:
+        return "Agent" if call_kind == "agent" else "Prospect"
+    if "prospect" in label or "customer" in label:
+        return "Prospect" if call_kind == "agent" else "Agent"
     return ""
 
 
@@ -63,13 +71,16 @@ def schedule_live_transcription(state, prospect_call):
     """
     with state.lock:
         agent = _agent_call(state)
-        media_call = agent
-        call_uuid = (state.agent_call_uuid or (agent or {}).get("call_uuid")) if agent else None
-        if agent and not agent.get("transcription_started") and call_uuid:
-            agent["transcription_started"] = True
+        agent_uuid = (state.agent_call_uuid or (agent or {}).get("call_uuid")) if agent else None
+        if agent and agent_uuid:
             agent["transcription_prospect_token"] = prospect_call["token"]
+            if agent.get("transcribing"):
+                return
+            media_call = agent
+            call_uuid = agent_uuid
             callback_call = agent
             name = f"crm-{prospect_call['token']}"
+            agent["transcription_started"] = True
         elif not prospect_call.get("transcription_started") and prospect_call.get("call_uuid"):
             prospect_call["transcription_started"] = True
             media_call = prospect_call
@@ -190,15 +201,18 @@ def _transcription_event(state, call, params):
     call_kind = call.get("kind") or "prospect"
     event = params.get("TranscriptionEvent", "")
     if event == "transcription-started":
-        if storage:
-            with state.lock:
+        with state.lock:
+            call["transcribing"] = True
+            if storage:
                 storage["transcribing"] = True
         state.record_activity("Live transcript connected", "transcription")
         return 200, "text/plain", "OK"
     if event == "transcription-stopped":
         if storage:
             _commit_partials(state, storage, call_kind)
-            with state.lock:
+        with state.lock:
+            call["transcribing"] = False
+            if storage:
                 storage["transcribing"] = False
         still_connected = _call_still_connected(state, call)
         if still_connected:
@@ -226,7 +240,8 @@ def _transcription_event(state, call, params):
     if not text:
         return 200, "text/plain", "OK"
     track = params.get("Track", "")
-    speaker = _speaker_for(track, call_kind)
+    track_label = params.get("TrackLabel") or params.get("InboundTrackLabel") or params.get("OutboundTrackLabel") or ""
+    speaker = _speaker_for(track, call_kind, track_label)
     if not speaker:
         return 200, "text/plain", "OK"
     timestamp = params.get("Timestamp") or datetime.now(timezone.utc).isoformat()

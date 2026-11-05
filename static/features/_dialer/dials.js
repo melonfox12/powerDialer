@@ -4,7 +4,7 @@ import { applyLeadsCatalog, applyMutationPayload, fetchLeadsCatalog } from "../.
 import { byId, createCrmStatusSelect, crmStatusOptionText, crmStatusMenuOpen, setText } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { showToast } from "../../_core/notify.js";
-import { formatTranscriptCsvCell, openTranscript } from "../../_core/transcript.js";
+import { formatTranscriptCsvCell, openTranscript, segmentsForDial } from "../../_core/transcript.js";
 import { render } from "../../core.js";
 import { focusProspect } from "../_prospects/table.js";
 import { locationText } from "../_prospects/query.js";
@@ -348,7 +348,7 @@ function paintDialsTable(bodyId, tableId, emptyId, rows, { readOnly }) {
     row.append(cell(displayLead?.business || "—"));
     row.append(cell(reviewText(displayLead)));
     row.append(notesCell(crmLead, snapshot, crmDeleted, readOnly || removed));
-    row.append(transcriptCell(focusId, displayLead));
+    row.append(transcriptCell(focusId, displayLead, entry));
     row.append(statusCell(crmLead, snapshot, removed, readOnly));
     return row;
   }));
@@ -433,7 +433,7 @@ function dialsTableSignature(rows) {
       statusLead?.phone || "",
       statusLead?.business || "",
       String(statusLead?.review_count ?? ""),
-      String(statusLead?.transcript?.length ?? 0),
+      String(segmentsForDial(statusLead, entry).length),
       leadNotes(statusLead),
       statusLead?.status || "",
       statusLead?.scheduled_until || "",
@@ -550,17 +550,20 @@ function notesCell(crmLead, snapshot, crmDeleted, readOnly) {
   return cell;
 }
 
-function transcriptCell(focusId, lead) {
+function transcriptCell(focusId, lead, entry) {
   const cell = document.createElement("td");
   const button = document.createElement("button");
-  const count = lead?.transcript?.length || 0;
+  const current = () => state.leads.find((item) => item.id === focusId) || lead;
+  const count = segmentsForDial(current(), entry).length;
   button.type = "button";
   button.className = "transcript-view-button";
   button.textContent = count ? `View · ${count}` : "No transcript";
   button.disabled = count === 0;
   button.addEventListener("click", () => {
-    const current = state.leads.find((item) => item.id === focusId) || lead;
-    if (current) openTranscript(current);
+    const resolved = current();
+    if (!resolved) return;
+    const segments = segmentsForDial(resolved, entry);
+    openTranscript({ ...resolved, transcript: segments });
   });
   cell.append(button);
   return cell;

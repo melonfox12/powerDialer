@@ -53,7 +53,7 @@ class Dialer(DialerState):
         return queue.scan_crm(self)
 
     def backfill_new_dial_callbacks(self):
-        count = queue.sync_new_unpicked_dial_callbacks(self)
+        count = queue.repair_total_dials_callbacks(self)
         if count:
             noun = "prospect" if count == 1 else "prospects"
             self.record_activity(

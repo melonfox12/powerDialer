@@ -11,6 +11,7 @@ from features._prospects.dial_records import is_dial_records_storage_lead
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import apply_pitch_segment_from_fields, parse_csv, update_lead_fields
 from shared.dial_policy import (
+    apply_total_dials_callback_status,
     apply_callback_timer_migration_to_lead,
     apply_dial_cap_to_lead,
     dial_cap_reached,
@@ -247,9 +248,27 @@ class ProspectStore:
             if record["id"] and any(item.get("id") == record["id"] for item in log):
                 return dict(lead)
             log.append(record)
+            apply_total_dials_callback_status(lead, record)
             apply_dial_cap_to_lead(lead)
             self.backend.save_locked(lead)
             return dict(lead)
+
+    def repair_total_dials_callbacks(self):
+        """Fix prospects still marked New while they have Total dials rows."""
+        updated = 0
+        with self.lock:
+            leads = self.backend.leads_locked()
+            self.backend.expire_locked(leads)
+            for lead in leads:
+                if not lead.get("call_log"):
+                    continue
+                if canonical_status(lead.get("status")) != "new":
+                    continue
+                patched = _copy_of(leads, lead["id"])
+                if apply_total_dials_callback_status(patched):
+                    self.backend.save_locked(patched)
+                    updated += 1
+        return updated
 
     def set_call_outcome(self, lead_id, call_ids, outcome):
         """Tag the call-log entry stored under any of call_ids. Returns False when no entry has been written yet."""

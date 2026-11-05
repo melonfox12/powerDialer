@@ -2,6 +2,7 @@
 
 from features._dialer import calls, queue, slots, timing
 from features._dialer import rules
+from features._dialer._call_events import transcript
 from features._dialer.rules import record_conversation
 
 
@@ -9,7 +10,6 @@ def _call_ended(state, call, params):
     log_entry = None
     should_schedule_advance = False
     should_top_up = False
-    offer_callback = False
     others = []
     with state.lock:
         if call["kind"] == "agent":
@@ -26,14 +26,10 @@ def _call_ended(state, call, params):
                 state.active = None
             if state.pending_outcome == call.get("lead_id"):
                 state.pending_outcome = None
-            offer_callback = queue.should_schedule_unconnected_callback(state, call)
-            if offer_callback:
-                try:
-                    queue.apply_unconnected_dial_callback(state, call)
-                except (KeyError, ValueError, OSError) as exc:
-                    state.record_activity(f"Could not schedule callback after skip: {exc}", "error")
             return
         call["end_processed"] = True
+        if call.get("lead_id"):
+            transcript._commit_partials(state, call, call.get("kind") or "prospect")
         pending_already = state.pending_outcome == call.get("lead_id")
         if call["cancelled"] and not call.get("picked_up"):
             state.in_flight.pop(call["token"], None)
@@ -41,7 +37,6 @@ def _call_ended(state, call, params):
                 state.active = None
             if call.get("call_uuid"):
                 log_entry = calls._dial_record(call, 0, calls.CANCELLED)
-            offer_callback = queue.should_schedule_unconnected_callback(state, call)
         else:
             was_connected = bool(call.get("picked_up")) or state.active is call
             call["handled"] = True
@@ -87,7 +82,6 @@ def _call_ended(state, call, params):
                     and not state.pending_outcome
                     and not state.paused
                 )
-                offer_callback = queue.should_schedule_unconnected_callback(state, call)
                 others = []
             else:
                 others = []
@@ -100,11 +94,6 @@ def _call_ended(state, call, params):
             queue.maybe_enforce_dial_caps(state)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call: {exc}", "error")
-    if offer_callback and call.get("lead_id"):
-        try:
-            queue.apply_unconnected_dial_callback(state, call)
-        except (KeyError, ValueError, OSError) as exc:
-            state.record_activity(f"Could not schedule callback after dial: {exc}", "error")
     if should_schedule_advance:
         timing._schedule_advance(state)
     elif should_top_up:

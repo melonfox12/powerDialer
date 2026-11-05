@@ -1,10 +1,12 @@
 import csv
 import json
 import tempfile
+import time
 from pathlib import Path
 from io import StringIO
 from features.prospects import ProspectStore, parse_csv
 from features._dialer import twilio
+from features._dialer._call_events import transcript
 from features.dialer import Dialer
 from tests.test_transcript_storage.fixtures import FakeSupabaseClient
 from tests.test_transcript_storage.fixtures import prospect
@@ -138,6 +140,60 @@ class Part1:
             self.assertEqual(len(saved), 1)
             self.assertEqual(saved[0]["speaker"], "Prospect")
             self.assertEqual(saved[0]["text"], "Can you send the estimate?")
+
+    def test_agent_transcription_restarts_for_the_next_prospect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            first = prospect()
+            second = {**prospect(), "id": "prospect-2", "phone": "+12025550199"}
+            crm.leads = [first, second]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            dialer.public_base_url = "https://example.test"
+            dialer.settings = {"TWILIO_ACCOUNT_SID": "ACexample", "TWILIO_AUTH_TOKEN": "token"}
+            agent = dialer._new_call("agent", None)
+            dialer.agent_call_token = agent["token"]
+            agent["call_uuid"] = "CA-agent"
+            agent["transcription_started"] = True
+            agent["transcription_prospect_token"] = "old-token"
+            prior = dialer._new_call("prospect", first)
+            prior["token"] = "old-token"
+            next_call = dialer._new_call("prospect", second)
+            posted = []
+
+            def fake_request(*args, **kwargs):
+                posted.append(args)
+                return {"sid": "GT-next"}
+
+            original = twilio.twilio_request
+            twilio.twilio_request = fake_request
+            try:
+                transcript.schedule_live_transcription(dialer, next_call)
+                time.sleep(0.55)
+            finally:
+                twilio.twilio_request = original
+            self.assertEqual(agent["transcription_prospect_token"], next_call["token"])
+            self.assertEqual(len(posted), 1)
+            self.assertIn("/Calls/CA-agent/Transcriptions.json", posted[0][3])
+
+    def test_partials_are_saved_when_the_call_ends(self):
+        with tempfile.TemporaryDirectory() as directory:
+            crm = ProspectStore(Path(directory) / "crm.json")
+            crm.leads = [prospect()]
+            dialer = Dialer(crm, str(Path(directory) / ".env"))
+            call = dialer._new_call("prospect", prospect())
+            call["call_uuid"] = "CA-live"
+            call["picked_up"] = True
+            dialer.active = call
+            call["transcript_partials"]["inbound_track"] = {
+                "timestamp": "2026-10-01T14:05:00+00:00",
+                "speaker": "Prospect",
+                "text": "still talking when the line dropped",
+                "final": False,
+            }
+            dialer._call_ended(call, {"CallStatus": "completed", "CallDuration": "90"})
+            saved = crm.snapshot()[0]["transcript"]
+            self.assertEqual(len(saved), 1)
+            self.assertEqual(saved[0]["text"], "still talking when the line dropped")
 
     def test_a_stopped_transcript_restarts_until_the_call_ends(self):
         with tempfile.TemporaryDirectory() as directory:

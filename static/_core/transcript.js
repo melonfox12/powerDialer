@@ -3,6 +3,31 @@ export function transcriptTimestamp(value) {
   return Number.isNaN(date.getTime()) ? "Time unavailable" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+function parseMoment(iso) {
+  const date = new Date(iso || "");
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Match server `segments_for_dial`: utterances that belong to one call_log row. */
+export function segmentsForDial(lead, entry) {
+  const start = parseMoment(entry?.started_at);
+  if (!start) return [];
+  const end = parseMoment(entry?.ended_at);
+  const slackMs = 45 * 1000;
+  const matched = [];
+  for (const segment of lead?.transcript || []) {
+    const moment = parseMoment(segment.timestamp);
+    if (!moment) continue;
+    const t = moment.getTime();
+    if (end) {
+      if (t >= start.getTime() - slackMs && t <= end.getTime() + slackMs) matched.push(segment);
+    } else if (t >= start.getTime() - slackMs) {
+      matched.push(segment);
+    }
+  }
+  return matched;
+}
+
 /** One CSV cell: utterances sorted by time, same speaker/time style as the transcript dialog. */
 export function formatTranscriptCsvCell(entries) {
   const ordered = [...(entries || [])].sort((left, right) => new Date(left.timestamp) - new Date(right.timestamp));

@@ -142,9 +142,13 @@ class Part5:
     def test_a_dropped_line_never_shortens_a_manual_callback(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer(directory, [_lead("held", "+12025550101", "Ada")])
-            manual = crm.set_status("held", "call")
-            from features._dialer import queue
-            self.assertIsNone(queue.schedule_dropped_callback(dialer, "held"))
+            manual = crm.set_status("held", "call", (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat())
+            crm.append_call_log("held", {
+                "id": "drop-1",
+                "started_at": utc_now().isoformat(),
+                "answered_by": "race_lost",
+                "connected": False,
+            })
             self.assertEqual(crm.snapshot()[0]["scheduled_until"], manual["scheduled_until"])
 
     def test_a_manual_callback_is_two_hours(self):

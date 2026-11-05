@@ -37,6 +37,8 @@ RETRY_AFTER = {
 }
 MANUAL_CALLBACK = timedelta(hours=MANUAL_CALLBACK_HOURS)
 CALLBACK_HOLD = max(MANUAL_CALLBACK, NO_PICKUP_CALLBACK) + timedelta(seconds=2)
+# Explicit CRM statuses that stay as-is when a Total dials row is written.
+TOTAL_DIALS_PRESERVED_STATUSES = frozenset({"send_info", "booked", "disqualified", "no_answer_disqualified"})
 
 
 def normalize_phone(raw):
@@ -90,6 +92,25 @@ def lead_has_live_contact(lead):
 def total_dial_count(lead):
     """Rows on Total dials: one per call_log entry."""
     return len(lead.get("call_log") or [])
+
+
+def apply_total_dials_callback_status(lead, entry=None, now=None):
+    """After a Total dials row is saved, set Callback (2h) unless the prospect has an explicit disposition."""
+    moment = (now or utc_now()).replace(microsecond=0)
+    status = canonical_status(lead.get("status"))
+    if status in NEVER_DIAL_STATUSES or status in TOTAL_DIALS_PRESERVED_STATUSES:
+        return False
+    if entry is not None and is_connected_call_log_entry(entry):
+        return False
+    if status == "call":
+        due = callback_due(lead)
+        if due is not None and due > moment:
+            return False
+    if status not in ("new", "call"):
+        return False
+    lead["status"] = "call"
+    lead["scheduled_until"] = (moment + NO_PICKUP_CALLBACK).isoformat()
+    return True
 
 
 def dial_cap_reached(lead):
