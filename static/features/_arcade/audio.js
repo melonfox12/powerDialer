@@ -1,11 +1,12 @@
-import { byId } from "../../_core/format.js";
+import { dialerMirrorNodes } from "../../_core/format.js";
 import { S, state } from "../../_core/state.js";
 
 export function celebrateBooked() {
-  const stage = byId("callStage");
-  stage.classList.remove("booked-celebration");
-  void stage.offsetWidth;
-  stage.classList.add("booked-celebration");
+  for (const stage of dialerMirrorNodes("callStage")) {
+    stage.classList.remove("booked-celebration");
+    void stage.offsetWidth;
+    stage.classList.add("booked-celebration");
+  }
   playCue("booked");
 }
 

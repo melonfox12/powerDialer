@@ -1,4 +1,4 @@
-import { setText } from "../../_core/format.js";
+import { dialerMirrorNodes, setDialerText } from "../../_core/format.js";
 
 export function stopTicking(arcade) {
     clearInterval(arcade.tickTimer);
@@ -16,11 +16,16 @@ export function startSpin(arcade, leadKey) {
     arcade.stopParticles();
     arcade.activeLeadKey = leadKey;
     arcade.phase = "spinning";
-    arcade.viewport.hidden = false;
-    arcade.viewport.classList.remove("is-resetting", "is-near-miss", "is-match");
-    arcade.viewport.querySelector("#arcadeValue").hidden = true;
-    arcade.viewport.querySelector("#arcadeValue").textContent = "";
-    setText("arcadeStatus", "Evaluating connection");
+    arcade.forEachViewport((vp) => {
+      vp.hidden = false;
+      vp.classList.remove("is-resetting", "is-near-miss", "is-match");
+      const valueEl = vp.querySelector("[id$='arcadeValue']");
+      if (valueEl) {
+        valueEl.hidden = true;
+        valueEl.textContent = "";
+      }
+    });
+    setDialerText("arcadeStatus", "Evaluating connection");
     arcade.reelWindows.forEach((windowElement, index) => {
       windowElement.classList.remove("is-locking", "is-near-miss");
       windowElement.classList.toggle("is-spinning", arcade.preferences.reels);
@@ -50,10 +55,12 @@ export function match(arcade, lead) {
     arcade.stopTicking();
     arcade.phase = "matched";
     const animationId = ++arcade.valueAnimation;
-    arcade.viewport.hidden = false;
-    arcade.viewport.classList.remove("is-resetting", "is-near-miss");
-    arcade.viewport.classList.add("is-match");
-    setText("arcadeStatus", "Connection established");
+    arcade.forEachViewport((vp) => {
+      vp.hidden = false;
+      vp.classList.remove("is-resetting", "is-near-miss");
+      vp.classList.add("is-match");
+    });
+    setDialerText("arcadeStatus", "Connection established");
     for (const [index, windowElement] of arcade.reelWindows.entries()) {
       windowElement.classList.remove("is-spinning", "is-near-miss");
       windowElement.classList.add("is-locking");
@@ -63,21 +70,26 @@ export function match(arcade, lead) {
     }
     const rawValue = lead?.estimated_value ?? lead?.value;
     const value = Number(rawValue);
-    const valueElement = arcade.viewport.querySelector("#arcadeValue");
+    const valueElements = dialerMirrorNodes("arcadeValue");
     if (Number.isFinite(value) && value > 0) {
-      valueElement.hidden = false;
-      arcade.animateValue(value, valueElement, animationId);
+      for (const valueElement of valueElements) {
+        valueElement.hidden = false;
+        arcade.animateValue(value, valueElement, animationId);
+      }
     } else {
-      valueElement.hidden = true;
-      valueElement.textContent = "";
+      for (const valueElement of valueElements) {
+        valueElement.hidden = true;
+        valueElement.textContent = "";
+      }
     }
     arcade.burstParticles();
     if (arcade.preferences.shake && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const panel = document.querySelector(".dialer-run-panel");
-      panel.classList.remove("arcade-shake");
-      void panel.offsetWidth;
-      panel.classList.add("arcade-shake");
-      arcade.schedule(() => panel.classList.remove("arcade-shake"), 420);
+      for (const panel of document.querySelectorAll("#dialerTabPanel, #aiDialerAgentTabPanel")) {
+        panel.classList.remove("arcade-shake");
+        void panel.offsetWidth;
+        panel.classList.add("arcade-shake");
+        arcade.schedule(() => panel.classList.remove("arcade-shake"), 420);
+      }
     }
     arcade.playRewardChime();
     arcade.vibrate([50, 20, 50, 20, 50]);

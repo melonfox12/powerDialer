@@ -1,13 +1,14 @@
-import { byId, setText } from "./format.js";
+import { byId, dialerWorkspacePanel, setText } from "./format.js";
 import { renderCallerPool, renderTable } from "./registry.js";
 import { render } from "./render.js";
 import { S } from "./state.js";
 
-const DASHBOARD_TABS = ["dialer", "performance", "pipeline", "prospects", "pool", "dials"];
+const DASHBOARD_TABS = ["dialer", "aiDialerAgent", "performance", "pipeline", "prospects", "pool", "dials"];
 const TAB_ORDER_KEY = "prospect-desk-sidebar-order";
 const TAB_ACTIVE_KEY = "prospect-desk-dashboard-tab";
 const TAB_BUTTONS = {
   dialer: "dialerTabButton",
+  aiDialerAgent: "aiDialerAgentTabButton",
   performance: "performanceTabButton",
   pipeline: "pipelineTabButton",
   prospects: "prospectsTabButton",
@@ -16,6 +17,7 @@ const TAB_BUTTONS = {
 };
 const TAB_TITLES = {
   dialer: "Dialer",
+  aiDialerAgent: "AI Dialer Agent",
   performance: "Performance",
   pipeline: "Pipeline",
   prospects: "Prospects",
@@ -77,7 +79,7 @@ function rememberDashboardTab(name) {
 /** Match Performance column height to Dialer: document top → Recent activity row (+ doc bottom padding). */
 export function syncPerformanceDocumentHeight() {
   const perf = document.querySelector(".performance-document");
-  const panel = byId("dialerTabPanel");
+  const panel = dialerWorkspacePanel();
   const doc = panel?.querySelector(".dialer-document");
   const recent = doc?.querySelector(".activity-log-disclosure summary");
   if (!perf || !doc || !recent) return;
@@ -92,9 +94,10 @@ export function syncPerformanceDocumentHeight() {
 
   let height = measure();
   if (height == null && panel.hidden) {
+    const restore = panel.hidden;
     panel.hidden = false;
     height = measure();
-    panel.hidden = true;
+    panel.hidden = restore;
   }
   if (height != null && height > 0) {
     document.documentElement.style.setProperty("--performance-run-height", `${height}px`);
@@ -163,6 +166,7 @@ function bindTabReorder() {
 export function setDashboardTab(name, moveFocus = false) {
   S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : "dialer";
   rememberDashboardTab(S.dashboardTab);
+  S.dialerWorkspaceDomId = S.dashboardTab === "aiDialerAgent" ? "aiDialerAgentTabPanel" : "dialerTabPanel";
   syncPerformanceDocumentHeight();
   const selectedButton = byId(TAB_BUTTONS[S.dashboardTab]);
   for (const button of document.querySelectorAll("[data-dashboard-tab]")) {
@@ -172,6 +176,7 @@ export function setDashboardTab(name, moveFocus = false) {
     button.tabIndex = selected ? 0 : -1;
   }
   byId("dialerTabPanel").hidden = S.dashboardTab !== "dialer";
+  byId("aiDialerAgentTabPanel").hidden = S.dashboardTab !== "aiDialerAgent";
   byId("metricsPanel").hidden = S.dashboardTab !== "performance";
   for (const tab of ["performance", "pipeline", "prospects", "pool", "dials"]) {
     byId(`${tab}TabPanel`).hidden = S.dashboardTab !== tab;

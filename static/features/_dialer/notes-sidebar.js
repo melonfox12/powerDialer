@@ -1,4 +1,4 @@
-import { byId } from "../../_core/format.js";
+import { dialerMirrorNodes } from "../../_core/format.js";
 
 const STORAGE_WIDTH = "dialerNotesWidth";
 const STORAGE_COLLAPSED = "dialerNotesCollapsed";
@@ -9,8 +9,8 @@ const COLLAPSED_WIDTH = 44;
 
 let bound = false;
 
-function workspace() {
-  return byId("dialerTabPanel");
+function workspacePanels() {
+  return [document.getElementById("dialerTabPanel"), document.getElementById("aiDialerAgentTabPanel")].filter(Boolean);
 }
 
 function clampWidth(value) {
@@ -23,92 +23,94 @@ function readSavedWidth() {
 }
 
 function applyWidth(widthPx) {
-  const panel = workspace();
-  if (!panel) return;
-  panel.style.setProperty("--dialer-notes-width", `${clampWidth(widthPx)}px`);
+  const px = `${clampWidth(widthPx)}px`;
+  for (const panel of workspacePanels()) {
+    panel.style.setProperty("--dialer-notes-width", px);
+  }
   localStorage.setItem(STORAGE_WIDTH, String(clampWidth(widthPx)));
 }
 
 function setCollapsed(collapsed) {
-  const panel = workspace();
-  if (!panel) return;
-  panel.classList.toggle("notes-collapsed", collapsed);
-  panel.dataset.notesCollapsed = collapsed ? "true" : "false";
+  for (const panel of workspacePanels()) {
+    panel.classList.toggle("notes-collapsed", collapsed);
+    panel.dataset.notesCollapsed = collapsed ? "true" : "false";
+  }
   localStorage.setItem(STORAGE_COLLAPSED, collapsed ? "1" : "0");
-  const collapseBtn = byId("prospectNotesCollapse");
-  const expandTab = byId("prospectNotesExpandTab");
-  if (collapseBtn) {
+  for (const collapseBtn of dialerMirrorNodes("prospectNotesCollapse")) {
     collapseBtn.hidden = collapsed;
     collapseBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
   }
-  if (expandTab) {
+  for (const expandTab of dialerMirrorNodes("prospectNotesExpandTab")) {
     expandTab.hidden = !collapsed;
   }
   if (collapsed) {
-    panel.style.setProperty("--dialer-notes-width", `${COLLAPSED_WIDTH}px`);
+    const collapsedPx = `${COLLAPSED_WIDTH}px`;
+    for (const panel of workspacePanels()) {
+      panel.style.setProperty("--dialer-notes-width", collapsedPx);
+    }
   } else {
     applyWidth(readSavedWidth());
   }
 }
 
 function restoreLayout() {
-  const panel = workspace();
-  if (!panel) return;
   const collapsed = localStorage.getItem(STORAGE_COLLAPSED) === "1";
   if (collapsed) setCollapsed(true);
   else applyWidth(readSavedWidth());
 }
 
 function bindResizeHandle() {
-  const handle = byId("prospectNotesResizeHandle");
-  const panel = workspace();
-  if (!handle || !panel) return;
+  for (const handle of dialerMirrorNodes("prospectNotesResizeHandle")) {
+    const panel = handle.closest(".dialer-run-panel");
+    if (!panel) continue;
 
-  const nudge = (delta) => {
-    if (panel.classList.contains("notes-collapsed")) setCollapsed(false);
-    const current = panel.getBoundingClientRect().width;
-    applyWidth(current + delta);
-  };
-
-  handle.addEventListener("keydown", (event) => {
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      nudge(16);
-    } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      nudge(-16);
-    }
-  });
-
-  handle.addEventListener("pointerdown", (event) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    handle.setPointerCapture(event.pointerId);
-    handle.classList.add("is-dragging");
-    if (panel.classList.contains("notes-collapsed")) setCollapsed(false);
-    const startX = event.clientX;
-    const shell = byId("prospectNotesShell");
-    const startWidth = shell?.getBoundingClientRect().width || readSavedWidth();
-
-    const onMove = (moveEvent) => {
-      const delta = startX - moveEvent.clientX;
-      applyWidth(startWidth + delta);
+    const nudge = (delta) => {
+      if (panel.classList.contains("notes-collapsed")) setCollapsed(false);
+      const shell = panel.querySelector(".prospect-notes-shell");
+      const current = shell?.getBoundingClientRect().width ?? readSavedWidth();
+      applyWidth(current + delta);
     };
 
-    const onUp = (upEvent) => {
-      handle.classList.remove("is-dragging");
-      if (handle.hasPointerCapture(upEvent.pointerId)) {
-        handle.releasePointerCapture(upEvent.pointerId);
+    handle.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        nudge(16);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        nudge(-16);
       }
-      handle.removeEventListener("pointermove", onMove);
-      handle.removeEventListener("pointerup", onUp);
-      handle.removeEventListener("pointercancel", onUp);
-    };
+    });
 
-    handle.addEventListener("pointermove", onMove);
-    handle.addEventListener("pointerup", onUp);
-    handle.addEventListener("pointercancel", onUp);
-  });
+    handle.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      handle.setPointerCapture(event.pointerId);
+      handle.classList.add("is-dragging");
+      if (panel.classList.contains("notes-collapsed")) setCollapsed(false);
+      const startX = event.clientX;
+      const shell = panel.querySelector(".prospect-notes-shell");
+      const startWidth = shell?.getBoundingClientRect().width || readSavedWidth();
+
+      const onMove = (moveEvent) => {
+        const delta = startX - moveEvent.clientX;
+        applyWidth(startWidth + delta);
+      };
+
+      const onUp = (upEvent) => {
+        handle.classList.remove("is-dragging");
+        if (handle.hasPointerCapture(upEvent.pointerId)) {
+          handle.releasePointerCapture(upEvent.pointerId);
+        }
+        handle.removeEventListener("pointermove", onMove);
+        handle.removeEventListener("pointerup", onUp);
+        handle.removeEventListener("pointercancel", onUp);
+      };
+
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", onUp);
+      handle.addEventListener("pointercancel", onUp);
+    });
+  }
 }
 
 export function bindNotesSidebar() {
@@ -116,6 +118,10 @@ export function bindNotesSidebar() {
   bound = true;
   restoreLayout();
   bindResizeHandle();
-  byId("prospectNotesCollapse")?.addEventListener("click", () => setCollapsed(true));
-  byId("prospectNotesExpandTab")?.addEventListener("click", () => setCollapsed(false));
+  for (const btn of dialerMirrorNodes("prospectNotesCollapse")) {
+    btn.addEventListener("click", () => setCollapsed(true));
+  }
+  for (const btn of dialerMirrorNodes("prospectNotesExpandTab")) {
+    btn.addEventListener("click", () => setCollapsed(false));
+  }
 }

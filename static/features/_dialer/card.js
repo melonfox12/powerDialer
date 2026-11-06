@@ -1,8 +1,7 @@
 import { S, state } from "../../_core/state.js";
-import { byId, setText } from "../../_core/format.js";
+import { dialerMirrorNodes, setDialerText } from "../../_core/format.js";
 
-export function drawProspectWaveform(level = 0, samples = null) {
-  const canvas = byId("prospectWaveform");
+function paintWaveformCanvas(canvas, level, samples) {
   const bounds = canvas.getBoundingClientRect();
   if (!bounds.width || !bounds.height) return;
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -42,7 +41,15 @@ export function drawProspectWaveform(level = 0, samples = null) {
   const shown = samples && samples.length
     ? Math.round(Math.max(...Array.from(samples, (sample) => Math.abs(sample - 128) / 128)) * 100)
     : Math.round(normalized * 100);
-  setText("prospectAudioLevel", `${Math.max(0, Math.min(100, shown))}%`);
+  return shown;
+}
+
+export function drawProspectWaveform(level = 0, samples = null) {
+  let shown = 0;
+  for (const canvas of dialerMirrorNodes("prospectWaveform")) {
+    shown = paintWaveformCanvas(canvas, level, samples) ?? shown;
+  }
+  setDialerText("prospectAudioLevel", `${Math.max(0, Math.min(100, shown))}%`);
 }
 
 export function stopProspectWaveform() {
@@ -101,9 +108,13 @@ export function renderDialedProspect() {
   const dialedBusiness = String(dialed?.business || "").trim();
   const dialedTitle = dialedName || dialedBusiness;
   const dialedSubtitle = dialedBusiness && dialedBusiness !== dialedTitle ? dialedBusiness : "";
-  const dialedPlate = byId("dialedProspect");
-  dialedPlate.classList.toggle("is-empty", !dialedTitle);
-  setText("dialedProspectName", dialedTitle || "No one is being dialed");
-  byId("dialedProspectBusiness").hidden = !dialedSubtitle;
-  setText("dialedProspectBusiness", dialedSubtitle);
+  for (const dialedPlate of dialerMirrorNodes("dialedProspect")) {
+    dialedPlate.classList.toggle("is-empty", !dialedTitle);
+  }
+  const nameText = dialedTitle || "No one is being dialed";
+  for (const node of dialerMirrorNodes("dialedProspectName")) node.textContent = nameText;
+  for (const sub of dialerMirrorNodes("dialedProspectBusiness")) {
+    sub.hidden = !dialedSubtitle;
+    sub.textContent = dialedSubtitle;
+  }
 }

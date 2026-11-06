@@ -1,11 +1,16 @@
-import { byId, setText } from "../../_core/format.js";
+import { byId, setDialerText } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 
 export function construct(arcade) {
     arcade.preferencesKey = "prospect-desk-arcade-profile";
     arcade.defaults = { enabled: true, reels: true, sound: true, volume: 35, shake: true, haptics: true };
     arcade.preferences = arcade.loadPreferences();
-    arcade.viewport = byId("arcadeViewport");
+    arcade.forEachViewport = (fn) => {
+      const primary = document.querySelector("#dialerTabPanel #arcadeViewport");
+      const secondary = document.querySelector("#aiDialerAgentTabPanel #arcadeViewport");
+      for (const vp of [primary, secondary].filter(Boolean)) fn(vp);
+    };
+    arcade.viewport = document.querySelector("#dialerTabPanel #arcadeViewport") || byId("arcadeViewport");
     arcade.reelWindows = [...arcade.viewport.querySelectorAll(".arcade-reel-window")];
     arcade.reels = arcade.reelWindows.map((windowElement) => {
       const rotor = windowElement.querySelector(".arcade-reel-rotor");
@@ -63,8 +68,8 @@ export function syncControls(arcade) {
     byId("arcadeVolumeInput").value = arcade.preferences.volume;
     byId("arcadeShakeInput").checked = arcade.preferences.shake;
     byId("arcadeHapticsInput").checked = arcade.preferences.haptics;
-    setText("arcadeVolumeValue", `${arcade.preferences.volume}%`);
-    arcade.viewport.classList.toggle("arcade-reels-disabled", !arcade.preferences.reels);
+    setDialerText("arcadeVolumeValue", `${arcade.preferences.volume}%`);
+    arcade.forEachViewport((vp) => vp.classList.toggle("arcade-reels-disabled", !arcade.preferences.reels));
   }
 
 export function updatePreferences(arcade, changes) {
@@ -95,7 +100,9 @@ export function clearTimers(arcade) {
     arcade.tickTimer = 0;
     for (const timer of arcade.timeouts) clearTimeout(timer);
     arcade.timeouts.clear();
-    document.querySelector(".dialer-run-panel").classList.remove("arcade-failure-flash", "arcade-shake");
+    for (const panel of document.querySelectorAll("#dialerTabPanel, #aiDialerAgentTabPanel")) {
+      panel.classList.remove("arcade-failure-flash", "arcade-shake");
+    }
   }
 
 export function stop(arcade) {
@@ -103,8 +110,10 @@ export function stop(arcade) {
     arcade.stopParticles();
     arcade.valueAnimation += 1;
     arcade.phase = "idle";
-    arcade.viewport.hidden = true;
-    arcade.viewport.classList.remove("is-resetting", "is-near-miss", "is-match");
+    arcade.forEachViewport((vp) => {
+      vp.hidden = true;
+      vp.classList.remove("is-resetting", "is-near-miss", "is-match");
+    });
     for (const windowElement of arcade.reelWindows) {
       windowElement.classList.remove("is-spinning", "is-locking", "is-near-miss");
     }

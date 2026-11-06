@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Project map
 
-Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `static/shell.html`, `static/features/dialer.html`, `static/features/performance.html`, `static/features/prospects.html`, `static/features/settings.html`, `static/shell-end.html`. Tabs switch in `static/_core/navigation.js` (`setDashboardTab`). There is no router.
+Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `static/shell.html`, `static/features/dialer.html`, `static/features/ai-dialer-agent.html`, `static/features/session-summary-dialog.html`, `static/features/performance.html`, `static/features/pipeline.html`, `static/features/prospects.html`, `static/features/settings.html`, `static/shell-end.html`. Tabs switch in `static/_core/navigation.js` (`setDashboardTab`). There is no router.
 
 ## Folders
 
@@ -25,6 +25,8 @@ Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_pa
 ## Pages
 
 - Dialer: `static/features/dialer.html` `#dialerTabPanel`; JS `static/features/dialer.js` and `static/features/_dialer/`
+- AI Dialer Agent (sandbox duplicate UI): `static/features/ai-dialer-agent.html` `#aiDialerAgentTabPanel`; same JS as Dialer; shared controls use `dialerMirrorNodes` / `setDialerText` in `static/_core/format.js`
+- Session summary modal: `static/features/session-summary-dialog.html`
 - Prospects: `static/features/prospects.html` `#prospectsTabPanel`; JS `static/features/prospects.js` and `static/features/_prospects/`
 - Caller pool: `#poolTabPanel` is in `static/features/prospects.html`; render `static/features/_dialer/pool-view.js`; timezone `static/features/_dialer/pool.js`
 - Performance: `static/features/performance.html` `#metricsPanel` wraps only `#performanceTabPanel`. JS `static/features/performance.js`. `setDashboardTab` shows `#metricsPanel` only on the Performance tab; Prospects/Pool/Dials panels are siblings in `#dashboard-top-row`.

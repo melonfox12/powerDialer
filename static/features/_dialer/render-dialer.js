@@ -1,5 +1,13 @@
 import { S, state } from "../../_core/state.js";
-import { byId, setText, DEFAULT_DIAL_POOL_STATUS, DIAL_POOL_STATUS_LABELS } from "../../_core/format.js";
+import {
+  byId,
+  dialerById,
+  dialerMirrorNodes,
+  dialerWorkspacePanel,
+  setDialerText,
+  DEFAULT_DIAL_POOL_STATUS,
+  DIAL_POOL_STATUS_LABELS,
+} from "../../_core/format.js";
 import { renderCallStage } from "./stage.js";
 import { renderDialerControls } from "./controls.js";
 import { renderOutcomeRow } from "./outcome-row.js";
@@ -14,7 +22,9 @@ export function renderDialer() {
   const pending = state.pending_outcome;
   const active = state.active_lead;
   const activeLeadId = active?.id || null;
-  if (activeLeadId && activeLeadId !== S.observedActiveLeadId) byId("callMonitorDisclosure").open = true;
+  if (activeLeadId && activeLeadId !== S.observedActiveLeadId) {
+    for (const disclosure of dialerMirrorNodes("callMonitorDisclosure")) disclosure.open = true;
+  }
   S.observedActiveLeadId = activeLeadId;
   const busy = state.running || Boolean(pending);
   const connection = byId("connectionState");
@@ -24,27 +34,27 @@ export function renderDialer() {
     ? "Needs attention"
     : pending ? "Outcome needed" : state.paused ? "Paused" : connected ? "Dialing" : state.running ? "Connecting" : "Ready";
 
-  const indicator = document.querySelector(".live-indicator");
+  const indicator = dialerWorkspacePanel()?.querySelector(".live-indicator");
   indicator.classList.remove("on", "tone-amber", "tone-success", "tone-primary", "is-pulsing");
   if (pending) indicator.classList.add("tone-amber");
   else if (active) indicator.classList.add("tone-success", "is-pulsing");
   else if (state.paused) indicator.classList.add("tone-primary");
   else if (stage === "dialing" || stage === "ringing") indicator.classList.add("tone-amber", "is-pulsing");
   else if (state.running) indicator.classList.add("tone-amber");
-  setText("liveLabel", pending ? "Outcome needed" : active ? "Live" : state.paused ? "Paused" : connected ? "Dialing" : state.running ? "Connecting" : "Standby");
+  setDialerText("liveLabel", pending ? "Outcome needed" : active ? "Live" : state.paused ? "Paused" : connected ? "Dialing" : state.running ? "Connecting" : "Standby");
   const poolMode = state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS;
   const poolLabel = DIAL_POOL_STATUS_LABELS[poolMode] || "New";
   const queueSize = state.queue_count ?? state.pool?.length ?? 0;
-  setText("lineCount", `${state.session_stats?.dials || 0} of ${queueSize} ${poolLabel.toLowerCase()} dialed`);
-  const lede = byId("dialerIssueLede");
+  setDialerText("lineCount", `${state.session_stats?.dials || 0} of ${queueSize} ${poolLabel.toLowerCase()} dialed`);
+  const lede = dialerById("dialerIssueLede");
   if (lede) {
     lede.textContent = poolMode === "contact_engaged"
       ? "Contact (engaged) pool — three lines dial at once. The first answer stays on the line."
       : "Three lines dial at once. The first answer stays on the line.";
   }
-  byId("dialerMessage").hidden = !state.last_error;
-  setText("dialerMessage", state.last_error || "");
-  byId("dialerMessage").classList.toggle("error", Boolean(state.last_error));
+  dialerById("dialerMessage").hidden = !state.last_error;
+  setDialerText("dialerMessage", state.last_error || "");
+  dialerById("dialerMessage").classList.toggle("error", Boolean(state.last_error));
 
   const target = active || pending;
   const ringing = state.in_flight?.some((call) => call.state === "ringing");

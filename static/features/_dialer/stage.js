@@ -1,13 +1,20 @@
 import { stageEffects } from "./effects.js";
 import { S, state } from "../../_core/state.js";
-import { STATUS_LABELS, byId, callbackStatusText, markCallback, setText } from "../../_core/format.js";
+import {
+  STATUS_LABELS,
+  dialerMirrorNodes,
+  dialerScopedId,
+  callbackStatusText,
+  markCallback,
+  setDialerText,
+} from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { startCallTimer, stopCallTimer } from "./timer.js";
 
 export function renderCallStage(stage, target) {
-  const container = byId("callStage");
-  container.hidden = stage === "idle";
-  container.dataset.stage = stage;
+  const containers = dialerMirrorNodes("callStage");
+  if (!containers.length) return;
+
   const fragment = document.createDocumentFragment();
   const heading = document.createElement("strong");
   const detail = document.createElement("span");
@@ -38,7 +45,7 @@ export function renderCallStage(stage, target) {
       meta.append(clockElement);
     }
     const timer = document.createElement("span");
-    timer.id = "callTimer";
+    timer.id = dialerScopedId("callTimer");
     timer.textContent = "0:00";
     meta.append(timer);
     fragment.append(meta);
@@ -53,21 +60,17 @@ export function renderCallStage(stage, target) {
     script.className = "call-stage-script";
     script.textContent = state.settings?.opening_script || "Introduce yourself, confirm you have the right person, then ask one clear question.";
     fragment.append(script);
-    container.classList.add("call-stage-live");
     if (S.previousStage !== "connected") stageEffects.playCue("connect");
   } else if (stage === "paused") {
     heading.textContent = "Session paused";
     detail.textContent = "Resume when you’re ready to continue the queue.";
-    container.classList.remove("call-stage-live");
   } else if (stage === "wrapup" && target) {
     heading.textContent = "Call complete";
     detail.textContent = `Choose a disposition for ${target.business || target.name || formatPhoneNumber(target.phone)}.`;
-    container.classList.remove("call-stage-live");
   } else if (stage === "dialing" || stage === "ringing") {
     const calls = state.in_flight || [];
     heading.textContent = stage === "ringing" ? "Ring in progress" : "Dialing next prospect";
     detail.textContent = calls.map((call) => `${call.lead?.business || call.lead?.name || "Prospect"} · ${call.state === "ringing" ? "Ringing" : "Dialing"}`).join(" · ") || state.last_event || "Connecting to the next prospect…";
-    container.classList.remove("call-stage-live");
   } else if (stage !== "idle") {
     const next = state.next_lead;
     const clock = next ? localTimeLabel(next.timezone) : "";
@@ -83,7 +86,6 @@ export function renderCallStage(stage, target) {
     } else {
       detail.textContent = "No prospects available in this queue.";
     }
-    container.classList.remove("call-stage-live");
   }
 
   function localTimeLabel(timezoneName) {
@@ -106,21 +108,31 @@ export function renderCallStage(stage, target) {
   }
   if (stage === "connected") fragment.prepend(heading);
   else if (stage !== "idle") fragment.append(heading, detail);
-  container.replaceChildren(fragment);
+
+  const isLive = stage === "connected" && Boolean(target);
+  for (const container of containers) {
+    container.hidden = stage === "idle";
+    container.dataset.stage = stage;
+    container.classList.toggle("call-stage-live", isLive);
+    container.replaceChildren(fragment.cloneNode(true));
+  }
+
   stopCallTimer();
   if (stage === "connected") {
     const started = state.active_call_started_at ? Date.parse(state.active_call_started_at) : Date.now();
     startCallTimer(Number.isFinite(started) ? started : Date.now());
   }
   if (stage !== S.previousStage && stage !== "idle") {
-    setText("stageAnnouncer", stage === "connected"
+    setDialerText("stageAnnouncer", stage === "connected"
       ? (state.pickup_answered_by === "voicemail" ? "Voicemail picked up." : "Prospect picked up.")
       : stage === "wrapup" ? "Call ended." : stage === "paused" ? "Dialing session paused." : stage === "ringing" ? "Prospect line is ringing." : "Dialing next prospect.");
-    container.classList.remove("stage-enter");
-    void container.offsetWidth;
-    container.classList.add("stage-enter");
+    for (const container of containers) {
+      container.classList.remove("stage-enter");
+      void container.offsetWidth;
+      container.classList.add("stage-enter");
+    }
   }
-  if (stage === "idle" && S.previousStage !== "idle") setText("stageAnnouncer", "Dialing session stopped.");
+  if (stage === "idle" && S.previousStage !== "idle") setDialerText("stageAnnouncer", "Dialing session stopped.");
   if (stage === "connected" && S.previousStage !== "connected") S.connectedAt = Date.now();
   if (stage === "connected" && S.previousStage !== "connected") stageEffects.match(state.active_lead);
   if (S.previousStage === "connected" && stage === "wrapup") stageEffects.reset(true);

@@ -1,7 +1,7 @@
 import { postJson } from "../../_core/api.js";
 import { applyMutationPayload } from "../../_core/sync-state.js";
 import { state } from "../../_core/state.js";
-import { CRM_STATUS_KEYS, byId, leavesQueueForGood } from "../../_core/format.js";
+import { CRM_STATUS_KEYS, dialerMirrorNodes, leavesQueueForGood } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 import { nextProspectLabel, queueProspect } from "./queue.js";
@@ -18,24 +18,24 @@ const DIALER_STATUSES = [
 let saving = false;
 
 export function bindCrmStatus() {
-  byId("crmStatusButtons").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-status]");
-    if (!button || saving) return;
-    const status = String(button.dataset.status || "").trim();
-    if (!CRM_STATUS_KEYS.includes(status)) return;
-    const lead = queueProspect();
-    if (!lead) return;
-    if (status === "booked" && lead.status === "booked") return;
-    saveCrmStatus(lead, status, button.textContent);
-  });
+  for (const root of dialerMirrorNodes("crmStatusButtons")) {
+    root.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-status]");
+      if (!button || saving) return;
+      const status = String(button.dataset.status || "").trim();
+      if (!CRM_STATUS_KEYS.includes(status)) return;
+      const lead = queueProspect();
+      if (!lead) return;
+      if (status === "booked" && lead.status === "booked") return;
+      saveCrmStatus(lead, status, button.textContent);
+    });
+  }
 }
 
 export function renderCrmStatus() {
   const lead = queueProspect();
   const label = lead ? nextProspectLabel(lead) : "No prospect in the queue";
-  byId("crmStatusTarget").textContent = label;
-  const root = byId("crmStatusButtons");
-  root.replaceChildren(...DIALER_STATUSES.map((item) => {
+  const buttons = DIALER_STATUSES.map((item) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = item.className;
@@ -44,7 +44,11 @@ export function renderCrmStatus() {
     button.disabled = !lead || saving || leavesQueueForGood(lead, item.status);
     button.setAttribute("aria-pressed", lead?.status === item.status ? "true" : "false");
     return button;
-  }));
+  });
+  for (const target of dialerMirrorNodes("crmStatusTarget")) target.textContent = label;
+  for (const root of dialerMirrorNodes("crmStatusButtons")) {
+    root.replaceChildren(...buttons.map((button) => document.importNode(button, true)));
+  }
 }
 
 async function saveCrmStatus(lead, status, label) {

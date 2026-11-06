@@ -1,14 +1,14 @@
 import { postJson } from "../../_core/api.js";
 import { loadAppState } from "../../_core/sync-state.js";
 import { S, state } from "../../_core/state.js";
-import { byId } from "../../_core/format.js";
+import { dialerMirrorNodes } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 import { openSettings } from "../settings.js";
 import { connectAndCleanup, tearDownVoice } from "./connect.js";
 
 export async function startDialing() {
-  byId("startButton").disabled = true;
+  for (const button of dialerMirrorNodes("startButton")) button.disabled = true;
   S.voiceConnectBusy = true;
   let sessionStarted = false;
   try {
@@ -27,6 +27,6 @@ export async function startDialing() {
     if (!sessionStarted) openSettings();
   } finally {
     if (!state.running) S.voiceConnectBusy = false;
-    byId("startButton").disabled = state.running;
+    for (const button of dialerMirrorNodes("startButton")) button.disabled = state.running;
   }
 }

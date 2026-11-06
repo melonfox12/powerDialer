@@ -7,7 +7,7 @@ import "./features/pipeline.js";
 import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "./features/prospects.js";
 import { bindSettings } from "./features/settings.js";
 import { arcadeSensory, startArcade } from "./features/arcade.js";
-import { byId, setText, startStatusClock } from "./_core/format.js";
+import { byId, setDialerText, startStatusClock } from "./_core/format.js";
 
 bindDebugListeners();
 startStatusClock();
@@ -34,7 +34,7 @@ byId("arcadeEnabledInput").addEventListener("change", (event) => arcadeSensory.u
 byId("arcadeReelsInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ reels: event.target.checked }));
 byId("arcadeSoundInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ sound: event.target.checked }));
 byId("arcadeVolumeInput").addEventListener("input", (event) => {
-  setText("arcadeVolumeValue", `${event.target.value}%`);
+  setDialerText("arcadeVolumeValue", `${event.target.value}%`);
   arcadeSensory.updatePreferences({ volume: Number(event.target.value) });
 });
 byId("arcadeShakeInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ shake: event.target.checked }));

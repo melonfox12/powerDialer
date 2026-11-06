@@ -10,6 +10,8 @@ STATIC = ROOT / "static"
 PARTIALS = (
     STATIC / "shell.html",
     STATIC / "features" / "dialer.html",
+    STATIC / "features" / "ai-dialer-agent.html",
+    STATIC / "features" / "session-summary-dialog.html",
     STATIC / "features" / "performance.html",
     STATIC / "features" / "pipeline.html",
     STATIC / "features" / "prospects.html",

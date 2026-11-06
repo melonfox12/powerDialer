@@ -1,4 +1,4 @@
-import { setText } from "../../_core/format.js";
+import { setDialerText } from "../../_core/format.js";
 
 export function animateValue(arcade, target, element, animationId) {
     const start = performance.now();
@@ -22,25 +22,32 @@ export function reset(arcade, quiet = false) {
     arcade.stopTicking();
     arcade.phase = "resetting";
     arcade.pendingSpinKey = null;
-    arcade.viewport.hidden = false;
-    arcade.viewport.classList.remove("is-match");
-    arcade.viewport.querySelector("#arcadeValue").hidden = true;
+    arcade.forEachViewport((vp) => {
+      vp.hidden = false;
+      vp.classList.remove("is-match");
+      const valueEl = vp.querySelector("[id$='arcadeValue']");
+      if (valueEl) valueEl.hidden = true;
+    });
     if (quiet) {
-      arcade.viewport.classList.remove("is-near-miss", "is-resetting");
-      setText("arcadeStatus", "Call ended");
+      arcade.forEachViewport((vp) => vp.classList.remove("is-near-miss", "is-resetting"));
+      setDialerText("arcadeStatus", "Call ended");
       arcade.schedule(() => {
-        arcade.viewport.classList.add("is-resetting");
+        arcade.forEachViewport((vp) => vp.classList.add("is-resetting"));
         arcade.schedule(() => {
-          arcade.viewport.classList.remove("is-resetting");
+          arcade.forEachViewport((vp) => {
+            vp.classList.remove("is-resetting");
+            vp.hidden = true;
+          });
           arcade.phase = "idle";
-          arcade.viewport.hidden = true;
         }, 270);
       }, 150);
       return;
     }
-    arcade.viewport.classList.add("is-near-miss");
-    arcade.viewport.classList.remove("is-resetting");
-    setText("arcadeStatus", "Cycle reset · next prospect");
+    arcade.forEachViewport((vp) => {
+      vp.classList.add("is-near-miss");
+      vp.classList.remove("is-resetting");
+    });
+    setDialerText("arcadeStatus", "Cycle reset · next prospect");
     arcade.reelWindows.forEach((windowElement, index) => {
       windowElement.classList.remove("is-spinning", "is-locking", "is-near-miss");
       if (index === 2) windowElement.classList.add("is-near-miss");
@@ -53,23 +60,25 @@ export function reset(arcade, quiet = false) {
     arcade.playResetTone();
     arcade.vibrate(250);
     arcade.schedule(() => {
-      arcade.viewport.classList.add("is-resetting");
+      arcade.forEachViewport((vp) => vp.classList.add("is-resetting"));
       arcade.schedule(() => {
-        arcade.viewport.classList.remove("is-resetting", "is-near-miss");
+        arcade.forEachViewport((vp) => {
+          vp.classList.remove("is-resetting", "is-near-miss");
+          vp.hidden = true;
+        });
         arcade.phase = "idle";
         if (arcade.pendingSpinKey) {
           const nextKey = arcade.pendingSpinKey;
           arcade.pendingSpinKey = null;
           arcade.startSpin(nextKey);
-        } else {
-          arcade.viewport.hidden = true;
         }
       }, 270);
     }, 150);
   }
 
 export function flashFailure(arcade) {
-    const panel = document.querySelector(".dialer-run-panel");
-    panel.classList.add("arcade-failure-flash");
-    arcade.schedule(() => panel.classList.remove("arcade-failure-flash"), 150);
+    for (const panel of document.querySelectorAll("#dialerTabPanel, #aiDialerAgentTabPanel")) {
+      panel.classList.add("arcade-failure-flash");
+      arcade.schedule(() => panel.classList.remove("arcade-failure-flash"), 150);
+    }
   }

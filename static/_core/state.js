@@ -28,6 +28,8 @@ export const state = {
 };
 
 export const S = {
+  /** Which dialer workspace panel is active (`dialerTabPanel` or `aiDialerAgentTabPanel`). */
+  dialerWorkspaceDomId: "dialerTabPanel",
   pollBusy: false,
   metricsFetchedAt: 0,
   outcomeSubmitting: false,

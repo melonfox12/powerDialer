@@ -1,14 +1,14 @@
 import { postJson } from "../../_core/api.js";
 import { loadAppState, mergeLiveState } from "../../_core/sync-state.js";
 import { S, state } from "../../_core/state.js";
-import { byId } from "../../_core/format.js";
+import { dialerMirrorNodes } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 import { openSettings } from "../settings.js";
 import { connectAndCleanup, prospectLabel, tearDownVoice } from "./connect.js";
 
 export async function dialLead(lead) {
-  byId("startButton").disabled = true;
+  for (const button of dialerMirrorNodes("startButton")) button.disabled = true;
   let sessionStarted = false;
   let cleaned = false;
   try {
@@ -48,6 +48,6 @@ export async function dialLead(lead) {
     }
     throw error;
   } finally {
-    byId("startButton").disabled = state.running;
+    for (const button of dialerMirrorNodes("startButton")) button.disabled = state.running;
   }
 }

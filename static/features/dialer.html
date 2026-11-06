@@ -7,7 +7,7 @@
 
         <div class="dashboard-stack">
           <div class="dashboard-top-row">
-            <section id="dialerTabPanel" class="dialer-run-panel dialer-workspace" aria-labelledby="liveTitle" tabindex="0">
+            <section id="dialerTabPanel" class="dialer-run-panel dialer-workspace dashboard-tab-panel" role="tabpanel" aria-labelledby="dialerTabButton liveTitle" tabindex="0">
               <div class="dialer-workspace-main">
               <div class="dialer-document">
                 <div class="issue-meta">
@@ -121,12 +121,3 @@
                 </div>
               </aside>
             </section>
-<dialog id="sessionSummaryDialog" class="session-summary-dialog" aria-labelledby="sessionSummaryTitle">
-      <section class="session-summary-content">
-        <div class="dialog-heading"><div><div class="eyebrow">SESSION COMPLETE</div><h2 id="sessionSummaryTitle">Your call session</h2></div><button id="closeSessionSummary" class="dialog-close" type="button" aria-label="Close summary">×</button></div>
-        <p id="sessionSummaryDuration" class="summary-duration"></p>
-        <div id="sessionSummaryStats" class="summary-stats"></div>
-        <p id="sessionComparison" class="session-comparison" hidden></p>
-        <div class="dialog-actions"><button id="startNewSession" class="button button-primary" type="button">Start new session</button></div>
-      </section>
-    </dialog>

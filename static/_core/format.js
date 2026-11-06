@@ -1,6 +1,52 @@
-import { state } from "./state.js";
+import { S, state } from "./state.js";
 
 const vocabulary = JSON.parse(document.getElementById("vocabulary").textContent);
+
+const AI_DIALER_AGENT_DOM_ID = "aiDialerAgentTabPanel";
+const AI_DIALER_AGENT_ID_PREFIX = "aiDialerAgent-";
+
+/** Root section for the active Dialer or AI Dialer Agent tab (falls back to main Dialer). */
+export function dialerWorkspacePanel() {
+  return document.getElementById(S.dialerWorkspaceDomId) || document.getElementById("dialerTabPanel");
+}
+
+function dialerIdSuffix() {
+  return S.dialerWorkspaceDomId === AI_DIALER_AGENT_DOM_ID ? AI_DIALER_AGENT_ID_PREFIX : "";
+}
+
+/** Element id inside the active dialer workspace (`startButton` or `aiDialerAgent-startButton`). */
+export function dialerScopedId(baseId) {
+  return `${dialerIdSuffix()}${baseId}`;
+}
+
+export function dialerById(baseId) {
+  return document.getElementById(dialerScopedId(baseId));
+}
+
+export function setDialerText(baseId, value) {
+  for (const node of dialerMirrorNodes(baseId)) {
+    node.textContent = value;
+  }
+}
+
+/** Both Dialer and AI sandbox copies of a control (for shared filter state). */
+export function dialerMirrorNodes(baseId) {
+  const main = document.getElementById(baseId);
+  const ai = document.getElementById(`${AI_DIALER_AGENT_ID_PREFIX}${baseId}`);
+  const nodes = [];
+  if (main) nodes.push(main);
+  if (ai) nodes.push(ai);
+  return nodes;
+}
+
+/** Run for each dialer workspace panel (main + AI sandbox), with id prefix `""` or `"aiDialerAgent-"`. */
+export function eachDialerWorkspace(callback) {
+  for (const panel of [document.getElementById("dialerTabPanel"), document.getElementById("aiDialerAgentTabPanel")]) {
+    if (!panel) continue;
+    const prefix = panel.id === AI_DIALER_AGENT_DOM_ID ? AI_DIALER_AGENT_ID_PREFIX : "";
+    callback(panel, prefix);
+  }
+}
 export const MARKETING_TOUCHES_FIELD = vocabulary.marketingTouchesField || "Marketing touches";
 export const STATUS_STYLES = Object.fromEntries(vocabulary.statuses.map((status) => [status.key, {
   label: status.label,

@@ -1,21 +1,29 @@
 import { S, state } from "../../_core/state.js";
-import { byId } from "../../_core/format.js";
+import { dialerMirrorNodes } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { renderCallMonitor } from "./monitor.js";
 
 export function renderDialerControls(stage) {
-  byId("startButton").disabled = state.running;
-  byId("startButton").hidden = stage !== "idle";
-  byId("stopButton").disabled = !state.running || S.voiceConnectBusy;
-  byId("stopButton").hidden = stage === "idle";
-  document.querySelector(".dialer-controls").dataset.controls = stage;
+  for (const start of dialerMirrorNodes("startButton")) {
+    start.disabled = state.running;
+    start.hidden = stage !== "idle";
+  }
+  for (const stop of dialerMirrorNodes("stopButton")) {
+    stop.disabled = !state.running || S.voiceConnectBusy;
+    stop.hidden = stage === "idle";
+  }
+  for (const panel of [document.getElementById("dialerTabPanel"), document.getElementById("aiDialerAgentTabPanel")].filter(Boolean)) {
+    panel.querySelector(".dialer-controls")?.setAttribute("data-controls", stage);
+  }
   const caller = state.current_caller_id || "";
   const callerIds = state.caller_ids || [];
   const callerIndex = caller ? callerIds.indexOf(caller) : -1;
   const callerLabel = caller
     ? `${formatPhoneNumber(caller)}${callerIds.length > 1 && callerIndex >= 0 ? ` · ${callerIndex + 1} of ${callerIds.length}` : ""}`
     : "";
-  byId("callerIdLine").hidden = !callerLabel;
-  byId("callerIdLine").querySelector("span").textContent = callerLabel;
+  for (const line of dialerMirrorNodes("callerIdLine")) {
+    line.hidden = !callerLabel;
+    line.querySelector("span").textContent = callerLabel;
+  }
   renderCallMonitor();
 }

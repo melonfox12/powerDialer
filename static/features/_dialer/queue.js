@@ -1,19 +1,20 @@
 import { state } from "../../_core/state.js";
-import { byId } from "../../_core/format.js";
+import { dialerMirrorNodes } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 
 export function renderQueueStrip() {
-  const activeCall = byId("activeCall");
   const lines = dialLines();
-  activeCall.replaceChildren();
-  if (!lines.length) {
-    const empty = document.createElement("p");
-    empty.className = "power-line-empty";
-    empty.textContent = "No prospects in queue";
-    activeCall.append(empty);
-    return;
+  for (const activeCall of dialerMirrorNodes("activeCall")) {
+    activeCall.replaceChildren();
+    if (!lines.length) {
+      const empty = document.createElement("p");
+      empty.className = "power-line-empty";
+      empty.textContent = "No prospects in queue";
+      activeCall.append(empty);
+    } else {
+      for (const line of lines) activeCall.append(prospectCard(line));
+    }
   }
-  for (const line of lines) activeCall.append(prospectCard(line));
 }
 
 function dialLines() {
