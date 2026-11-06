@@ -24,6 +24,9 @@ class SupabaseBackend:
     def _touch(self):
         self.revision += 1
 
+    def bump_revision(self):
+        self._touch()
+
     def _fetch(self):
         rows = self.client.select_all("prospects", self._scope({"select": "id,data", "order": "id"}))
         leads = []
@@ -55,7 +58,7 @@ class SupabaseBackend:
         now = utc_now()
         for lead in leads:
             deadline = lead.get("scheduled_until")
-            if lead.get("status") == "call" and deadline:
+            if lead.get("status") == "dialed" and deadline:
                 try:
                     due = datetime.fromisoformat(deadline)
                 except ValueError:

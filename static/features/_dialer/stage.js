@@ -75,8 +75,8 @@ export function renderCallStage(stage, target) {
     if (next) {
       detail.append(`Next up: ${next.business || next.name || "Prospect"} · ${formatPhoneNumber(next.phone)} · ${clock || next.timezone || "Local time unavailable"} · `);
       const status = document.createElement("span");
-      const countdown = next.status === "call" && next.scheduled_until;
-      status.dataset.callbackPrefix = "Status: Callback ";
+      const countdown = next.status === "dialed" && next.scheduled_until;
+      status.dataset.callbackPrefix = "Status: Dialed ";
       status.textContent = countdown ? `Status: ${callbackStatusText(next)}` : `Status: ${STATUS_LABELS[next.status] || "New"}`;
       if (countdown && !context) markCallback(status, next);
       detail.append(context ? `Context: ${context[1]}` : status);

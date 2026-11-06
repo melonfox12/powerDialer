@@ -38,8 +38,8 @@ export function renderDialer() {
   setText("lineCount", `${state.session_stats?.dials || 0} of ${queueSize} ${poolLabel.toLowerCase()} dialed`);
   const lede = byId("dialerIssueLede");
   if (lede) {
-    lede.textContent = poolMode === "send_info"
-      ? "Send info pool — three lines dial at once. The first answer stays on the line."
+    lede.textContent = poolMode === "contact_engaged"
+      ? "Contact (engaged) pool — three lines dial at once. The first answer stays on the line."
       : "Three lines dial at once. The first answer stays on the line.";
   }
   byId("dialerMessage").hidden = !state.last_error;

@@ -3,7 +3,6 @@
 Constants live in shared.vocabulary; this module is the only place for rules that combine them.
 """
 
-import random
 from datetime import datetime, timedelta, timezone
 
 from shared.infra import utc_now
@@ -39,7 +38,13 @@ RETRY_AFTER = {
 MANUAL_CALLBACK = timedelta(hours=MANUAL_CALLBACK_HOURS)
 CALLBACK_HOLD = max(MANUAL_CALLBACK, NO_PICKUP_CALLBACK) + timedelta(seconds=2)
 # Explicit CRM statuses that stay as-is when a Total dials row is written.
-TOTAL_DIALS_PRESERVED_STATUSES = frozenset({"send_info", "booked", "disqualified", "no_answer_disqualified"})
+TOTAL_DIALS_PRESERVED_STATUSES = frozenset({
+    "contact_engaged",
+    "qualified",
+    "booked",
+    "proposal_sent",
+    "closed",
+})
 
 
 def normalize_phone(raw):
@@ -185,14 +190,14 @@ def apply_static_callback_status(lead, changed_at=None):
 
     moment = (changed_at or utc_now()).isoformat()
     previous = canonical_status(lead.get("status"))
-    if previous != "call" or lead.get("scheduled_until"):
-        if previous != "call":
+    if previous != "dialed" or lead.get("scheduled_until"):
+        if previous != "dialed":
             lead.setdefault("status_history", []).append({
                 "from_status": previous,
-                "to_status": "call",
+                "to_status": "dialed",
                 "changed_at": moment,
             })
-        lead["status"] = "call"
+        lead["status"] = "dialed"
         lead["scheduled_until"] = None
         return True
     return False
@@ -206,13 +211,13 @@ def apply_total_dials_callback_status(lead, entry=None, now=None):
         return False
     if entry is not None and is_connected_call_log_entry(entry):
         return False
-    if status == "call":
+    if status == "dialed":
         due = callback_due(lead)
         if due is not None and due > moment:
             return False
-    if status not in ("new", "call"):
+    if status not in ("new", "dialed"):
         return False
-    lead["status"] = "call"
+    lead["status"] = "dialed"
     lead["scheduled_until"] = (moment + NO_PICKUP_CALLBACK).isoformat()
     return True
 
@@ -222,32 +227,29 @@ def dial_cap_reached(lead):
 
 
 def apply_dial_cap_to_lead(lead):
-    """Mark no_answer_disqualified after enough dials with no live contact. Returns True when changed."""
+    """Mark closed after enough dials with no live contact. Returns True when changed."""
     if not dial_cap_reached(lead):
         return False
     if lead_has_live_contact(lead):
         return False
     if canonical_status(lead.get("status")) in NEVER_DIAL_STATUSES:
         return False
-    lead["status"] = "no_answer_disqualified"
+    lead["status"] = "closed"
     lead["scheduled_until"] = None
     return True
 
 
 def repair_dial_status_for_lead(lead):
-    """Fix auto-disqualified statuses mistaken for sales DQ. Returns next status or None."""
+    """Fix prospects marked closed by the dial cap when the cap no longer applies."""
     status = canonical_status(lead.get("status"))
     has_live = lead_has_live_contact(lead)
     at_cap = dial_cap_reached(lead)
-    if status == "disqualified":
-        if has_live:
-            return None
-        return "no_answer_disqualified" if at_cap else "new"
-    if status == "no_answer_disqualified":
-        if has_live:
-            return "disqualified"
-        if not at_cap:
-            return "new"
+    if status != "closed":
+        return None
+    if has_live:
+        return None
+    if not at_cap:
+        return "new"
     return None
 
 
@@ -330,7 +332,7 @@ def callback_due(lead):
 
 def is_dialable_callback(lead, now=None):
     """Callback status with no timer or an elapsed timer — eligible for the New dial pool."""
-    if canonical_status(lead.get("status")) != "call":
+    if canonical_status(lead.get("status")) != "dialed":
         return False
     moment = now or utc_now()
     due = callback_due(lead)
@@ -344,12 +346,12 @@ def matches_dial_pool(lead, pool_status, now=None):
     moment = now or utc_now()
     status = canonical_status(lead.get("status"))
     pool_status = resolve_pool_status(pool_status)
-    if pool_status == "send_info":
-        return status == "send_info"
+    if pool_status == "contact_engaged":
+        return status == "contact_engaged"
     if pool_status == "new":
         if status == "new":
             return True
-        if status == "call":
+        if status == "dialed":
             return is_dialable_callback(lead, moment)
         return False
     return status == pool_status
@@ -357,7 +359,7 @@ def matches_dial_pool(lead, pool_status, now=None):
 
 def apply_callback_timer_migration_to_lead(lead, now):
     """One-time per lead: shift open callbacks forward after the 48h → 2h policy change."""
-    if lead.get("status") != "call" or not lead.get("scheduled_until"):
+    if lead.get("status") != "dialed" or not lead.get("scheduled_until"):
         return False
     fields = lead.setdefault("fields", {})
     if fields.get(CALLBACK_TIMER_MIGRATION_FIELD):
@@ -463,7 +465,7 @@ def pool_leads(
             if lead["id"] == anchor_id or (lead.get("timezone") or "Unknown") == zone
         ]
     if pool_status == "new":
-        random.shuffle(indexed)
+        indexed.sort(key=lambda item: item[0])
     else:
         indexed.sort(key=lambda item: (bool(item[1].get("passed_at")), item[1].get("passed_at") or "", item[0]))
     ordered = [lead for _index, lead in indexed]
@@ -497,7 +499,7 @@ def callback_sync_plan(leads, now):
     """New prospects that should inherit an open callback from a matching Total dials row."""
     sources = {}
     for lead in leads or []:
-        if lead.get("status") != "call" or not dial_times(lead):
+        if lead.get("status") != "dialed" or not dial_times(lead):
             continue
         due = callback_due(lead)
         if due is None:

@@ -97,7 +97,7 @@ def scan_crm(state):
     synced = 0
     for item in plan:
         try:
-            state.crm.set_status(item["id"], "call", item["scheduled_until"])
+            state.crm.set_status(item["id"], "dialed", item["scheduled_until"])
         except ValueError:
             continue
         synced += 1
@@ -112,7 +112,7 @@ def scan_crm(state):
     capped = dial_caps.get("capped", 0)
     if capped:
         noun = "prospect" if capped == 1 else "prospects"
-        state.record_activity(f"Marked {capped} {noun} no answer (disqualified) (5+ dials)", "web")
+        state.record_activity(f"Marked {capped} {noun} closed — dial cap (5+ dials, no live contact)", "web")
     remember_open_skips(state)
     backfilled = repair_total_dials_callbacks(state)
     if backfilled:
@@ -121,8 +121,7 @@ def scan_crm(state):
     return {
         "synced": synced,
         "repaired": dial_caps,
-        "no_answer_disqualified": capped,
-        "disqualified": capped,
+        "dial_cap_closed": capped,
         "callback_backfill": backfilled,
         "state": projection.public_state(state),
     }
@@ -139,7 +138,7 @@ def maybe_enforce_dial_caps(state):
     capped = dial_caps.get("capped", 0)
     if capped:
         noun = "prospect" if capped == 1 else "prospects"
-        state.record_activity(f"Marked {capped} {noun} no answer (disqualified) (5+ dials)", "web")
+        state.record_activity(f"Marked {capped} {noun} closed — dial cap (5+ dials, no live contact)", "web")
     return capped
 
 
@@ -411,7 +410,7 @@ def remember_open_skips(state):
     """Keep an open callback that has no matching dial record in the dial list."""
     now = utc_now()
     for lead in state.crm.snapshot():
-        if lead.get("status") != "call" or not lead.get("scheduled_until"):
+        if lead.get("status") != "dialed" or not lead.get("scheduled_until"):
             continue
         try:
             due = datetime.fromisoformat(str(lead["scheduled_until"]))
@@ -430,7 +429,7 @@ def schedule_callback(state, lead_id, scheduled_until=None, log_skip=True):
     """Set a manual callback (2 hours by default). log_skip adds the dial-list entry for it."""
     now = utc_now().replace(microsecond=0)
     due = scheduled_until or (now + calls.MANUAL_CALLBACK).isoformat()
-    lead = state.crm.set_status(lead_id, "call", due)
+    lead = state.crm.set_status(lead_id, "dialed", due)
     if log_skip:
         remember_skip(state, lead_id, now)
     return lead

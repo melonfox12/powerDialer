@@ -116,6 +116,9 @@ class SettingsTests(unittest.TestCase):
         class RecordingClient:
             anon_key = "anon"
 
+            def select_all(self, resource, params):
+                return []
+
             def request(self, method, resource, params=None, payload=None, prefer=None):
                 calls.append((method, resource))
                 return [] if method == "GET" else None

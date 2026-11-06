@@ -1,5 +1,6 @@
 import { request } from "./api.js";
 import { state } from "./state.js";
+import { ensurePipelineRuntimeFromCatalog } from "../features/_pipeline/pipeline-steps.js";
 
 /** Merge dialer snapshot fields without wiping cached lead rows. */
 export function mergeLiveState(live) {
@@ -8,11 +9,20 @@ export function mergeLiveState(live) {
   const pool = state.pool;
   const timezoneGroups = state.timezone_groups;
   const counts = state.counts;
+  const pipelineSteps = state.pipeline_steps;
+  const pipelineRevision = state.pipeline_revision;
   Object.assign(state, live);
   if (!Object.prototype.hasOwnProperty.call(live, "leads")) state.leads = leads;
   if (!Object.prototype.hasOwnProperty.call(live, "pool")) state.pool = pool;
   if (!Object.prototype.hasOwnProperty.call(live, "timezone_groups")) state.timezone_groups = timezoneGroups;
   if (!Object.prototype.hasOwnProperty.call(live, "counts")) state.counts = counts;
+  if (!Object.prototype.hasOwnProperty.call(live, "pipeline_steps")) state.pipeline_steps = pipelineSteps;
+  if (!Object.prototype.hasOwnProperty.call(live, "pipeline_revision")) state.pipeline_revision = pipelineRevision;
+  if (live.pipeline_steps?.length) {
+    state.pipeline_steps = live.pipeline_steps;
+    state.pipeline_revision = live.pipeline_revision ?? state.pipeline_revision;
+    ensurePipelineRuntimeFromCatalog(live);
+  }
 }
 
 export function mergeLeadPatch(leads, patch) {
@@ -26,6 +36,11 @@ export function applyLeadsCatalog(catalog) {
   if (!catalog) return;
   state.leads_version = catalog.leads_version;
   state.leads = catalog.leads || [];
+  if (Array.isArray(catalog.pipeline_steps) && catalog.pipeline_steps.length) {
+    state.pipeline_steps = catalog.pipeline_steps;
+    state.pipeline_revision = catalog.pipeline_revision ?? state.pipeline_revision;
+    ensurePipelineRuntimeFromCatalog(catalog);
+  }
   state.archived_dials = catalog.archived_dials || [];
   state.dials_version = catalog.dials_version ?? state.dials_version;
   state.dial_records = catalog.dial_records || [];
@@ -51,6 +66,11 @@ export async function refreshLeadsIfStale(expectedVersion) {
 export async function applyMutationPayload(payload) {
   const before = state.leads_version;
   if (payload?.state) mergeLiveState(payload.state);
+  if (payload?.state?.pipeline_steps?.length) {
+    state.pipeline_steps = payload.state.pipeline_steps;
+    state.pipeline_revision = payload.state.pipeline_revision ?? state.pipeline_revision;
+    ensurePipelineRuntimeFromCatalog(payload.state);
+  }
   if (payload?.lead) mergeLeadPatch(state.leads, payload.lead);
   const after = payload?.state?.leads_version ?? state.leads_version;
   if (!Array.isArray(state.leads) || after !== before) {

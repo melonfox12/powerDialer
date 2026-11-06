@@ -1,6 +1,7 @@
 import { state } from "./state.js";
 
 const vocabulary = JSON.parse(document.getElementById("vocabulary").textContent);
+export const MARKETING_TOUCHES_FIELD = vocabulary.marketingTouchesField || "Marketing touches";
 export const STATUS_STYLES = Object.fromEntries(vocabulary.statuses.map((status) => [status.key, {
   label: status.label,
   color: status.color,
@@ -10,25 +11,34 @@ export const STATUS_LABELS = Object.fromEntries(Object.entries(STATUS_STYLES).ma
 export const STATUS_COLOR_VARS = Object.fromEntries(Object.entries(STATUS_STYLES).map(([status, style]) => [status, style.color]));
 export const STATUS_KEYS = vocabulary.statuses.map((status) => status.key);
 // Mirrors shared/vocabulary.py when the page was served before crmStatusKeys was added.
-const FALLBACK_CRM_STATUS_KEYS = ["new", "call", "send_info", "booked", "disqualified", "no_answer_disqualified"];
+const FALLBACK_CRM_STATUS_KEYS = [
+  "new",
+  "dialed",
+  "contact_engaged",
+  "qualified",
+  "booked",
+  "proposal_sent",
+  "closed",
+];
 const FALLBACK_CRM_STATUS_LABELS = {
   new: "New",
-  call: "Callback",
-  send_info: "Send info",
+  dialed: "Dialed",
+  contact_engaged: "Contact (engaged)",
+  qualified: "Qualified",
   booked: "Booked",
-  disqualified: "Disqualified",
-  no_answer_disqualified: "No answer (disqualified)",
+  proposal_sent: "Proposal sent",
+  closed: "Closed",
 };
 export const CRM_STATUS_KEYS = Array.isArray(vocabulary.crmStatusKeys) && vocabulary.crmStatusKeys.length
   ? vocabulary.crmStatusKeys
   : FALLBACK_CRM_STATUS_KEYS;
 export const CRM_STATUS_LABELS = vocabulary.crmStatusLabels ?? FALLBACK_CRM_STATUS_LABELS;
-const FALLBACK_NEVER_DIAL_STATUSES = ["booked", "disqualified", "no_answer_disqualified"];
+const FALLBACK_NEVER_DIAL_STATUSES = ["booked", "proposal_sent", "closed"];
 export const NEVER_DIAL_STATUSES = Array.isArray(vocabulary.neverDialStatuses) && vocabulary.neverDialStatuses.length
   ? vocabulary.neverDialStatuses
   : FALLBACK_NEVER_DIAL_STATUSES;
-const FALLBACK_DIAL_POOL_STATUSES = ["new", "send_info"];
-const FALLBACK_DIAL_POOL_STATUS_LABELS = { new: "New", send_info: "Send info" };
+const FALLBACK_DIAL_POOL_STATUSES = ["new", "contact_engaged"];
+const FALLBACK_DIAL_POOL_STATUS_LABELS = { new: "New", contact_engaged: "Contact (engaged)" };
 export const DIAL_POOL_STATUSES = Array.isArray(vocabulary.dialPoolStatuses) && vocabulary.dialPoolStatuses.length
   ? vocabulary.dialPoolStatuses
   : FALLBACK_DIAL_POOL_STATUSES;
@@ -53,7 +63,7 @@ export const CALLER_ID_GROUPS = Array.isArray(vocabulary.callerIdGroups) && voca
   : FALLBACK_CALLER_ID_GROUPS;
 export const DEFAULT_CALLER_ID_GROUP = vocabulary.defaultCallerIdGroup || "eastern";
 export const CALLBACK_STATUS_HOURS = vocabulary.callbackStatusHours ?? 2;
-// A prospect in a never-dial status cannot go back to "new" or "call".
+// A prospect in a never-dial status cannot go back to "new" or "dialed".
 export const leavesQueueForGood = (lead, status) => (
   NEVER_DIAL_STATUSES.includes(lead?.status) && !NEVER_DIAL_STATUSES.includes(status)
 );
@@ -68,7 +78,7 @@ export const HEATMAP_MIN_BUCKET_DIALS = vocabulary.heatmapMinBucketDials;
 
 const FALLBACK_PIPELINE_STEPS = [
   { key: "dialed", label: "Dialed", wait_hours: 0 },
-  { key: "call_1", label: "Call 1", wait_hours: 0 },
+  { key: "call_1", label: "Contacted (engaged)", wait_hours: 0 },
   { key: "email_1", label: "Email 1", wait_hours: 36 },
   { key: "linkedin_add", label: "LinkedIn add request", wait_hours: 36 },
   { key: "call_2", label: "Call 2", wait_hours: 36 },
@@ -78,22 +88,80 @@ const FALLBACK_PIPELINE_STEPS = [
   { key: "email_3", label: "Email 3", wait_hours: 36 },
   { key: "any_channel", label: "Any channel (every 60–90 days)", wait_hours: 75 * 24 },
 ];
-export const PIPELINE_STEPS = Array.isArray(vocabulary.pipelineSteps) && vocabulary.pipelineSteps.length
+const VOCAB_PIPELINE_STEPS = Array.isArray(vocabulary.pipelineSteps) && vocabulary.pipelineSteps.length
   ? vocabulary.pipelineSteps
   : FALLBACK_PIPELINE_STEPS;
-export const PIPELINE_STEP_KEYS = PIPELINE_STEPS.map((item) => item.key);
+
+let _pipelineRuntimeSteps = VOCAB_PIPELINE_STEPS.map((item) => ({ ...item }));
+
+function rebuildPipelineWaitMap() {
+  return Object.fromEntries(_pipelineRuntimeSteps.map((item) => [item.key, item.wait_hours]));
+}
+
+let PIPELINE_WAIT_HOURS = rebuildPipelineWaitMap();
+
+export function getPipelineSteps() {
+  return _pipelineRuntimeSteps;
+}
+
+export function getPipelineStepKeys() {
+  return _pipelineRuntimeSteps.map((item) => item.key);
+}
+
+export function setPipelineRuntimeSteps(steps) {
+  if (!Array.isArray(steps) || steps.length < 2) return;
+  _pipelineRuntimeSteps = steps.map((item) => ({
+    key: String(item.key),
+    label: String(item.label),
+    wait_hours: Number(item.wait_hours) || 0,
+  }));
+  PIPELINE_WAIT_HOURS = rebuildPipelineWaitMap();
+}
+
+/** Initial boot: vocabulary only; GET /api/leads replaces with server steps when available. */
+export const PIPELINE_STEPS = VOCAB_PIPELINE_STEPS;
+export const PIPELINE_STEP_KEYS = VOCAB_PIPELINE_STEPS.map((item) => item.key);
 export const PIPELINE_FIRST_STEP = vocabulary.pipelineFirstStep || PIPELINE_STEP_KEYS[0] || "dialed";
 export const PIPELINE_DIALED_STEP = vocabulary.pipelineDialedStep || "dialed";
 export const PIPELINE_SEND_INFO_STEP = vocabulary.pipelineSendInfoStep || "call_1";
-const FALLBACK_PIPELINE_CRM_STATUS_KEYS = ["send_info", "call", "disqualified", "booked"];
+export const PIPELINE_LOCKED_STEP_KEYS = [PIPELINE_DIALED_STEP, PIPELINE_SEND_INFO_STEP];
+
+const PIPELINE_STEP_KEY_RE = /^[a-z][a-z0-9_]{0,62}$/;
+const MAX_PIPELINE_STEP_KEY_LEN = 63;
+
+/** Turn free text into a storage key (matches shared.pipeline_config.normalize_pipeline_step_key). */
+export function formatPipelineStepKey(raw) {
+  const s = String(raw ?? "").trim().toLowerCase();
+  const parts = [];
+  let buf = "";
+  for (const ch of s) {
+    if ((ch >= "a" && ch <= "z") || (ch >= "0" && ch <= "9")) {
+      buf += ch;
+    } else if (buf) {
+      parts.push(buf);
+      buf = "";
+    }
+  }
+  if (buf) parts.push(buf);
+  let key = parts.join("_").replace(/^_+|_+$/g, "");
+  if (!key) return "";
+  if (/^\d/.test(key)) key = `step_${key}`;
+  if (key.length > MAX_PIPELINE_STEP_KEY_LEN) {
+    key = key.slice(0, MAX_PIPELINE_STEP_KEY_LEN).replace(/_+$/g, "");
+  }
+  if (!key || !/^[a-z]/.test(key)) return "";
+  return PIPELINE_STEP_KEY_RE.test(key) ? key : "";
+}
+const FALLBACK_PIPELINE_CRM_STATUS_KEYS = [];
 export const PIPELINE_CRM_STATUS_KEYS = Array.isArray(vocabulary.pipelineCrmStatusKeys)
   && vocabulary.pipelineCrmStatusKeys.length
   ? vocabulary.pipelineCrmStatusKeys
   : FALLBACK_PIPELINE_CRM_STATUS_KEYS;
-const PIPELINE_WAIT_HOURS = Object.fromEntries(PIPELINE_STEPS.map((item) => [item.key, item.wait_hours]));
 
 export function pipelineWaitHours(stepKey) {
-  return PIPELINE_WAIT_HOURS[stepKey] ?? PIPELINE_WAIT_HOURS[PIPELINE_FIRST_STEP] ?? 36;
+  const k = String(stepKey || "");
+  if (PIPELINE_WAIT_HOURS[k] !== undefined) return PIPELINE_WAIT_HOURS[k];
+  return PIPELINE_WAIT_HOURS[PIPELINE_FIRST_STEP] ?? 36;
 }
 
 export function pipelineReadyAt(stepKey, enteredAtIso) {
@@ -166,7 +234,7 @@ export function callbackCountdown(until, now = Date.now()) {
 }
 
 export function crmStatusOptionText(value, lead) {
-  if (value === "call" && lead?.status === "call" && lead.scheduled_until) {
+  if (value === "dialed" && lead?.status === "dialed" && lead.scheduled_until) {
     return callbackStatusText(lead);
   }
   return CRM_STATUS_LABELS[value] || STATUS_LABELS[value] || value;
@@ -174,13 +242,13 @@ export function crmStatusOptionText(value, lead) {
 
 export function callbackStatusText(lead, now = Date.now()) {
   const label = STATUS_LABELS[lead?.status] || "New";
-  if (lead?.status !== "call" || !lead.scheduled_until) return label;
+  if (lead?.status !== "dialed" || !lead.scheduled_until) return label;
   const countdown = callbackCountdown(lead.scheduled_until, now);
   return countdown ? `${label} ${countdown}` : label;
 }
 
 export function markCallback(node, lead) {
-  if (lead?.status === "call" && lead.scheduled_until) {
+  if (lead?.status === "dialed" && lead.scheduled_until) {
     node.dataset.callbackUntil = lead.scheduled_until;
     return true;
   }
@@ -260,7 +328,7 @@ export function appendStatusPill(parent, lead) {
   pill.setAttribute("aria-label", `Status: ${STATUS_LABELS[currentStatus] || "New"}`);
   pill.textContent = callbackStatusText(lead);
   if (markCallback(pill, lead)) {
-    pill.dataset.callbackPrefix = `${STATUS_LABELS.call} `;
+    pill.dataset.callbackPrefix = `${STATUS_LABELS.dialed || "Dialed"} `;
   }
   parent.append(pill);
   return pill;
@@ -274,10 +342,10 @@ export function startStatusClock() {
     }
     for (const node of document.querySelectorAll("[data-callback-until]")) {
       const countdown = callbackCountdown(node.dataset.callbackUntil, now);
-      const text = `${node.dataset.callbackPrefix || "Callback "}${countdown}`;
+      const text = `${node.dataset.callbackPrefix || "Dialed "}${countdown}`;
       if (node.tagName === "SELECT") {
         if (node.dataset.statusMenuOpen) continue;
-        const option = node.querySelector('option[value="call"]');
+        const option = node.querySelector('option[value="dialed"]');
         if (option) option.textContent = text;
       } else {
         node.textContent = text;

@@ -1,8 +1,13 @@
 """Preference validation, settings view, and env or account persistence."""
 
+import json
 from datetime import date
 
 from shared.config import read_env, write_env
+from shared.pipeline_config import (
+    LOCKED_PIPELINE_KEYS,
+    parse_custom_pipeline_steps_json,
+)
 from shared.vocabulary import (
     DAILY_GOAL_MAX_MINUTES,
     REMOTE_SETTING_KEYS,
@@ -15,6 +20,15 @@ from shared.vocabulary import (
 def preferences(values):
     result = dict(SETTING_DEFAULTS)
     for key in result:
+        if key == "PIPELINE_CUSTOM_STEPS_JSON":
+            raw = values.get(key)
+            if raw is None:
+                result[key] = ""
+            elif isinstance(raw, str):
+                result[key] = raw.strip()
+            else:
+                result[key] = json.dumps(raw, ensure_ascii=False, separators=(",", ":"))
+            continue
         provided = str(values[key] if values.get(key) is not None else "").strip()
         if key == "OPENING_SCRIPT":
             result[key] = str(values.get(key) or "")
@@ -50,6 +64,10 @@ def preferences(values):
         raise ValueError("Sounds enabled must be true or false.")
     if len(result["OPENING_SCRIPT"]) > 2000:
         raise ValueError("Opening script must be 2,000 characters or fewer.")
+    if result.get("PIPELINE_CUSTOM_STEPS_JSON"):
+        _, err = parse_custom_pipeline_steps_json(result["PIPELINE_CUSTOM_STEPS_JSON"])
+        if err:
+            raise ValueError(err)
     return result
 
 
@@ -60,9 +78,25 @@ def values(env_path, account_values, *, signed_in):
     return {**server, **account_values}
 
 
+def _pipeline_json_from_post(data):
+    """Build PIPELINE_CUSTOM_STEPS_JSON from settings form POST."""
+    raw = data.get("pipeline_custom_steps_json")
+    if raw is not None:
+        return str(raw).strip()
+    steps = data.get("pipeline_custom_steps")
+    if steps is None:
+        return None
+    if isinstance(steps, str):
+        return steps.strip()
+    if isinstance(steps, list):
+        return json.dumps(steps, ensure_ascii=False, separators=(",", ":"))
+    return ""
+
+
 def settings_state(env_path, account_values, storage_name="local JSON files", account_email="", *, signed_in):
     current = values(env_path, account_values, signed_in=signed_in)
     parsed = preferences(current)
+    tail, _ = parse_custom_pipeline_steps_json(parsed.get("PIPELINE_CUSTOM_STEPS_JSON") or "")
     return {
         "account_sid": current.get("TWILIO_ACCOUNT_SID", ""),
         "auth_token": "",
@@ -87,6 +121,8 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
         "daily_conversation_goal": int(parsed["DAILY_CONVERSATION_GOAL"]),
         "daily_goal_weekly_step": int(parsed["DAILY_GOAL_WEEKLY_STEP_MINUTES"]),
         "daily_goal_anchor": parsed["DAILY_GOAL_ANCHOR"],
+        "pipeline_custom_steps": tail,
+        "pipeline_locked_step_keys": sorted(LOCKED_PIPELINE_KEYS),
     }
 
 
@@ -138,7 +174,7 @@ def save_goal(env_path, account_values, account_user_id, data, today, save_remot
 def save_settings(env_path, account_values, account_user_id, data, save_remote=None):
     signed_in = bool(account_user_id)
     existing = values(env_path, account_values, signed_in=signed_in)
-    parsed = preferences({
+    candidate = {
         **existing,
         "DAILY_GOAL_MINUTES": data.get("daily_goal_minutes", existing.get("DAILY_GOAL_MINUTES")),
         "DAILY_GOAL_WEEKLY_STEP_MINUTES": data.get("daily_goal_weekly_step", existing.get("DAILY_GOAL_WEEKLY_STEP_MINUTES")),
@@ -152,7 +188,12 @@ def save_settings(env_path, account_values, account_user_id, data, save_remote=N
         "CALLING_START_HOUR": data.get("calling_start_hour", SETTING_DEFAULTS["CALLING_START_HOUR"]),
         "CALLING_END_HOUR": data.get("calling_end_hour", SETTING_DEFAULTS["CALLING_END_HOUR"]),
         "OPENING_SCRIPT": data.get("opening_script", ""),
-    })
+    }
+    if "pipeline_custom_steps" in data or "pipeline_custom_steps_json" in data:
+        pj = _pipeline_json_from_post(data)
+        if pj is not None:
+            candidate["PIPELINE_CUSTOM_STEPS_JSON"] = pj
+    parsed = preferences(candidate)
     current = values(env_path, account_values, signed_in=signed_in)
     updates = {
         "TWILIO_ACCOUNT_SID": str(data.get("account_sid", "")),
@@ -172,7 +213,8 @@ def save_settings(env_path, account_values, account_user_id, data, save_remote=N
         if save_remote:
             save_remote(values(env_path, account_values, signed_in=True))
     else:
-        write_env(env_path, updates)
+        merged = write_env(env_path, updates)
+        account_values.update(merged)
     return parsed
 
 

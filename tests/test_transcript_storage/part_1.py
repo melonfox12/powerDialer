@@ -20,7 +20,7 @@ class Part1:
                 "business": "Analytical Engines",
                 "phone": "(202) 555-0142",
                 "timezone": "Pacific",
-                "status": "send_info",
+                "status": "contact_engaged",
                 "transcript": "Asked for a follow-up.",
                 "fields": {"Email": "ada@example.com"},
             })
@@ -29,7 +29,7 @@ class Part1:
             saved = ProspectStore(Path(directory) / "crm.json").snapshot()[0]
             self.assertEqual(saved["name"], "Ada Lovelace")
             self.assertEqual(saved["business"], "Analytical Engines")
-            self.assertEqual(saved["status"], "send_info")
+            self.assertEqual(saved["status"], "contact_engaged")
             self.assertEqual(saved["fields"]["Email"], "ada@example.com")
             self.assertEqual(saved["transcript"][0]["text"], "Asked for a follow-up.")
             with self.assertRaises(ValueError):
@@ -44,10 +44,10 @@ class Part1:
             "name": "Grace Hopper",
             "business": "Navy",
             "phone": "4155550199",
-            "status": "call",
+            "status": "dialed",
         })
         self.assertEqual(lead["phone"], "+14155550199")
-        self.assertEqual(lead["status"], "call")
+        self.assertEqual(lead["status"], "dialed")
         self.assertTrue(lead["scheduled_until"])
         self.assertEqual(client.leads[lead["id"]]["name"], "Grace Hopper")
         self.assertEqual(client.users[lead["id"]], "user-a")

@@ -4,7 +4,15 @@ import {
   renderPipelineIfStale,
   tickPipelineTimers,
 } from "./_pipeline/board.js";
+import {
+  bindPipelineEditor,
+  refreshPipelineEditorIfStale,
+  renderPipelineEditor,
+} from "./_pipeline/pipeline-editor.js";
 
+registerRenderer(refreshPipelineEditorIfStale);
 registerRenderer(renderPipelineIfStale);
 
-export { renderPipelineBoardAndRemember, tickPipelineTimers };
+bindPipelineEditor();
+
+export { renderPipelineBoardAndRemember, tickPipelineTimers, renderPipelineEditor };

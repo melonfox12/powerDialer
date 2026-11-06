@@ -188,7 +188,10 @@ export function setDashboardTab(name, moveFocus = false) {
     import("../features/_dialer/dials.js").then((module) => module.refreshDialsTab());
   }
   if (S.dashboardTab === "pipeline") {
-    import("../features/pipeline.js").then((module) => module.renderPipelineBoardAndRemember());
+    import("../features/pipeline.js").then((module) => {
+      module.renderPipelineEditor();
+      module.renderPipelineBoardAndRemember();
+    });
   }
   if (S.dashboardTab === "performance") {
     import("../features/performance.js").then((module) => module.repaintPerformanceChart());

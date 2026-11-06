@@ -4,34 +4,32 @@ import json
 
 STATUSES = (
     {"key": "new", "label": "New", "color": "--muted", "className": "neutral"},
-    {"key": "call", "label": "Callback", "color": "--callback", "className": "callback"},
-    {"key": "send_info", "label": "Send info", "color": "--blue", "className": "info"},
+    {"key": "dialed", "label": "Dialed", "color": "--callback", "className": "callback"},
+    {"key": "contact_engaged", "label": "Contact (engaged)", "color": "--blue", "className": "info"},
+    {"key": "qualified", "label": "Qualified", "color": "--blue", "className": "info"},
     {"key": "booked", "label": "Booked", "color": "--success", "className": "positive"},
-    {"key": "disqualified", "label": "Disqualified", "color": "--red", "className": "negative"},
-    {"key": "no_answer_disqualified", "label": "No answer (disqualified)", "color": "--red", "className": "no-answer-dq"},
+    {"key": "proposal_sent", "label": "Proposal sent", "color": "--success", "className": "positive"},
+    {"key": "closed", "label": "Closed", "color": "--red", "className": "negative"},
 )
 STATUS_KEYS = tuple(item["key"] for item in STATUSES)
-# CRM table and add-prospect menus (dialer outcome buttons use STATUS_CALL_OUTCOME only).
-CRM_STATUS_KEYS = ("new", "call", "send_info", "booked", "disqualified", "no_answer_disqualified")
-CRM_STATUS_LABELS = {
-    "new": "New",
-    "call": "Callback",
-    "send_info": "Send info",
-    "booked": "Booked",
-    "disqualified": "Disqualified",
-    "no_answer_disqualified": "No answer (disqualified)",
-}
+# CRM table, imports, and dialer (subset for in-call buttons: STATUS_CALL_OUTCOME).
+CRM_STATUS_KEYS = STATUS_KEYS
+CRM_STATUS_LABELS = {item["key"]: item["label"] for item in STATUSES}
 # Statuses that no longer exist. A stored record that still carries one is read as the status that replaced it.
 LEGACY_STATUSES = {
-    "interested": "disqualified",
-    "not_interested": "disqualified",
-    "do_not_call": "disqualified",
+    "interested": "closed",
+    "not_interested": "closed",
+    "do_not_call": "closed",
+    "call": "dialed",
+    "send_info": "contact_engaged",
+    "disqualified": "closed",
+    "no_answer_disqualified": "closed",
 }
 
-# A prospect in one of these statuses never goes back to "new" or "call" and is never dialed.
-NEVER_DIAL_STATUSES = ("booked", "disqualified", "no_answer_disqualified")
+# Never auto-dialed from the pool.
+NEVER_DIAL_STATUSES = ("booked", "proposal_sent", "closed")
 # Auto-dial pool modes on the Dialer (timezone filter stacks on top).
-DIAL_POOL_STATUSES = ("new", "send_info")
+DIAL_POOL_STATUSES = ("new", "contact_engaged")
 DEFAULT_DIAL_POOL_STATUS = "new"
 DEFAULT_BUSINESS_TYPE = "pest control"
 DIAL_BUSINESS_TYPE_OPTIONS = (
@@ -56,8 +54,8 @@ def dial_business_type_label(key):
         if item["key"].casefold() == folded:
             return item["label"]
     return str(key or "").strip()
-DIAL_POOL_STATUS_LABELS = {"new": "New", "send_info": "Send info"}
-# Five or more dials with no live contact → no_answer_disqualified (not sales disqualified).
+DIAL_POOL_STATUS_LABELS = {"new": "New", "contact_engaged": "Contact (engaged)"}
+# Five or more dials with no live contact → closed (dial-cap rule).
 NO_ANSWER_DISQUALIFY_MIN_DIALS = 5
 # Back-compat name for imports/tests that referenced the old cap constant.
 MAX_DIAL_ATTEMPTS_BEFORE_DISQUALIFY = NO_ANSWER_DISQUALIFY_MIN_DIALS
@@ -80,6 +78,8 @@ CALLBACK_TIMER_MIGRATION_SHIFT_HOURS = LEGACY_NO_PICKUP_CALLBACK_HOURS - NO_PICK
 # Legacy name kept for imports; automatic no-pickup callbacks use NO_PICKUP_CALLBACK_HOURS.
 DROPPED_CALLBACK_MINUTES = NO_PICKUP_CALLBACK_HOURS * 60
 CALLBACK_TIMER_MIGRATION_FIELD = "callback_timer_48h_to_2h"
+# CRM extra field: JSON array of {kind, at} marketing touch events (pipeline card timeline).
+MARKETING_TOUCHES_FIELD = "Marketing touches"
 # One-time backfill: Nov 5 dials + New + created that day → static Callback.
 NOV5_2026_STATIC_CALLBACK_DATE = "2026-11-05"
 NOV5_2026_STATIC_CALLBACK_MIGRATION_FLAG = "nov5_2026_static_callback_v2"
@@ -87,25 +87,30 @@ NOV5_2026_STATIC_CALLBACK_SETTING = "NOV5_2026_STATIC_CALLBACK_DONE"
 
 DISPOSITION_TO_STATUS = {
     "booked": "booked",
-    "callback": "call",
-    "send_info": "send_info",
-    "not_interested": "disqualified",
-    "no_answer": "call",
-    "do_not_call": "disqualified",
+    "callback": "dialed",
+    "send_info": "contact_engaged",
+    "not_interested": "closed",
+    "no_answer": "dialed",
+    "do_not_call": "closed",
 }
 
-# Send info is the interested signal: that counter keeps its stored name.
+# Metric buckets (legacy keys in metrics store).
 OUTCOME_METRIC = {
-    "call": "call_later",
-    "send_info": "interested",
+    "dialed": "call_later",
+    "contact_engaged": "interested",
+    "qualified": "interested",
     "booked": "booked",
+    "proposal_sent": "interested",
+    "closed": "disqualified",
 }
-# The tag each status button leaves on the call it ended.
+# In-call CRM buttons (subset of STATUS_KEYS).
 STATUS_CALL_OUTCOME = {
-    "call": "call_back",
-    "send_info": "send_info",
+    "dialed": "call_back",
+    "contact_engaged": "send_info",
+    "qualified": "send_info",
     "booked": "booked",
-    "disqualified": "not_interested",
+    "proposal_sent": "send_info",
+    "closed": "not_interested",
 }
 DEFAULT_OUTCOME_METRIC = "disqualified"
 
@@ -150,10 +155,11 @@ CALL_STATES = ("creating", "calling agent", "ringing", "live", "cancelled", "end
 PIPELINE_DIALED_STEP = "dialed"
 PIPELINE_SEND_INFO_STEP = "call_1"
 # Pipeline card status menu (subset of CRM statuses).
-PIPELINE_CRM_STATUS_KEYS = ("send_info", "call", "disqualified", "booked")
+# Pipeline cards no longer show a status menu; status follows the column (synced in CRM).
+PIPELINE_CRM_STATUS_KEYS = ()
 PIPELINE_STEPS = (
     {"key": "dialed", "label": "Dialed", "wait_hours": 0},
-    {"key": "call_1", "label": "Call 1", "wait_hours": 0},
+    {"key": "call_1", "label": "Contacted (engaged)", "wait_hours": 0},
     {"key": "email_1", "label": "Email 1", "wait_hours": 36},
     {"key": "linkedin_add", "label": "LinkedIn add request", "wait_hours": 36},
     {"key": "call_2", "label": "Call 2", "wait_hours": 36},
@@ -170,6 +176,16 @@ PIPELINE_WAIT_BY_KEY = {item["key"]: item["wait_hours"] for item in PIPELINE_STE
 
 def pipeline_wait_hours(step_key):
     return PIPELINE_WAIT_BY_KEY.get(str(step_key or "").strip(), PIPELINE_WAIT_BY_KEY[PIPELINE_FIRST_STEP])
+
+
+def pipeline_step_to_status(step_key):
+    """CRM status for a prospect in this pipeline column (keys are stable; labels are UI)."""
+    k = str(step_key or "").strip()
+    if k == PIPELINE_DIALED_STEP:
+        return "dialed"
+    if k == PIPELINE_SEND_INFO_STEP:
+        return "contact_engaged"
+    return "qualified"
 
 TIMEZONE_NAMES = {
     "Eastern": "America/New_York",
@@ -226,6 +242,7 @@ def caller_ids_for_group(key):
     return list(CALLER_ID_GROUPS[resolve_caller_id_group(key)]["caller_ids"])
 
 SETTING_DEFAULTS = {
+    "PIPELINE_CUSTOM_STEPS_JSON": "",
     "SESSION_GOAL": "20",
     "CONVERSATION_THRESHOLD_SECONDS": str(CONVERSATION_MIN_SECONDS),
     "AUTO_ADVANCE_DELAY_SECONDS": "3",
@@ -258,7 +275,7 @@ SUPABASE_ENV_KEYS = (
     "SUPABASE_ANON_KEY",
     "SUPABASE_PUBLISHABLE_KEY",
 )
-REMOTE_SETTING_KEYS = TWILIO_ACCOUNT_KEYS + SETTING_KEYS
+REMOTE_SETTING_KEYS = TWILIO_ACCOUNT_KEYS + SETTING_KEYS + ("PIPELINE_CUSTOM_STEPS_JSON",)
 ENV_KEYS = TWILIO_ACCOUNT_KEYS + SUPABASE_ENV_KEYS + SETTING_KEYS
 SETTINGS_ROW_ID = "app"
 
@@ -269,14 +286,19 @@ SECRET_INPUTS = (
 
 
 _STATUS_LABEL_ALIASES = {
-    "callback": "call",
-    "callback (12 hour timer)": "call",
-    "callback (2 hour timer)": "call",
-    "send info": "send_info",
-    "not interested": "disqualified",
-    "do not call": "disqualified",
-    "interested": "disqualified",
-    "no answer (disqualified)": "no_answer_disqualified",
+    "callback": "dialed",
+    "callback (12 hour timer)": "dialed",
+    "callback (2 hour timer)": "dialed",
+    "send info": "contact_engaged",
+    "contact (engaged)": "contact_engaged",
+    "contacted (engaged)": "contact_engaged",
+    "not interested": "closed",
+    "do not call": "closed",
+    "interested": "closed",
+    "disqualified": "closed",
+    "no answer (disqualified)": "closed",
+    "call": "dialed",
+    "send_info": "contact_engaged",
 }
 
 
@@ -353,6 +375,7 @@ def browser_vocabulary():
         "pipelineCrmStatusKeys": list(PIPELINE_CRM_STATUS_KEYS),
         "settingKeys": list(SETTING_KEYS),
         "secretInputs": [dict(item) for item in SECRET_INPUTS],
+        "marketingTouchesField": MARKETING_TOUCHES_FIELD,
     }
 
 

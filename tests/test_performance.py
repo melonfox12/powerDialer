@@ -31,7 +31,7 @@ def call(minutes_ago, connected=True, seconds=0, answered_by="human", outcome=No
     return entry
 
 
-def lead(lead_id, calls=(), status="call", booked_at=None, status_history=None):
+def lead(lead_id, calls=(), status="dialed", booked_at=None, status_history=None):
     row = {
         "id": lead_id,
         "name": lead_id,
@@ -143,8 +143,8 @@ class WindowTests(unittest.TestCase):
 
 class BookedHistoryTests(unittest.TestCase):
     def test_active_booking_requires_current_booked_status(self):
-        history = [{"from_status": "call", "to_status": "booked", "changed_at": NOW.isoformat()}]
-        booked = lead("a", status="call", status_history=history)
+        history = [{"from_status": "dialed", "to_status": "booked", "changed_at": NOW.isoformat()}]
+        booked = lead("a", status="dialed", status_history=history)
         self.assertIsNone(performance.active_booking_moment(booked))
 
     def test_backfill_uses_booked_at_and_marks_estimated(self):
@@ -157,25 +157,25 @@ class BookedHistoryTests(unittest.TestCase):
     def test_pipeline_booked_matches_history_when_status_booked(self):
         rows = [
             lead("a", status="booked", booked_at=NOW.isoformat()),
-            lead("b", status="call"),
+            lead("b", status="dialed"),
         ]
         self.assertEqual(performance.count_booked_in_pipeline(rows), 1)
         self.assertEqual(performance.count_booked_from_history(rows), 1)
 
     def test_leaving_booked_removes_from_counts(self):
         history = [
-            {"from_status": "call", "to_status": "booked", "changed_at": (NOW - timedelta(days=1)).isoformat()},
-            {"from_status": "booked", "to_status": "call", "changed_at": NOW.isoformat()},
+            {"from_status": "dialed", "to_status": "booked", "changed_at": (NOW - timedelta(days=1)).isoformat()},
+            {"from_status": "booked", "to_status": "dialed", "changed_at": NOW.isoformat()},
         ]
-        row = lead("a", status="call", status_history=history)
+        row = lead("a", status="dialed", status_history=history)
         self.assertIsNone(performance.active_booking_moment(row))
         self.assertEqual(performance.count_booked_from_history([row]), 0)
 
     def test_reentry_counts_once_at_latest_transition(self):
         history = [
-            {"from_status": "call", "to_status": "booked", "changed_at": (NOW - timedelta(days=3)).isoformat()},
-            {"from_status": "booked", "to_status": "call", "changed_at": (NOW - timedelta(days=2)).isoformat()},
-            {"from_status": "call", "to_status": "booked", "changed_at": (NOW - timedelta(days=1)).isoformat()},
+            {"from_status": "dialed", "to_status": "booked", "changed_at": (NOW - timedelta(days=3)).isoformat()},
+            {"from_status": "booked", "to_status": "dialed", "changed_at": (NOW - timedelta(days=2)).isoformat()},
+            {"from_status": "dialed", "to_status": "booked", "changed_at": (NOW - timedelta(days=1)).isoformat()},
         ]
         row = lead("a", status="booked", status_history=history)
         moment = performance.active_booking_moment(row)
@@ -196,7 +196,7 @@ class BuildPerformanceTests(unittest.TestCase):
             "b",
             [call(5, seconds=10, transcript_lines=1)],
             status="booked",
-            status_history=[{"from_status": "call", "to_status": "booked", "changed_at": (NOW - timedelta(minutes=5)).isoformat()}],
+            status_history=[{"from_status": "dialed", "to_status": "booked", "changed_at": (NOW - timedelta(minutes=5)).isoformat()}],
         )
         result = self.build([lead("a", calls), booked])
         counts = result["counts"]

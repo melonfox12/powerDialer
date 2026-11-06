@@ -110,7 +110,7 @@ class LocalBackend:
         with self.lock:
             for lead in self.leads:
                 deadline = lead.get("scheduled_until")
-                if lead.get("status") == "call" and deadline:
+                if lead.get("status") == "dialed" and deadline:
                     try:
                         due = datetime.fromisoformat(deadline)
                     except ValueError:
@@ -170,6 +170,9 @@ class LocalBackend:
             if item["id"] == lead["id"]:
                 self.leads[index] = lead
         self.save()
+
+    def bump_revision(self):
+        self.revision += 1
 
     def remove(self, lead_id):
         with self.lock:

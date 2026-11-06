@@ -57,12 +57,12 @@ class ManualProspectTests(unittest.TestCase):
             crm = ProspectStore(Path(directory) / "crm.json")
             crm.leads = [prospect()]
             crm.save()
-            updated = crm.set_status("prospect-1", "send_info")
+            updated = crm.set_status("prospect-1", "contact_engaged")
             self.assertEqual(updated["pipeline_step"], PIPELINE_SEND_INFO_STEP)
             moved = crm.set_pipeline_step("prospect-1", "email_1")
             self.assertEqual(moved["pipeline_step"], "email_1")
-            crm.set_status("prospect-1", "call")
-            back = crm.set_status("prospect-1", "send_info")
+            crm.set_status("prospect-1", "dialed")
+            back = crm.set_status("prospect-1", "contact_engaged")
             self.assertEqual(back["pipeline_step"], PIPELINE_SEND_INFO_STEP)
 
     def test_field_update_rejects_bad_and_duplicate_phones(self):
@@ -218,10 +218,10 @@ Too large,,Orkin,CA,San Jose,(408) 555-0000,Pacific,1495,12,1,0.8,exact
     def test_callback_status_schedules_a_follow_up(self):
         lead = build_manual_lead({
             "phone": "2025550100",
-            "status": "call",
+            "status": "dialed",
             "transcript": "Asked to call tomorrow.",
         })
-        self.assertEqual(lead["status"], "call")
+        self.assertEqual(lead["status"], "dialed")
         self.assertTrue(lead["scheduled_until"])
         self.assertEqual(lead["transcript"][0]["text"], "Asked to call tomorrow.")
 
@@ -284,9 +284,9 @@ class SupabaseCacheTests(unittest.TestCase):
         crm.set_status("prospect-1", "do_not_call")
         crm.append_transcript("prospect-1", {"id": "s1", "speaker": "Agent", "text": "Hello"})
         cached = crm.snapshot()[0]
-        self.assertEqual(cached["status"], "disqualified")
+        self.assertEqual(cached["status"], "closed")
         self.assertEqual(cached["transcript"][0]["text"], "Hello")
-        self.assertEqual(client.leads["prospect-1"]["status"], "disqualified")
+        self.assertEqual(client.leads["prospect-1"]["status"], "closed")
 
     def test_csv_import_totals_match_between_backends(self):
         csv_body = b"Name,Phone\nBea,2025550112\nCy,2025550113\n"
@@ -308,9 +308,9 @@ class DialCapTests(unittest.TestCase):
             crm.leads = [prospect()]
             for index in range(4):
                 crm.append_call_log("prospect-1", {"id": f"dial-{index}", "started_at": f"2026-01-0{index + 1}T12:00:00+00:00"})
-            self.assertEqual(crm.snapshot()[0]["status"], "new")
+            self.assertEqual(crm.snapshot()[0]["status"], "dialed")
             crm.append_call_log("prospect-1", {"id": "dial-4", "started_at": "2026-01-05T12:00:00+00:00"})
-            self.assertEqual(crm.snapshot()[0]["status"], "no_answer_disqualified")
+            self.assertEqual(crm.snapshot()[0]["status"], "closed")
 
     def test_connected_dial_does_not_trigger_no_answer_cap(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -325,7 +325,7 @@ class DialCapTests(unittest.TestCase):
                         "connected": index == 2,
                     },
                 )
-            self.assertEqual(crm.snapshot()[0]["status"], "new")
+            self.assertEqual(crm.snapshot()[0]["status"], "dialed")
 
     def test_enforce_dial_caps_backfills_prospects_already_at_five_dials(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -341,14 +341,14 @@ class DialCapTests(unittest.TestCase):
             crm.leads = [lead]
             result = crm.enforce_dial_caps()
             self.assertEqual(result["capped"], 1)
-            self.assertEqual(crm.snapshot()[0]["status"], "no_answer_disqualified")
+            self.assertEqual(crm.snapshot()[0]["status"], "closed")
             self.assertEqual(crm.enforce_dial_caps()["capped"], 0)
 
     def test_repair_resets_wrong_disqualified_without_live_contact(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
             lead = prospect()
-            lead["status"] = "disqualified"
+            lead["status"] = "closed"
             lead["call_log"] = [{"id": "dial-1", "started_at": "2026-01-01T12:00:00+00:00"}]
             crm.leads = [lead]
             result = crm.enforce_dial_caps(repair_misclassified=True)
@@ -359,12 +359,12 @@ class DialCapTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm.json")
             lead = prospect()
-            lead["status"] = "disqualified"
+            lead["status"] = "closed"
             lead["transcript"] = [{"id": "s1", "speaker": "Agent", "text": "Hi", "timestamp": "2026-01-01T12:00:00+00:00"}]
             crm.leads = [lead]
             result = crm.enforce_dial_caps(repair_misclassified=True)
             self.assertEqual(result["to_new"], 0)
-            self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
+            self.assertEqual(crm.snapshot()[0]["status"], "closed")
 
     def test_booked_prospects_are_not_moved_to_disqualified_by_the_cap(self):
         with tempfile.TemporaryDirectory() as directory:

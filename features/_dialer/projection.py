@@ -15,8 +15,11 @@ def crm_catalog(state, leads=None):
         leads_for_timezone_counts(leads, pool_status, utc_now(), selected_business_type=business_type),
     )
     pool = calls._pool_leads(state, leads)
+    pipeline_revision = getattr(state.crm, "pipeline_revision", 0)
     return {
         "leads_version": getattr(state.crm, "revision", 0),
+        "pipeline_steps": state.crm.pipeline_steps_for_catalog(),
+        "pipeline_revision": pipeline_revision,
         "leads": leads,
         "pool": pool,
         "timezone_groups": [{"name": name, "count": count} for name, count in groups],
@@ -111,6 +114,8 @@ def public_state(state, include_leads=False):
     view["pending_outcome"] = by_id.get(pending_id)
     catalog = crm_catalog(state, leads)
     view["leads_version"] = catalog["leads_version"]
+    view["pipeline_steps"] = catalog["pipeline_steps"]
+    view["pipeline_revision"] = catalog["pipeline_revision"]
     view["timezone_groups"] = catalog["timezone_groups"]
     view["counts"] = dict(catalog["counts"])
     view["counts"]["calling"] = len(view["in_flight"])

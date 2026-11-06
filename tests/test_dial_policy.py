@@ -64,7 +64,7 @@ class DialPolicyTests(unittest.TestCase):
                 id="cb_ready",
                 name="Callback Ready",
                 business="Beta Co",
-                status="call",
+                status="dialed",
                 scheduled_until=None,
                 phone="+12025550122",
             ),
@@ -72,7 +72,7 @@ class DialPolicyTests(unittest.TestCase):
                 id="cb_wait",
                 name="Callback Waiting",
                 business="Gamma Co",
-                status="call",
+                status="dialed",
                 scheduled_until=(now + timedelta(hours=1)).isoformat(),
                 phone="+12025550123",
             ),
@@ -83,10 +83,10 @@ class DialPolicyTests(unittest.TestCase):
     def test_pool_respects_send_info_mode(self):
         rows = [
             lead(id="n", status="new", name="New Person"),
-            lead(id="s", status="send_info", name="Info Person", phone="+12025550124"),
+            lead(id="s", status="contact_engaged", name="Info Person", phone="+12025550124"),
         ]
         new_pool = pool_leads(rows, pool_status="new", busy_ids=set(), now=utc_now())
-        info_pool = pool_leads(rows, pool_status="send_info", busy_ids=set(), now=utc_now())
+        info_pool = pool_leads(rows, pool_status="contact_engaged", busy_ids=set(), now=utc_now())
         self.assertEqual([item["id"] for item in new_pool], ["n"])
         self.assertEqual([item["id"] for item in info_pool], ["s"])
 
@@ -96,10 +96,10 @@ class DialPolicyTests(unittest.TestCase):
             row["call_log"].append({"id": f"d{index}", "started_at": f"2026-01-0{index + 1}T12:00:00+00:00"})
         self.assertTrue(dial_cap_reached(row))
         self.assertTrue(apply_dial_cap_to_lead(row))
-        self.assertEqual(row["status"], "no_answer_disqualified")
+        self.assertEqual(row["status"], "closed")
 
     def test_repair_wrong_disqualified_to_new(self):
-        row = lead(status="disqualified", call_log=[{"id": "d1", "started_at": "2026-01-01T12:00:00+00:00"}])
+        row = lead(status="closed", call_log=[{"id": "d1", "started_at": "2026-01-01T12:00:00+00:00"}])
         self.assertEqual(repair_dial_status_for_lead(row), "new")
 
     def test_no_pickup_stays_out_of_pool_for_two_hours(self):

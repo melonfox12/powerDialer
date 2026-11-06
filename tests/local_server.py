@@ -2,6 +2,7 @@
 
 import os
 import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -73,8 +74,14 @@ class LocalServers:
     def request(self, base, method, path, body=None, headers=None):
         data = body if isinstance(body, bytes) else (None if body is None else body.encode("utf-8"))
         req = urllib.request.Request(base + path, data=data, method=method, headers=headers or {})
-        try:
-            with urllib.request.urlopen(req, timeout=10) as response:
-                return response.status, response.read(), response.headers.get("Content-Type", "")
-        except urllib.error.HTTPError as exc:
-            return exc.code, exc.read(), exc.headers.get("Content-Type", "")
+        last_os_error = None
+        for attempt in range(3):
+            try:
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    return response.status, response.read(), response.headers.get("Content-Type", "")
+            except urllib.error.HTTPError as exc:
+                return exc.code, exc.read(), exc.headers.get("Content-Type", "")
+            except OSError as exc:
+                last_os_error = exc
+                time.sleep(0.05 * (attempt + 1))
+        raise last_os_error

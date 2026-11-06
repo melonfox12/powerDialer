@@ -36,7 +36,7 @@ export async function changeLeadStatus(lead, status, select) {
     await applyMutationPayload(result);
     byId("saveState").textContent = "All changes saved";
     render();
-    const label = next === "call"
+    const label = next === "dialed"
       ? `callback in ${CALLBACK_STATUS_HOURS} hours`
       : (CRM_STATUS_LABELS[next] || STATUS_LABELS[next] || next).toLowerCase();
     showToast(`${lead.name || lead.phone}: ${label}`);

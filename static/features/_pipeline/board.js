@@ -2,11 +2,11 @@ import { postJson } from "../../_core/api.js";
 import { applyMutationPayload } from "../../_core/sync-state.js";
 import { state, S } from "../../_core/state.js";
 import {
-  CRM_STATUS_LABELS,
   PIPELINE_DIALED_STEP,
+  PIPELINE_LOCKED_STEP_KEYS,
   PIPELINE_SEND_INFO_STEP,
-  PIPELINE_STEP_KEYS,
-  PIPELINE_STEPS,
+  getPipelineStepKeys,
+  getPipelineSteps,
   byId,
   callbackCountdown,
   initials,
@@ -15,8 +15,13 @@ import {
 } from "../../_core/format.js";
 import { renderTranscriptEntries } from "../../_core/transcript.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
-import { leadNotes, persistLeadNotes } from "../../_core/notes.js";
-import { createPipelineCrmStatusMenu, pipelineCrmStatusMenuOpen } from "./crm-status-menu.js";
+import {
+  leadNotes,
+  leadMarketingTouches,
+  persistLeadNotes,
+  persistMarketingTouches,
+  touchTimestampFromDateInput,
+} from "../../_core/notes.js";
 import { showToast } from "../../_core/notify.js";
 import { setDashboardTab } from "../../_core/navigation.js";
 import { render } from "../../core.js";
@@ -40,8 +45,145 @@ function openPipelinePanelIds(className) {
   );
 }
 
+const MARKETING_TOUCH_KINDS = [
+  { key: "called", label: "Called", tone: "called" },
+  { key: "emailed", label: "Emailed", tone: "emailed" },
+  { key: "linkedin", label: "LinkedIn", tone: "linkedin" },
+  { key: "mailed", label: "Mailed", tone: "mailed" },
+];
+
+function touchKindDef(key) {
+  return MARKETING_TOUCH_KINDS.find((item) => item.key === key) || {
+    key,
+    label: key,
+    tone: "default",
+  };
+}
+
+function formatTouchDateLine(at) {
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function buildMarketingTouchesSection(lead, freshLead, touchesOpen) {
+  const details = document.createElement("details");
+  details.className = "pipeline-card-touches pipeline-card-touches-inner";
+  details.open = touchesOpen;
+
+  const touchCount = leadMarketingTouches(lead).length;
+  const summary = document.createElement("summary");
+  summary.textContent = touchCount ? `Touches · ${touchCount}` : "Touches";
+
+  const body = document.createElement("div");
+  body.className = "pipeline-card-touches-body";
+
+  const controls = document.createElement("div");
+  controls.className = "pipeline-touch-controls";
+
+  const dateWrap = document.createElement("div");
+  dateWrap.className = "pipeline-touch-date-wrap";
+  const dateLabel = document.createElement("span");
+  dateLabel.className = "pipeline-touch-date-label";
+  dateLabel.textContent = "Touch date";
+  const dateInput = document.createElement("input");
+  dateInput.type = "date";
+  dateInput.className = "pipeline-touch-date-input";
+  const today = new Date();
+  dateInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  dateWrap.append(dateLabel, dateInput);
+
+  const addRow = document.createElement("div");
+  addRow.className = "pipeline-touch-add-row";
+  for (const kind of MARKETING_TOUCH_KINDS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `pipeline-touch-add-btn pipeline-touch-kind-${kind.tone}`;
+    btn.textContent = kind.label;
+    btn.title = `Add ${kind.label} on selected date`;
+    btn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      const at = touchTimestampFromDateInput(dateInput.value);
+      const current = [...leadMarketingTouches(freshLead()), { kind: kind.key, at }];
+      const ok = await persistMarketingTouches(freshLead(), current, btn);
+      if (ok) render();
+    });
+    stopCardBubble(btn);
+    addRow.append(btn);
+  }
+
+  controls.append(dateWrap, addRow);
+
+  const timeline = document.createElement("div");
+  timeline.className = "pipeline-touch-timeline-list";
+  timeline.setAttribute("aria-live", "polite");
+
+  const orderedForDisplay = (() => {
+    const raw = leadMarketingTouches(freshLead());
+    return raw
+      .map((touch, storageIndex) => ({ touch, storageIndex }))
+      .sort((a, b) => a.touch.at - b.touch.at);
+  })();
+
+  if (!orderedForDisplay.length) {
+    const empty = document.createElement("p");
+    empty.className = "pipeline-touch-timeline-empty";
+    empty.textContent = "No touches logged. Pick a date and tap a channel above.";
+    timeline.append(empty);
+  } else {
+    for (let index = 0; index < orderedForDisplay.length; index += 1) {
+      const { touch, storageIndex } = orderedForDisplay[index];
+      const def = touchKindDef(touch.kind);
+      const step = document.createElement("div");
+      step.className = "pipeline-touch-timeline-step";
+
+      const node = document.createElement("button");
+      node.type = "button";
+      node.className = `pipeline-touch-node pipeline-touch-kind-${def.tone}`;
+      const labelEl = document.createElement("span");
+      labelEl.className = "pipeline-touch-node-label";
+      labelEl.textContent = def.label;
+      const dateEl = document.createElement("span");
+      dateEl.className = "pipeline-touch-node-date";
+      dateEl.textContent = formatTouchDateLine(touch.at);
+      node.append(labelEl, dateEl);
+      node.title = `${def.label} — ${formatTouchDateLine(touch.at)} · click to remove`;
+      node.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const raw = leadMarketingTouches(freshLead());
+        const next = raw.filter((_, j) => j !== storageIndex);
+        const ok = await persistMarketingTouches(freshLead(), next, node);
+        if (ok) render();
+      });
+      stopCardBubble(node);
+      step.append(node);
+
+      if (index < orderedForDisplay.length - 1) {
+        const connector = document.createElement("span");
+        connector.className = "pipeline-touch-connector";
+        connector.setAttribute("aria-hidden", "true");
+        step.append(connector);
+      }
+      timeline.append(step);
+    }
+  }
+
+  body.append(controls, timeline);
+  details.append(summary, body);
+  stopCardBubble(details);
+  stopCardBubble(summary);
+  stopCardBubble(body);
+  stopCardBubble(controls);
+  stopCardBubble(dateInput);
+  return details;
+}
+
+function pipelineStepsNow() {
+  return getPipelineSteps();
+}
+
 function pipelineStepIndex(stepKey) {
-  const index = PIPELINE_STEPS.findIndex((item) => item.key === stepKey);
+  const index = pipelineStepsNow().findIndex((item) => item.key === stepKey);
   return index >= 0 ? index : -1;
 }
 
@@ -59,7 +201,7 @@ function forwardMoveBlocked(lead, fromStep, toStep) {
 
 function isWaitingForNextPipelineStep(lead, step, now = Date.now()) {
   if (step === PIPELINE_SEND_INFO_STEP) return false;
-  if (step === PIPELINE_DIALED_STEP && lead?.status === "call" && lead.scheduled_until) {
+  if (step === PIPELINE_DIALED_STEP && lead?.status === "dialed" && lead.scheduled_until) {
     const callbackDue = Date.parse(lead.scheduled_until);
     if (!Number.isNaN(callbackDue) && now < callbackDue) return true;
     return false;
@@ -71,18 +213,19 @@ function isWaitingForNextPipelineStep(lead, step, now = Date.now()) {
 
 export function pipelineCardVisualState(lead, step, now = Date.now()) {
   const status = lead?.status;
-  if (status === "disqualified" || status === "no_answer_disqualified") return "disqualified";
+  if (status === "closed") return "disqualified";
   if (status === "booked") return "booked";
-  if ((status === "send_info" || status === "call") && isWaitingForNextPipelineStep(lead, step, now)) {
+  if (status === "proposal_sent") return "ready";
+  if ((status === "dialed" || status === "contact_engaged" || status === "qualified") && isWaitingForNextPipelineStep(lead, step, now)) {
     return "waiting";
   }
-  if (status === "call") return "callback-ready";
-  if (status === "send_info") return "ready";
+  if (status === "dialed") return "callback-ready";
+  if (status === "contact_engaged" || status === "qualified") return "ready";
   return "waiting";
 }
 
 function pipelineTimerLabel(lead, step, enteredAt, now = Date.now()) {
-  if (step === PIPELINE_DIALED_STEP && lead.status === "call") {
+  if (step === PIPELINE_DIALED_STEP && lead.status === "dialed") {
     if (!lead.scheduled_until) return "Callback — ready to dial";
     const due = Date.parse(lead.scheduled_until);
     if (Number.isNaN(due)) return "Callback — ready to dial";
@@ -116,7 +259,7 @@ function stopCardBubble(node) {
 function sendInfoEnteredAt(lead) {
   const history = lead.status_history || [];
   for (let index = history.length - 1; index >= 0; index -= 1) {
-    if (history[index].to_status === "send_info") return history[index].changed_at;
+    if (history[index].to_status === "contact_engaged") return history[index].changed_at;
   }
   return lead.created_at || null;
 }
@@ -124,21 +267,27 @@ function sendInfoEnteredAt(lead) {
 function callbackEnteredAt(lead) {
   const history = lead.status_history || [];
   for (let index = history.length - 1; index >= 0; index -= 1) {
-    if (history[index].to_status === "call") return history[index].changed_at;
+    if (history[index].to_status === "dialed") return history[index].changed_at;
   }
   return lead.scheduled_until || lead.created_at || null;
 }
 
 export function effectivePipelineStep(lead) {
-  if (lead.status === "call") return PIPELINE_DIALED_STEP;
+  if (lead.status === "dialed") return PIPELINE_DIALED_STEP;
   const stored = String(lead.pipeline_step || "").trim();
-  if (PIPELINE_STEP_KEYS.includes(stored)) {
-    if (lead.status === "send_info" && stored === PIPELINE_DIALED_STEP) {
+  if (getPipelineStepKeys().includes(stored)) {
+    if (lead.status === "contact_engaged" && stored === PIPELINE_DIALED_STEP) {
       return PIPELINE_SEND_INFO_STEP;
     }
     return stored;
   }
-  if (lead.status === "send_info") return PIPELINE_SEND_INFO_STEP;
+  if (lead.status === "contact_engaged") return PIPELINE_SEND_INFO_STEP;
+  if (lead.status === "qualified") {
+    if (stored) return stored;
+    const steps = getPipelineSteps();
+    const tail = steps.find((s) => !PIPELINE_LOCKED_STEP_KEYS.includes(s.key));
+    return tail?.key || PIPELINE_SEND_INFO_STEP;
+  }
   if (lead.status === "booked") {
     const history = lead.pipeline_history || [];
     if (history.length) return history[history.length - 1].step;
@@ -156,10 +305,10 @@ export function pipelineStepEnteredAt(lead, step) {
   for (let index = history.length - 1; index >= 0; index -= 1) {
     if (history[index].step === step) return history[index].entered_at;
   }
-  if (step === PIPELINE_SEND_INFO_STEP && lead.status === "send_info") {
+  if (step === PIPELINE_SEND_INFO_STEP && lead.status === "contact_engaged") {
     return sendInfoEnteredAt(lead);
   }
-  if (step === PIPELINE_DIALED_STEP && lead.status === "call") {
+  if (step === PIPELINE_DIALED_STEP && lead.status === "dialed") {
     return callbackEnteredAt(lead);
   }
   return null;
@@ -167,8 +316,9 @@ export function pipelineStepEnteredAt(lead, step) {
 
 function pipelineLeads() {
   return state.leads.filter((lead) => {
-    if (lead.status === "call") return true;
-    if (lead.status === "send_info") return true;
+    if (lead.status === "dialed") return true;
+    if (lead.status === "contact_engaged") return true;
+    if (lead.status === "qualified") return true;
     if (lead.status === "booked") return true;
     if (String(lead.pipeline_step || "").trim()) return true;
     if ((lead.pipeline_history || []).length > 0) return true;
@@ -177,8 +327,12 @@ function pipelineLeads() {
 }
 
 export function pipelineBoardSignature() {
-  return pipelineLeads().map((lead) => {
+  const rev = String(state.pipeline_revision ?? "");
+  return [rev, ...pipelineLeads().map((lead) => {
     const step = effectivePipelineStep(lead) || "";
+    const touches = leadMarketingTouches(lead)
+      .map((t) => `${t.kind}:${t.at}`)
+      .join(";");
     return [
       lead.id,
       lead.status,
@@ -188,14 +342,14 @@ export function pipelineBoardSignature() {
       pipelineStepEnteredAt(lead, step),
       leadNotes(lead),
       lead.transcript?.length || 0,
+      touches,
     ].join("|");
-  }).join("\n");
+  })].join("\n");
 }
 
 function pipelineBoardBusy() {
-  const board = byId("pipelineBoard");
   if (document.activeElement?.closest?.(".pipeline-card-notes-editor")) return true;
-  if (pipelineCrmStatusMenuOpen()) return true;
+  if (document.activeElement?.closest?.(".pipeline-touch-date-input")) return true;
   return false;
 }
 
@@ -203,12 +357,13 @@ function sortLeadsInStep(leads, step) {
   return [...leads].sort((left, right) => {
     const leftAt = Date.parse(pipelineStepEnteredAt(left, step) || "") || 0;
     const rightAt = Date.parse(pipelineStepEnteredAt(right, step) || "") || 0;
-    if (leftAt !== rightAt) return leftAt - rightAt;
+    // Newest entry into this step at top; missing timestamps sink to the bottom.
+    if (leftAt !== rightAt) return rightAt - leftAt;
     return String(left.name || left.phone).localeCompare(String(right.name || right.phone));
   });
 }
 
-function buildCard(lead, step, notesOpen, statusOpen, transcriptOpen) {
+function buildCard(lead, step, cardOpen, notesOpen, transcriptOpen, touchesOpen) {
   const card = document.createElement("article");
   card.className = "pipeline-card";
   card.draggable = true;
@@ -221,12 +376,22 @@ function buildCard(lead, step, notesOpen, statusOpen, transcriptOpen) {
   if (readyAt) card.dataset.pipelineReadyAt = readyAt;
   applyPipelineCardState(card, lead, step);
 
+  const freshLead = () => state.leads.find((item) => item.id === lead.id) || lead;
+
+  const expand = document.createElement("details");
+  expand.className = "pipeline-card-expand";
+  expand.open = cardOpen;
+
+  const summaryRow = document.createElement("summary");
+  summaryRow.className = "pipeline-card-summary";
+
   const avatar = document.createElement("span");
   avatar.className = "pipeline-card-avatar";
   avatar.textContent = initials(lead.name || lead.business);
 
-  const body = document.createElement("div");
-  body.className = "pipeline-card-body";
+  const headText = document.createElement("div");
+  headText.className = "pipeline-card-head-text";
+
   const title = document.createElement("strong");
   title.className = "pipeline-card-title";
   title.textContent = lead.name || lead.business || "Prospect";
@@ -242,16 +407,28 @@ function buildCard(lead, step, notesOpen, statusOpen, transcriptOpen) {
       openProspectInTable(lead);
     }
   });
+
+  headText.append(title);
+  summaryRow.append(avatar, headText);
+  stopCardBubble(avatar);
+  stopCardBubble(headText);
+  stopCardBubble(title);
+
+  const inner = document.createElement("div");
+  inner.className = "pipeline-card-inner";
+
+  const body = document.createElement("div");
+  body.className = "pipeline-card-body";
   const meta = document.createElement("span");
   meta.className = "pipeline-card-meta";
   meta.textContent = [lead.business, formatPhoneNumber(lead.phone)].filter(Boolean).join(" · ");
-  body.append(title, meta);
+  body.append(meta);
 
   const timer = document.createElement("span");
   timer.className = "pipeline-card-timer";
   timer.dataset.pipelineTimer = "true";
   timer.textContent = pipelineTimerLabel(lead, step, enteredAt);
-  if (step === PIPELINE_DIALED_STEP && lead.status === "call" && lead.scheduled_until) {
+  if (step === PIPELINE_DIALED_STEP && lead.status === "dialed" && lead.scheduled_until) {
     timer.dataset.callbackUntil = lead.scheduled_until;
     timer.dataset.callbackPrefix = "Callback ";
   }
@@ -271,24 +448,9 @@ function buildCard(lead, step, notesOpen, statusOpen, transcriptOpen) {
     }
   }
 
-  const statusLabel = CRM_STATUS_LABELS[lead.status] || lead.status || "Status";
-  const statusDetails = document.createElement("details");
-  statusDetails.className = "pipeline-card-status";
-  statusDetails.open = statusOpen;
-  const statusSummary = document.createElement("summary");
-  statusSummary.textContent = `Status · ${statusLabel}`;
-  const statusBody = document.createElement("div");
-  statusBody.className = "pipeline-card-status-body";
-  const statusMenu = createPipelineCrmStatusMenu(lead, card);
-  statusBody.append(statusMenu);
-  statusDetails.append(statusSummary, statusBody);
-  stopCardBubble(statusDetails);
-  stopCardBubble(statusSummary);
-  stopCardBubble(statusMenu);
-
   const notesText = leadNotes(lead);
   const notesDetails = document.createElement("details");
-  notesDetails.className = "pipeline-card-notes";
+  notesDetails.className = "pipeline-card-notes pipeline-card-notes-inner";
   notesDetails.open = notesOpen;
   const notesSummary = document.createElement("summary");
   notesSummary.textContent = notesText ? "Notes" : "Notes (empty)";
@@ -307,8 +469,6 @@ function buildCard(lead, step, notesOpen, statusOpen, transcriptOpen) {
   editButton.type = "button";
   editButton.className = "button button-quiet pipeline-card-notes-edit";
   editButton.textContent = "Edit";
-
-  const freshLead = () => state.leads.find((item) => item.id === lead.id) || lead;
 
   const clearEditor = () => {
     for (const node of notesContent.querySelectorAll(".pipeline-card-notes-editor, .pipeline-card-notes-edit-actions")) {
@@ -390,7 +550,7 @@ function buildCard(lead, step, notesOpen, statusOpen, transcriptOpen) {
 
   const transcriptCount = lead.transcript?.length || 0;
   const transcriptDetails = document.createElement("details");
-  transcriptDetails.className = "pipeline-card-transcript";
+  transcriptDetails.className = "pipeline-card-transcript pipeline-card-transcript-inner";
   transcriptDetails.open = transcriptOpen;
   const transcriptSummary = document.createElement("summary");
   transcriptSummary.textContent = transcriptCount
@@ -408,10 +568,19 @@ function buildCard(lead, step, notesOpen, statusOpen, transcriptOpen) {
   stopCardBubble(transcriptSummary);
   stopCardBubble(transcriptBody);
 
-  card.append(avatar, body, timer, entered, statusDetails, transcriptDetails, notesDetails);
+  const touchesDetails = buildMarketingTouchesSection(lead, freshLead, touchesOpen);
+
+  inner.append(body, timer, entered, transcriptDetails, notesDetails, touchesDetails);
+  expand.append(summaryRow, inner);
+  card.append(expand);
+  stopCardBubble(expand);
+  stopCardBubble(summaryRow);
+  stopCardBubble(inner);
 
   card.addEventListener("dragstart", (event) => {
-    if (event.target.closest(".pipeline-card-notes, .pipeline-card-status, .pipeline-card-transcript, .pipeline-crm-status-list")) {
+    if (event.target.closest(
+      "textarea, button, a, input, select, .pipeline-card-notes-inner, .pipeline-card-transcript-inner, .pipeline-card-touches-inner",
+    )) {
       event.preventDefault();
       return;
     }
@@ -458,10 +627,10 @@ function bindColumnDrop(column, stepKey) {
     const storedStep = String(lead.pipeline_step || "").trim();
     const previous = effectivePipelineStep(lead);
     if (previous === stepKey && storedStep === stepKey) return;
-    if (!storedStep && stepKey === PIPELINE_SEND_INFO_STEP && previous === PIPELINE_SEND_INFO_STEP && lead.status === "send_info") {
+    if (!storedStep && stepKey === PIPELINE_SEND_INFO_STEP && previous === PIPELINE_SEND_INFO_STEP && lead.status === "contact_engaged") {
       return;
     }
-    if (stepKey === PIPELINE_DIALED_STEP && lead.status === "call" && previous === PIPELINE_DIALED_STEP) {
+    if (stepKey === PIPELINE_DIALED_STEP && lead.status === "dialed" && previous === PIPELINE_DIALED_STEP) {
       return;
     }
     const fromStep = effectivePipelineStep(lead);
@@ -474,7 +643,7 @@ function bindColumnDrop(column, stepKey) {
       const result = await postJson(`/api/leads/${encodeURIComponent(leadId)}/pipeline`, { step: stepKey });
       await applyMutationPayload(result);
       render();
-      const label = PIPELINE_STEPS.find((item) => item.key === stepKey)?.label || stepKey;
+      const label = pipelineStepsNow().find((item) => item.key === stepKey)?.label || stepKey;
       showToast(`${lead.name || lead.phone}: ${label}`);
     } catch (error) {
       showToast(error.message, true);
@@ -491,15 +660,16 @@ export function renderPipelineBoard() {
   if (!board) return;
 
   const leads = pipelineLeads();
+  const openCard = openPipelinePanelIds(".pipeline-card-expand");
   const openNotes = openPipelinePanelIds(".pipeline-card-notes");
-  const openStatus = openPipelinePanelIds(".pipeline-card-status");
   const openTranscript = openPipelinePanelIds(".pipeline-card-transcript");
+  const openTouches = openPipelinePanelIds(".pipeline-card-touches");
   byId("pipelineBoardSummary").textContent = leads.length === 1 ? "1 on board" : `${leads.length} on board`;
   empty.hidden = leads.length > 0;
   board.hidden = leads.length === 0;
   board.replaceChildren();
 
-  for (const step of PIPELINE_STEPS) {
+  for (const step of pipelineStepsNow()) {
     const column = document.createElement("section");
     column.className = "pipeline-column";
     column.dataset.pipelineStep = step.key;
@@ -517,13 +687,16 @@ export function renderPipelineBoard() {
     count.textContent = String(inStep.length);
     const wait = document.createElement("span");
     wait.className = "pipeline-column-wait";
-    wait.textContent = step.key === "any_channel"
-      ? "~60–90 day cycle"
-      : step.key === PIPELINE_DIALED_STEP
-        ? "2h callback queue"
-        : step.key === PIPELINE_SEND_INFO_STEP
-          ? "No wait to Email 1"
-          : "~1–2 days to next step";
+    {
+      const wh = Number(step.wait_hours) || 0;
+      let hint;
+      if (step.key === PIPELINE_DIALED_STEP) hint = "2h callback queue";
+      else if (step.key === PIPELINE_SEND_INFO_STEP) hint = "No wait before next column";
+      else if (wh <= 0) hint = "No step timer";
+      else if (wh >= 24) hint = `~${Math.round(wh / 24)}d to next step`;
+      else hint = `~${wh}h to next step`;
+      wait.textContent = hint;
+    }
     head.append(title, count, wait);
 
     const list = document.createElement("div");
@@ -533,9 +706,10 @@ export function renderPipelineBoard() {
       list.append(buildCard(
         lead,
         step.key,
+        openCard.has(lead.id),
         openNotes.has(lead.id),
-        openStatus.has(lead.id),
         openTranscript.has(lead.id),
+        openTouches.has(lead.id),
       ));
     }
 
@@ -555,7 +729,7 @@ export function tickPipelineTimers() {
     const lead = state.leads.find((item) => item.id === card.dataset.leadId);
     if (!lead) continue;
     const enteredAt = pipelineStepEnteredAt(lead, step);
-    if (step === PIPELINE_DIALED_STEP && lead.status === "call" && lead.scheduled_until) {
+    if (step === PIPELINE_DIALED_STEP && lead.status === "dialed" && lead.scheduled_until) {
       node.textContent = pipelineTimerLabel(lead, step, enteredAt, now);
       node.dataset.callbackUntil = lead.scheduled_until;
       node.dataset.callbackPrefix = "Callback ";

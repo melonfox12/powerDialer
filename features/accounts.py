@@ -57,6 +57,11 @@ class AppRuntime:
             dialer.storage_name = self.storage_name
             dialer.token_index = self.tokens
             self.local = Account(crm, metrics, dialer, dial_archive, dial_records)
+            merged = {**read_env(ENV_PATH), **dialer.account_values}
+            try:
+                crm.sync_pipeline_from_account_values(merged, migrate=False)
+            except ValueError:
+                pass
         self._health = {"ok": True, "storage": self.storage_name}
         return self
 
@@ -98,6 +103,11 @@ class AppRuntime:
         dialer.account_email = user.get("email") or ""
         dialer.account_values = load_app_settings(self.client, user_id)
         dialer.settings_saver = lambda active: self.persist_settings(active)
+        merged = {**read_env(ENV_PATH), **dialer.account_values}
+        try:
+            crm.sync_pipeline_from_account_values(merged, migrate=False)
+        except ValueError:
+            pass
         account = Account(crm, metrics, dialer, dial_archive, dial_records)
         with self.session_lock:
             current = self.sessions.get(user_id)
@@ -130,6 +140,10 @@ class AppRuntime:
         remote = load_app_settings(self.client, user_id)
         if remote:
             dialer.account_values.update(remote)
+            try:
+                dialer.crm.sync_pipeline_from_account_values(dialer.account_values, migrate=False)
+            except ValueError:
+                pass
 
 
 def resolve_account(runtime, path, authorization):

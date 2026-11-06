@@ -30,7 +30,7 @@ class CallbackTimerTests(unittest.TestCase):
                 "connected": False,
             })
             lead = crm.snapshot()[0]
-            self.assertEqual(lead["status"], "call")
+            self.assertEqual(lead["status"], "dialed")
             remaining = datetime.fromisoformat(lead["scheduled_until"]) - utc_now()
             self.assertGreater(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS) - timedelta(seconds=5))
             self.assertLessEqual(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS))
@@ -38,7 +38,7 @@ class CallbackTimerTests(unittest.TestCase):
     def test_total_dials_row_keeps_send_info(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm")
-            crm.leads = [{**_lead("a"), "status": "send_info"}]
+            crm.leads = [{**_lead("a"), "status": "contact_engaged"}]
             crm.save()
             crm.append_call_log("a", {
                 "id": "dial-1",
@@ -46,7 +46,7 @@ class CallbackTimerTests(unittest.TestCase):
                 "answered_by": "no_answer",
                 "connected": False,
             })
-            self.assertEqual(crm.snapshot()[0]["status"], "send_info")
+            self.assertEqual(crm.snapshot()[0]["status"], "contact_engaged")
 
     def test_total_dials_row_skips_connected_calls(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -74,7 +74,7 @@ class CallbackTimerTests(unittest.TestCase):
             call["call_uuid"] = "CA-x"
             ended._call_ended(dialer, call, {"CallStatus": "no-answer", "CallDuration": "0"})
             lead = crm.snapshot()[0]
-            self.assertEqual(lead["status"], "call")
+            self.assertEqual(lead["status"], "dialed")
             self.assertTrue(lead["scheduled_until"])
 
     def test_active_callback_is_not_reset_by_another_dial_row(self):
@@ -82,7 +82,7 @@ class CallbackTimerTests(unittest.TestCase):
             crm = ProspectStore(Path(directory) / "crm")
             crm.leads = [_lead("a")]
             crm.save()
-            manual = crm.set_status("a", "call", (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat())
+            manual = crm.set_status("a", "dialed", (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat())
             crm.append_call_log("a", {
                 "id": "dial-2",
                 "started_at": utc_now().isoformat(),
@@ -108,7 +108,7 @@ class CallbackTimerTests(unittest.TestCase):
                 crm.save()
             self.assertEqual(crm.repair_total_dials_callbacks(), 1)
             lead = crm.snapshot()[0]
-            self.assertEqual(lead["status"], "call")
+            self.assertEqual(lead["status"], "dialed")
             self.assertTrue(lead["scheduled_until"])
 
     def test_repair_skips_without_call_log(self):
@@ -118,12 +118,12 @@ class CallbackTimerTests(unittest.TestCase):
             crm.save()
             self.assertEqual(crm.repair_total_dials_callbacks(), 0)
 
-    def test_repair_skips_disqualified(self):
+    def test_repair_skips_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             crm = ProspectStore(Path(directory) / "crm")
             crm.leads = [{
                 **_lead("a"),
-                "status": "disqualified",
+                "status": "closed",
                 "call_log": [{
                     "id": "dial-1",
                     "started_at": utc_now().isoformat(),
@@ -141,7 +141,7 @@ class CallbackTimerTests(unittest.TestCase):
                 "id": "a",
                 "name": "Ada",
                 "phone": "+12025550101",
-                "status": "call",
+                "status": "dialed",
                 "scheduled_until": due.isoformat(),
                 "call_log": [],
                 "fields": {},
@@ -158,7 +158,7 @@ class CallbackTimerTests(unittest.TestCase):
     def test_apply_total_dials_callback_status_unit(self):
         lead = _lead("x")
         self.assertTrue(apply_total_dials_callback_status(lead, {"connected": False}))
-        self.assertEqual(lead["status"], "call")
+        self.assertEqual(lead["status"], "dialed")
 
     def test_nov5_migration_static_callback_for_matching_new_leads(self):
         from pathlib import Path
@@ -183,7 +183,7 @@ class CallbackTimerTests(unittest.TestCase):
                     "id": "timed_cb",
                     "name": "Timed",
                     "phone": "+12025550102",
-                    "status": "call",
+                    "status": "dialed",
                     "scheduled_until": "2099-01-01T00:00:00+00:00",
                     "call_log": [{"id": "d2", "started_at": "2026-11-05T15:00:00+00:00"}],
                     "fields": {},
@@ -201,7 +201,7 @@ class CallbackTimerTests(unittest.TestCase):
             crm = ProspectStore(crm_path)
             self.assertEqual(crm.migrate_nov5_2026_static_callbacks(), 2)
             by_id = {item["id"]: item for item in crm.snapshot()}
-            self.assertEqual(by_id["match"]["status"], "call")
+            self.assertEqual(by_id["match"]["status"], "dialed")
             self.assertIsNone(by_id["match"].get("scheduled_until"))
             self.assertIsNone(by_id["timed_cb"].get("scheduled_until"))
             self.assertEqual(by_id["wrong_day"]["status"], "new")

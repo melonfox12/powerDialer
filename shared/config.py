@@ -38,6 +38,15 @@ def read_env(path):
                             value = json.loads(value)
                         except json.JSONDecodeError:
                             pass
+                    elif key == "PIPELINE_CUSTOM_STEPS_JSON":
+                        try:
+                            parsed = json.loads(value)
+                            if isinstance(parsed, list):
+                                value = json.dumps(parsed, ensure_ascii=False, separators=(",", ":"))
+                            else:
+                                value = ""
+                        except json.JSONDecodeError:
+                            value = ""
                     else:
                         value = value.strip('"').strip("'")
                     values[key] = value
@@ -52,6 +61,11 @@ def write_env(path, updates):
         stripped = str(value).strip()
         if key == "OPENING_SCRIPT":
             values[key] = json.dumps(stripped, ensure_ascii=False)
+        elif key == "PIPELINE_CUSTOM_STEPS_JSON":
+            if isinstance(value, (list, dict)):
+                values[key] = json.dumps(value, ensure_ascii=False, separators=(",", ":")) if value else ""
+            else:
+                values[key] = stripped
         elif stripped:
             values[key] = stripped
         elif key in SETTING_DEFAULTS:
@@ -67,4 +81,13 @@ def write_env(path, updates):
         os.chmod(path, 0o600)
     except OSError:
         pass
-    return values
+    # Callers use the return value as in-memory prefs; OPENING_SCRIPT is JSON-encoded on disk only.
+    merged = dict(values)
+    if "OPENING_SCRIPT" in merged:
+        raw = merged["OPENING_SCRIPT"]
+        if isinstance(raw, str):
+            try:
+                merged["OPENING_SCRIPT"] = json.loads(raw)
+            except json.JSONDecodeError:
+                pass
+    return merged

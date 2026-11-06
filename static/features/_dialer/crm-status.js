@@ -7,10 +7,12 @@ import { render } from "../../core.js";
 import { nextProspectLabel, queueProspect } from "./queue.js";
 
 const DIALER_STATUSES = [
-  { status: "call", label: "Callback", className: "outcome-btn outcome-btn-call" },
-  { status: "send_info", label: "Send info", className: "outcome-btn outcome-btn-send-info" },
+  { status: "dialed", label: "Dialed (callback)", className: "outcome-btn outcome-btn-call" },
+  { status: "contact_engaged", label: "Contact (engaged)", className: "outcome-btn outcome-btn-send-info" },
+  { status: "qualified", label: "Qualified", className: "outcome-btn outcome-btn-send-info" },
   { status: "booked", label: "Booked", className: "outcome-btn outcome-btn-booked" },
-  { status: "disqualified", label: "Disqualified", className: "outcome-btn outcome-btn-disqualified" },
+  { status: "proposal_sent", label: "Proposal sent", className: "outcome-btn outcome-btn-booked" },
+  { status: "closed", label: "Closed", className: "outcome-btn outcome-btn-disqualified" },
 ];
 
 let saving = false;
@@ -56,10 +58,12 @@ async function saveCrmStatus(lead, status, label) {
       crm_only: true,
     });
     await applyMutationPayload(result);
-    if (status === "call") showToast(`Callback started for ${name}`);
-    else if (status === "send_info") showToast(`${name}: Send info`);
+    if (status === "dialed") showToast(`Callback started for ${name}`);
+    else if (status === "contact_engaged") showToast(`${name}: Contact (engaged)`);
+    else if (status === "qualified") showToast(`${name}: Qualified`);
     else if (status === "booked") showToast(`${name}: Meeting booked!`);
-    else if (status === "disqualified") showToast(`${name} will never be dialed again`);
+    else if (status === "proposal_sent") showToast(`${name}: Proposal sent`);
+    else if (status === "closed") showToast(`${name} marked closed`);
     else showToast(`${name}: ${label}`);
   } catch (error) {
     showToast(errorText(error, "Could not update the CRM status."), true);

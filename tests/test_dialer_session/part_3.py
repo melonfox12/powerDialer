@@ -52,7 +52,7 @@ class Part3:
             self.assertIsNone(dialer.active)
             self.assertIn(person["token"], dialer.in_flight)
             first_after = crm.snapshot()[0]
-            self.assertEqual(first_after["status"], "call")
+            self.assertEqual(first_after["status"], "dialed")
             self.assertTrue(first_after["scheduled_until"])
             self.assertEqual([item["answered_by"] for item in first_after["call_log"]], ["voicemail"])
             self.assertEqual(first_after["call_log"][0]["id"], "CA-machine")
@@ -108,7 +108,7 @@ class Part3:
             call["call_uuid"] = "CA-miss"
             dialer._call_ended(call, {"CallStatus": "no-answer", "CallDuration": "0"})
             kept = crm.snapshot()[0]
-            self.assertEqual(kept["status"], "call")
+            self.assertEqual(kept["status"], "dialed")
             self.assertTrue(kept["scheduled_until"])
             launched = []
             original_launch = calls._launch_call
@@ -169,7 +169,7 @@ class Part3:
             self.assertEqual(saved[0]["answered_by"], "no_answer")
             self.assertTrue(saved[0]["started_at"])
             kept = crm.snapshot()[0]
-            self.assertEqual(kept["status"], "call")
+            self.assertEqual(kept["status"], "dialed")
             self.assertTrue(kept["scheduled_until"])
 
     def _dialer_with_leads(self, directory, count):
@@ -203,7 +203,7 @@ class Part3:
             self.assertNotIn(loser["token"], dialer.in_flight)
 
             kept = crm.snapshot()[1]
-            self.assertEqual(kept["status"], "call")
+            self.assertEqual(kept["status"], "dialed")
             remaining = datetime.fromisoformat(kept["scheduled_until"]) - utc_now()
             self.assertGreater(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS) - timedelta(seconds=5))
             self.assertLessEqual(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS))
@@ -233,11 +233,11 @@ class Part3:
                     item["started_at"] = (datetime.fromisoformat(item["started_at"]) - timedelta(hours=hours)).isoformat()
 
             move_back(1)
-            self.assertEqual(crm.snapshot()[1]["status"], "call")
+            self.assertEqual(crm.snapshot()[1]["status"], "dialed")
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], [])
             move_back(2)
             expired = crm.snapshot()[1]
-            self.assertEqual(expired["status"], "call")
+            self.assertEqual(expired["status"], "dialed")
             self.assertIsNone(expired["scheduled_until"])
             self.assertEqual([lead["id"] for lead in calls._pool_leads(dialer)], ["prospect-1"])
             if dialer.advance_timer:
@@ -326,7 +326,7 @@ class Part3:
             self.assertEqual(dialer.pending_outcome, lead["id"])
             dialer._call_ended(call, {"CallStatus": "completed", "CallDuration": "40"})
             self.assertIsNone(dialer.advance_timer)
-            dialer.update_status(lead["id"], "send_info")
+            dialer.update_status(lead["id"], "contact_engaged")
             self.assertIsNotNone(dialer.advance_timer)
             dialer.advance_timer.cancel()
 

@@ -53,7 +53,7 @@ function bindNotesPanelOnce() {
 
 function sendInfoLeads() {
   return (state.leads || [])
-    .filter((lead) => lead.status === "send_info")
+    .filter((lead) => lead.status === "contact_engaged")
     .sort((left, right) => {
       const leftLabel = (left.business || left.name || left.phone || "").toLowerCase();
       const rightLabel = (right.business || right.name || right.phone || "").toLowerCase();

@@ -25,6 +25,8 @@ DIALER_STATE_KEYS = (
     "last_event",
     "leads_version",
     "live_transcript",
+    "pipeline_revision",
+    "pipeline_steps",
     "manual_lead_id",
     "next_lead",
     "paused",
@@ -54,6 +56,8 @@ LEADS_CATALOG_KEYS = (
     "dials_version",
     "leads",
     "leads_version",
+    "pipeline_revision",
+    "pipeline_steps",
     "pool",
     "timezone_groups",
 )
@@ -90,6 +94,8 @@ SETTINGS_VIEW_KEYS = (
     "has_api_secret",
     "has_auth_token",
     "opening_script",
+    "pipeline_custom_steps",
+    "pipeline_locked_step_keys",
     "public_base_url",
     "session_goal",
     "sound_volume",
@@ -180,6 +186,7 @@ PERFORMANCE_PAYLOAD_KEYS = (
 PERFORMANCE_DAILY_KEYS = (
     "conversation_goal",
     "conversations",
+    "range",
     "talk_minutes",
     "talk_minutes_goal",
 )
@@ -199,7 +206,7 @@ PERFORMANCE_COUNTS_KEYS = (
     "talk_seconds",
 )
 
-PERFORMANCE_TREND_KEYS = ("buckets", "grain")
+PERFORMANCE_TREND_KEYS = ("buckets", "grain", "period_end", "period_start")
 
 PERFORMANCE_TREND_BUCKET_KEYS = ("booked", "date", "dials", "hour", "pickups")
 

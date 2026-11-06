@@ -391,7 +391,7 @@ def build_manual_lead(payload, known_phones=()):
         raise ValueError("Unknown prospect status.")
     fields = _extra_fields(payload.get("fields"))
     transcript = _transcript(_text(payload.get("transcript"), "transcript"))
-    scheduled_until = (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat() if status == "call" else None
+    scheduled_until = (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat() if status == "dialed" else None
     business_type = _text(payload.get("business_type") or DEFAULT_BUSINESS_TYPE, "business_type")
     lead = {
         "id": str(uuid.uuid4()),

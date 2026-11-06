@@ -23,10 +23,11 @@
   <link rel="stylesheet" href="css/linear/monitor.css">
   <link rel="stylesheet" href="css/linear/metrics.css">
   <link rel="stylesheet" href="css/linear/performance.css">
+  <link rel="stylesheet" href="css/linear/pipeline.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script type="module" src="main.js"></script>
-<script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"call","label":"Callback","color":"--amber","className":"callback"},{"key":"send_info","label":"Send info","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"disqualified","label":"Disqualified","color":"--red","className":"negative"},{"key":"no_answer_disqualified","label":"No answer (disqualified)","color":"--red","className":"no-answer-dq"}],"crmStatusKeys":["new","call","send_info","booked","disqualified","no_answer_disqualified"],"crmStatusLabels":{"new":"New","call":"Callback","send_info":"Send info","booked":"Booked","disqualified":"Disqualified","no_answer_disqualified":"No answer (disqualified)"},"neverDialStatuses":["booked","disqualified","no_answer_disqualified"],"dialPoolStatuses":["new","send_info"],"dialPoolStatusLabels":{"new":"New","send_info":"Send info"},"defaultDialPoolStatus":"new","dialBusinessTypeOptions":[{"key":"pest control","label":"Pest control"},{"key":"hvac","label":"HVAC"}],"dispositions":{"booked":"booked","callback":"call","send_info":"send_info","not_interested":"disqualified","no_answer":"call","do_not_call":"disqualified"},"outcomeMetric":{"call":"call_later","send_info":"interested","booked":"booked"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":30,"defaultDailyConversationGoal":30,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"callerIdGroups":[{"key":"eastern","label":"Eastern"},{"key":"central","label":"Central"},{"key":"mountain","label":"Mountain"},{"key":"pacific","label":"Pacific"}],"defaultCallerIdGroup":"eastern","callbackStatusHours":2,"settingKeys":["SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","OPENING_SCRIPT","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"}]}</script></head>
+<script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"dialed","label":"Dialed","color":"--callback","className":"callback"},{"key":"contact_engaged","label":"Contact (engaged)","color":"--blue","className":"info"},{"key":"qualified","label":"Qualified","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"proposal_sent","label":"Proposal sent","color":"--success","className":"positive"},{"key":"closed","label":"Closed","color":"--red","className":"negative"}],"crmStatusKeys":["new","dialed","contact_engaged","qualified","booked","proposal_sent","closed"],"crmStatusLabels":{"new":"New","dialed":"Dialed","contact_engaged":"Contact (engaged)","qualified":"Qualified","booked":"Booked","proposal_sent":"Proposal sent","closed":"Closed"},"neverDialStatuses":["booked","proposal_sent","closed"],"dialPoolStatuses":["new","contact_engaged"],"dialPoolStatusLabels":{"new":"New","contact_engaged":"Contact (engaged)"},"defaultDialPoolStatus":"new","dialBusinessTypeOptions":[{"key":"pest control","label":"Pest control"},{"key":"hvac","label":"HVAC"}],"dispositions":{"booked":"booked","callback":"dialed","send_info":"contact_engaged","not_interested":"closed","no_answer":"dialed","do_not_call":"closed"},"outcomeMetric":{"dialed":"call_later","contact_engaged":"interested","qualified":"interested","booked":"booked","proposal_sent":"interested","closed":"disqualified"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":30,"defaultDailyConversationGoal":30,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"callerIdGroups":[{"key":"eastern","label":"Eastern"},{"key":"central","label":"Central"},{"key":"mountain","label":"Mountain"},{"key":"pacific","label":"Pacific"}],"defaultCallerIdGroup":"eastern","callbackStatusHours":2,"pipelineSteps":[{"key":"dialed","label":"Dialed","wait_hours":0},{"key":"call_1","label":"Contacted (engaged)","wait_hours":0},{"key":"email_1","label":"Email 1","wait_hours":36},{"key":"linkedin_add","label":"LinkedIn add request","wait_hours":36},{"key":"call_2","label":"Call 2","wait_hours":36},{"key":"email_2","label":"Email 2","wait_hours":36},{"key":"linkedin_message","label":"LinkedIn message","wait_hours":36},{"key":"call_3","label":"Call 3","wait_hours":36},{"key":"email_3","label":"Email 3","wait_hours":36},{"key":"any_channel","label":"Any channel (every 60\u201390 days)","wait_hours":1800}],"pipelineFirstStep":"dialed","pipelineDialedStep":"dialed","pipelineSendInfoStep":"call_1","pipelineCrmStatusKeys":[],"settingKeys":["PIPELINE_CUSTOM_STEPS_JSON","SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","OPENING_SCRIPT","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"}]}</script></head>
 <body>
   <div id="loginGate" class="login-gate" hidden>
     <div class="login-card">
@@ -47,6 +48,7 @@
       <div class="side-links" role="tablist" aria-label="Call desk views">
         <button id="dialerTabButton" class="side-link active" type="button" role="tab" aria-selected="true" aria-controls="dialerTabPanel" tabindex="0" data-dashboard-tab="dialer"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 2.5h2l1 2.5-1.5 1a7 7 0 0 0 3 3l1-1.5 2.5 1v2A1.5 1.5 0 0 1 10 12 8.5 8.5 0 0 1 2 4a1.5 1.5 0 0 1 1.5-1.5Z"/></svg>Dialer</button>
         <button id="performanceTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="performanceTabPanel" tabindex="-1" data-dashboard-tab="performance"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 13.5h11M4 13.5V8.5M8 13.5V4.5M12 13.5V6.5"/></svg>Performance</button>
+        <button id="pipelineTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="pipelineTabPanel" tabindex="-1" data-dashboard-tab="pipeline"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h3v9h-3v-9Zm4.25 2.5h3v6.5h-3V6Zm4.25-1.5h3v8h-3V4.5Z"/></svg>Pipeline</button>
         <button id="prospectsTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8.2a2.4 2.4 0 1 0 0-4.8 2.4 2.4 0 0 0 0 4.8ZM3.2 13.2c.4-2 2.3-3.2 4.8-3.2s4.4 1.2 4.8 3.2"/></svg>Prospects <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
         <button id="poolTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="poolTabPanel" tabindex="-1" data-dashboard-tab="pool"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5h10M3 8h10M3 11.5h7"/></svg>Caller pool <span id="poolTabCount" class="dashboard-tab-count">0</span></button>
         <button id="dialsTabButton" class="side-link" type="button" role="tab" aria-selected="false" aria-controls="dialsTabPanel" tabindex="-1" data-dashboard-tab="dials"><svg class="side-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6"/></svg>Total dials <span id="dialsTabCount" class="dashboard-tab-count">0</span></button>
@@ -68,19 +70,20 @@
 
         <div class="dashboard-stack">
           <div class="dashboard-top-row">
-            <section id="dialerTabPanel" class="dialer-run-panel" aria-labelledby="liveTitle" tabindex="0">
+            <section id="dialerTabPanel" class="dialer-run-panel dialer-workspace" aria-labelledby="liveTitle" tabindex="0">
+              <div class="dialer-workspace-main">
               <div class="dialer-document">
                 <div class="issue-meta">
                   <span class="live-indicator"><i></i><span id="liveLabel">Standby</span></span>
                   <span id="lineCount" class="line-count">0 of 0 dialed</span>
                   <div id="callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
-                  <div class="dialer-pool-filter"><select id="dialerPoolStatusFilter" class="dialer-pool-status-select" aria-label="Dial prospects with CRM status"></select><select id="dialerBusinessTypeFilter" class="dialer-business-type-select" aria-label="Dial prospects by business type"></select><select id="dialerCallerIdGroup" class="dialer-caller-id-select" aria-label="Caller ID numbers"></select><span class="visually-hidden" id="dialerTimezoneLabel">Dial from</span><select id="dialerTimezoneFilter" aria-labelledby="dialerTimezoneLabel" aria-hidden="true" tabindex="-1"><option value="">All time zones</option></select><div class="timezone-menu"><button id="dialerTimezoneButton" class="timezone-menu-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="dialerTimezoneList">All time zones</button><ul id="dialerTimezoneList" class="timezone-menu-list" role="listbox" aria-labelledby="dialerTimezoneLabel" hidden></ul></div></div>
+                  <div class="dialer-pool-filter"><select id="dialerPoolStatusFilter" class="dialer-pool-status-select" aria-label="Dial prospects with CRM status"></select><select id="dialerBusinessTypeFilter" class="dialer-business-type-select" aria-label="Dial prospects by industry"></select><select id="dialerCallerIdGroup" class="dialer-caller-id-select" aria-label="Caller ID numbers"></select><span class="visually-hidden" id="dialerTimezoneLabel">Dial from</span><select id="dialerTimezoneFilter" aria-labelledby="dialerTimezoneLabel" aria-hidden="true" tabindex="-1"><option value="">All time zones</option></select><div class="timezone-menu"><button id="dialerTimezoneButton" class="timezone-menu-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="dialerTimezoneList">All time zones</button><ul id="dialerTimezoneList" class="timezone-menu-list" role="listbox" aria-labelledby="dialerTimezoneLabel" hidden></ul></div></div>
                 </div>
 
                 <section class="queue-strip" aria-label="Call queue">
                   <div id="activeCall" class="power-lines"></div>
                 </section>
-                <p class="issue-lede">Three lines dial at once. The first answer stays on the line.</p>
+                <p id="dialerIssueLede" class="issue-lede">Three lines dial at once. The first answer stays on the line.</p>
 
                 <div class="session-momentum" aria-label="Current session progress">
                   <div class="session-goal">
@@ -152,6 +155,34 @@
                 </section>
               </details>
               </div>
+              </div>
+              <aside id="prospectNotesShell" class="prospect-notes-shell" aria-label="Notes sidebar">
+                <button id="prospectNotesExpandTab" class="prospect-notes-expand-tab" type="button" hidden aria-label="Show notes panel">Notes</button>
+                <div id="prospectNotesResizeHandle" class="prospect-notes-resize-handle" role="separator" aria-orientation="vertical" aria-label="Drag to resize notes panel" tabindex="0"></div>
+                <div class="prospect-notes-inner">
+                  <div class="prospect-notes-shell-head">
+                    <span class="prospect-notes-shell-label">Notes</span>
+                    <button id="prospectNotesCollapse" class="prospect-notes-collapse" type="button" aria-expanded="true" aria-controls="prospectNotesPanel" aria-label="Collapse notes panel" title="Collapse notes panel">›</button>
+                  </div>
+              <div id="prospectNotesPanel" class="prospect-notes-panel">
+                <section class="prospect-notes-active" aria-labelledby="prospectNotesTitle">
+                  <div class="prospect-notes-panel-head">
+                    <h3 id="prospectNotesTitle">Notes</h3>
+                    <span id="prospectNotesSaveState" class="prospect-notes-save-state" aria-live="polite"></span>
+                  </div>
+                  <p id="prospectNotesTarget" class="prospect-notes-target">No prospect on the line</p>
+                  <textarea id="prospectNotesEditor" class="prospect-notes-editor" rows="10" placeholder="Notes for the active prospect…"></textarea>
+                </section>
+                <section class="send-info-tracker" aria-labelledby="sendInfoNotesTitle">
+                  <div class="send-info-tracker-head">
+                    <h3 id="sendInfoNotesTitle">Send info</h3>
+                    <span id="sendInfoProspectsCount" class="send-info-prospects-count" aria-live="polite"></span>
+                  </div>
+                  <div id="sendInfoProspectsList" class="send-info-prospects-list" role="list"></div>
+                </section>
+              </div>
+                </div>
+              </aside>
             </section>
 <dialog id="sessionSummaryDialog" class="session-summary-dialog" aria-labelledby="sessionSummaryTitle">
       <section class="session-summary-content">
@@ -231,19 +262,71 @@
                 </div>
               </div>
             </section>
+            <div id="pipelineTabPanel" class="dashboard-tab-panel pool-tab-panel pipeline-tab-panel" role="tabpanel" aria-labelledby="pipelineTabButton" hidden>
+              <section class="pipeline-board-panel" aria-label="Send info pipeline">
+                <div class="pipeline-board-toolbar">
+                  <div>
+                    <h2 id="pipelineViewHeading">Pipeline</h2>
+                    <p class="pipeline-board-lede">Callbacks sit in Dialed, Send info in Contacted (engaged), then follow the sequence. Drag cards to move steps; timers restart on each move.</p>
+                  </div>
+                  <span id="pipelineBoardSummary" class="pool-table-summary" aria-live="polite">0 on board</span>
+                </div>
+                <details id="pipelineStepsEditor" class="pipeline-steps-editor">
+                  <summary>Edit steps after Contacted (engaged)</summary>
+                  <p class="pipeline-editor-hint">Dialed and Contacted (engaged) stay fixed. Add, remove, rename, or set wait hours (timer before the card is “ready” and can move forward). Key turns into a safe id for you (e.g. <span class="pipeline-key-example">Follow up #2</span> → <span class="pipeline-key-example">follow_up_2</span>) when you leave the field or save. Saving updates columns for everyone on this account.</p>
+                  <div id="pipelineStepsEditorList" class="pipeline-editor-list" aria-label="Custom pipeline steps"></div>
+                  <div class="pipeline-editor-actions">
+                    <button id="pipelineAddStepButton" class="button button-quiet" type="button">Add step</button>
+                    <label class="pipeline-migrate-label"><input id="pipelineMigrateLeadsInput" type="checkbox"> Move prospects off columns you remove (Callbacks → Dialed, Send info → Contacted (engaged))</label>
+                    <button id="pipelineSaveStepsButton" class="button button-primary" type="button">Save pipeline</button>
+                  </div>
+                </details>
+                <div id="pipelineBoard" class="pipeline-board" role="list"></div>
+                <div id="pipelineBoardEmpty" class="empty-state pipeline-board-empty" hidden>
+                  <h2>No Send info prospects yet</h2>
+                  <p>Callbacks appear in Dialed. Send info prospects appear in Contacted (engaged).</p>
+                </div>
+              </section>
+            </div>
 <div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
                 <section class="pool-table-panel" aria-label="Total dials">
                   <div class="pool-table-toolbar">
-                    <div><h2>Total dials</h2><span id="dialsTableSummary" class="pool-table-summary">0 dials</span></div>
+                    <div>
+                      <h2 id="dialsViewHeading">Total dials</h2>
+                      <span id="dialsTableSummary" class="pool-table-summary">0 dials</span>
+                    </div>
+                    <div class="dials-subnav" role="tablist" aria-label="Total dials views">
+                      <button id="dialsCurrentViewButton" class="dials-subnav-link is-active" type="button" role="tab" aria-selected="true" data-dials-subview="current">Current record</button>
+                      <button id="dialsGalleryViewButton" class="dials-subnav-link" type="button" role="tab" aria-selected="false" data-dials-subview="gallery">Saved records</button>
+                    </div>
                     <div class="pool-table-actions">
+                      <button id="backfillNewDialCallbacksButton" class="button button-quiet" type="button">Fix New → 2h callback</button>
+                      <button id="backfillNov5StaticCallbacksButton" class="button button-quiet" type="button">Nov 5 → static callback</button>
+                      <button id="saveDialsRecordButton" class="button button-quiet" type="button">Save &amp; new record</button>
                       <button id="importDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
                       <input id="dialsCsvInput" type="file" accept=".csv,text/csv" hidden>
                       <button id="exportDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↓</span>Export CSV</button>
                     </div>
                   </div>
-                  <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">
-                    <table id="dialsTable"><thead><tr><th>When</th><th>Prospect</th><th>Phone</th><th>Business</th><th>Reviews</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsTableBody"></tbody></table>
-                    <div id="dialsTableEmpty" class="empty-state"><h2>No dials yet</h2><p>Calls and skips show up here, newest first.</p></div>
+                  <div id="dialsCurrentPanel" class="dials-view-panel">
+                    <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">
+                      <table id="dialsTable"><thead><tr><th>When</th><th>Prospect</th><th>Phone</th><th>Business</th><th>Reviews</th><th>Notes</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsTableBody"></tbody></table>
+                      <div id="dialsTableEmpty" class="empty-state"><h2>No dials yet</h2><p>Calls and skips show up here, newest first.</p></div>
+                    </div>
+                  </div>
+                  <div id="dialsGalleryPanel" class="dials-view-panel" hidden>
+                    <div id="dialsGalleryToolbar" class="dials-gallery-toolbar" hidden>
+                      <button id="dialsGalleryBackButton" class="button button-quiet" type="button">← All saved records</button>
+                      <span id="dialsGalleryRecordTitle" class="dials-gallery-record-title"></span>
+                    </div>
+                    <div id="dialsRecordsGallery" class="dials-records-gallery" role="list" aria-label="Saved dial records"></div>
+                    <div id="dialsRecordsGalleryEmpty" class="empty-state"><h2>No saved records</h2><p>Save the current record to start a fresh dial log while keeping past lists here.</p></div>
+                    <div id="dialsSavedRecordPanel" class="dials-view-panel" hidden>
+                      <div class="table-scroll pool-table-scroll" role="region" aria-label="Saved dial record" tabindex="0">
+                        <table id="dialsSavedTable"><thead><tr><th>When</th><th>Prospect</th><th>Phone</th><th>Business</th><th>Reviews</th><th>Notes</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsSavedTableBody"></tbody></table>
+                        <div id="dialsSavedTableEmpty" class="empty-state"><h2>No dials in this record</h2></div>
+                      </div>
+                    </div>
                   </div>
                 </section>
               </div>
@@ -258,11 +341,12 @@
                       <select id="statusFilter" class="filter-select" aria-label="Filter by status">
                         <option value="all">All statuses</option>
                         <option value="new">New</option>
-                        <option value="call">Callback (2 hour timer)</option>
-                        <option value="send_info">Send info</option>
+                        <option value="dialed">Dialed (2 hour timer)</option>
+                        <option value="contact_engaged">Contact (engaged)</option>
+                        <option value="qualified">Qualified</option>
                         <option value="booked">Booked</option>
-                        <option value="disqualified">Disqualified</option>
-                        <option value="no_answer_disqualified">No answer (disqualified)</option>
+                        <option value="proposal_sent">Proposal sent</option>
+                        <option value="closed">Closed</option>
                       </select>
                       <select id="stateFilter" class="filter-select" aria-label="Filter by state">
                         <option value="">All states</option>
@@ -299,7 +383,7 @@
                     <label class="pool-timezone-filter"><span>Timezone</span><select id="poolTimezoneFilter" aria-label="Filter caller pool by timezone"><option value="">All time zones</option></select></label>
                   </div>
                   <div class="table-scroll pool-table-scroll" role="region" aria-label="New prospect pool table" tabindex="0">
-                    <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
+                    <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Status</th><th>Notes</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
                     <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p id="poolTableEmptyHint">Only prospects in the selected pool status appear here.</p></div>
                   </div>
                 </section>

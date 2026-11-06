@@ -8,6 +8,26 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Desktop: shell is viewport-locked (see 05-charts.css); main scrolls so tall tabs (pipeline, pool) stay reachable. */
+@media (min-width: 821px) {
+  .app-shell {
+    flex-direction: row;
+    min-height: 0;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  main {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+  }
+}
+
 .side-nav {
   flex-basis: 220px;
   padding: 10px 8px 8px;

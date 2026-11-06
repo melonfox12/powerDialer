@@ -20,7 +20,7 @@ class Part1:
 
     def test_stage_transitions_use_explicit_state_priority(self):
         self.assertEqual(dialer_stage(False, False, None, False, []), "idle")
-        self.assertEqual(dialer_stage(True, False, None, False, [{"state": "creating"}]), "dialing")
+        self.assertEqual(dialer_stage(True, False, None, False, [{"state": "creating"}]), "ringing")
         self.assertEqual(dialer_stage(True, False, None, False, [{"state": "ringing"}]), "ringing")
         self.assertEqual(dialer_stage(True, False, object(), False, []), "connected")
         self.assertEqual(dialer_stage(True, False, None, True, []), "wrapup")
@@ -35,11 +35,11 @@ class Part1:
     def test_disposition_mapping(self):
         expected = {
             "booked": "booked",
-            "callback": "call",
-            "send_info": "send_info",
-            "not_interested": "disqualified",
-            "no_answer": "call",
-            "do_not_call": "disqualified",
+            "callback": "dialed",
+            "send_info": "contact_engaged",
+            "not_interested": "closed",
+            "no_answer": "dialed",
+            "do_not_call": "closed",
         }
         for disposition, status in expected.items():
             with self.subTest(disposition=disposition):

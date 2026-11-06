@@ -50,7 +50,7 @@ def end_call_with_status(state, lead_id, status, scheduled_until=None):
     on_call = _on_a_call(state, lead_id)
     if status == "booked":
         lead = _set_booked(state, lead_id)
-    elif status == "call":
+    elif status == "dialed":
         # A call on the line is already in the dial list, so it needs no separate skip entry.
         lead = queue.schedule_callback(state, lead_id, scheduled_until, log_skip=not on_call)
     else:
@@ -140,8 +140,8 @@ def log_booking(state, lead_id, booked_at):
     previous = next((item for item in state.crm.snapshot() if item["id"] == lead_id), None)
     if previous is None:
         raise KeyError("Prospect not found")
-    if previous.get("status") in ("disqualified", "no_answer_disqualified"):
-        raise ValueError("A disqualified prospect cannot be marked booked.")
+    if previous.get("status") == "closed":
+        raise ValueError("A closed prospect cannot be marked booked.")
     if previous.get("booked_at"):
         raise ValueError("That booking already has a date and is counted.")
     if previous.get("status") == "booked":

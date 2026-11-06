@@ -3,14 +3,24 @@
                 <div class="pipeline-board-toolbar">
                   <div>
                     <h2 id="pipelineViewHeading">Pipeline</h2>
-                    <p class="pipeline-board-lede">Callbacks sit in Dialed, Send info in Call 1, then follow the sequence. Drag cards to move steps; timers restart on each move.</p>
+                    <p class="pipeline-board-lede">Callbacks sit in Dialed, Send info in Contacted (engaged), then follow the sequence. Drag cards to move steps; timers restart on each move.</p>
                   </div>
                   <span id="pipelineBoardSummary" class="pool-table-summary" aria-live="polite">0 on board</span>
                 </div>
+                <details id="pipelineStepsEditor" class="pipeline-steps-editor">
+                  <summary>Edit steps after Contacted (engaged)</summary>
+                  <p class="pipeline-editor-hint">Dialed and Contacted (engaged) stay fixed. Add, remove, rename, or set wait hours (timer before the card is “ready” and can move forward). Key turns into a safe id for you (e.g. <span class="pipeline-key-example">Follow up #2</span> → <span class="pipeline-key-example">follow_up_2</span>) when you leave the field or save. Saving updates columns for everyone on this account.</p>
+                  <div id="pipelineStepsEditorList" class="pipeline-editor-list" aria-label="Custom pipeline steps"></div>
+                  <div class="pipeline-editor-actions">
+                    <button id="pipelineAddStepButton" class="button button-quiet" type="button">Add step</button>
+                    <label class="pipeline-migrate-label"><input id="pipelineMigrateLeadsInput" type="checkbox"> Move prospects off columns you remove (Callbacks → Dialed, Send info → Contacted (engaged))</label>
+                    <button id="pipelineSaveStepsButton" class="button button-primary" type="button">Save pipeline</button>
+                  </div>
+                </details>
                 <div id="pipelineBoard" class="pipeline-board" role="list"></div>
                 <div id="pipelineBoardEmpty" class="empty-state pipeline-board-empty" hidden>
                   <h2>No Send info prospects yet</h2>
-                  <p>Callbacks appear in Dialed. Send info prospects appear in Call 1.</p>
+                  <p>Callbacks appear in Dialed. Send info prospects appear in Contacted (engaged).</p>
                 </div>
               </section>
             </div>

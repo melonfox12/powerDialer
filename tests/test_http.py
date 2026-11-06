@@ -13,6 +13,7 @@ from shared.api_contract import (
     METRICS_DAILY_ROW_KEYS,
     PERFORMANCE_DAILY_KEYS,
     PERFORMANCE_PAYLOAD_KEYS,
+    PERFORMANCE_TREND_KEYS,
     SETTINGS_VIEW_KEYS,
 )
 from shared.infra import utc_now
@@ -134,7 +135,7 @@ class HttpContractTests(unittest.TestCase):
             "conversations_to_booked",
             "connected_to_booked",
         ))
-        self.assert_keys(payload["trend"], ("grain", "buckets"))
+        self.assert_keys(payload["trend"], PERFORMANCE_TREND_KEYS)
         self.assertIsInstance(payload["trend"]["buckets"], list)
 
         status, payload, _type = self.json_request("GET", "/api/settings")
@@ -187,7 +188,7 @@ class HttpContractTests(unittest.TestCase):
         self.assertIsNone(payload["next_lead"])
         _, catalog, _type = self.json_request("GET", "/api/leads")
         skipped = next(lead for lead in catalog["leads"] if lead["id"] == lead_id)
-        self.assertEqual(skipped["status"], "call")
+        self.assertEqual(skipped["status"], "dialed")
         self.assertEqual(skipped["call_log"][0]["answered_by"], "skipped")
 
         status, payload, _type = self.json_request("POST", "/api/next/skip", {})
@@ -293,7 +294,7 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assert_keys(payload, ("error",))
 
-        status, payload, _type = self.json_request("POST", f"/api/leads/{lead_id}/status", {"status": "send_info"})
+        status, payload, _type = self.json_request("POST", f"/api/leads/{lead_id}/status", {"status": "contact_engaged"})
         self.assertEqual(status, 200)
         self.assert_keys(payload, ("lead", "state"))
         self.assert_keys(payload["state"], STATE_KEYS)
@@ -417,7 +418,7 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         lead_id = created["lead"]["id"]
         dialer = self.servers.runtime.local.dialer
-        dialer.crm.set_status(lead_id, "call", due)
+        dialer.crm.set_status(lead_id, "dialed", due)
         logs_before = len(next(lead for lead in dialer.crm.snapshot() if lead["id"] == lead_id).get("call_log") or [])
         revision_before = dialer.crm.revision
 
@@ -474,6 +475,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/leads/{id}/fields"),
     ("POST", "/api/leads/{id}/pipeline"),
     ("POST", "/api/import"),
+    ("POST", "/api/pipeline/settings"),
     ("GET", "/api/export.csv"),
     ("DELETE", "/api/leads/{id}"),
     ("GET", "/api/state"),
@@ -492,9 +494,14 @@ EXPECTED_ROUTES = {
     ("POST", "/api/dials/scan"),
     ("GET", "/api/dials/export.csv"),
     ("POST", "/api/dials/import"),
+    ("POST", "/api/dials/backfill-new-callbacks"),
+    ("POST", "/api/dials/backfill-nov5-static-callbacks"),
+    ("POST", "/api/dials/records/snapshot"),
+    ("GET", "/api/dials/records/{id}"),
     ("POST", "/api/leads/{id}/dial"),
     ("POST", "/api/leads/{id}/status"),
     ("POST", "/api/leads/{id}/call-outcome"),
+    ("POST", "/api/voice/rejoin"),
     ("GET", "/api/performance"),
     ("POST", "/api/performance/goal"),
     ("POST", "/api/bookings"),

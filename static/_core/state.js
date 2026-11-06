@@ -1,5 +1,7 @@
 export const state = {
   leads: [],
+  pipeline_steps: [],
+  pipeline_revision: 0,
   archived_dials: [],
   dials_version: 0,
   dial_records: [],

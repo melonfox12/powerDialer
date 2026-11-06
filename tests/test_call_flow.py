@@ -82,6 +82,11 @@ def fake_twilio(account_sid, auth_token, method, path, data=None, params=None, u
         fake_twilio.calls += 1
         fake_twilio.payloads.append(dict(data or {}))
         return {"sid": f"CA{fake_twilio.calls:032d}"}
+    if method == "GET" and path.startswith("/Calls/") and path.endswith(".json"):
+        sid = path.removeprefix("/Calls/").removesuffix(".json")
+        return {"sid": sid, "status": "in-progress"}
+    if method == "POST" and path.startswith("/Calls/") and path.endswith("/Transcriptions.json"):
+        return {"sid": "TRtest"}
     if method == "POST" and path.startswith("/Calls/"):
         return {}
     raise AssertionError(f"unexpected Twilio request {method} {path}")

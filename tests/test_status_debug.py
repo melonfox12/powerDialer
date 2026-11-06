@@ -56,7 +56,15 @@ class StatusUpdateDebugTests(unittest.TestCase):
                 crm.leads = [lead]
                 crm.save()
 
-                for key in ("new", "call", "send_info", "booked", "disqualified", "no_answer_disqualified"):
+                for key in (
+                    "new",
+                    "dialed",
+                    "contact_engaged",
+                    "qualified",
+                    "booked",
+                    "proposal_sent",
+                    "closed",
+                ):
                     code, data = post_status({"status": key})
                     self.assertEqual(code, 200, (key, data))
                     self.assertEqual(data["lead"]["status"], key, key)
@@ -67,11 +75,11 @@ class StatusUpdateDebugTests(unittest.TestCase):
                 crm.save()
                 code, data = post_status({"status": "Send info"})
                 self.assertEqual(code, 200, data)
-                self.assertEqual(data["lead"]["status"], "send_info")
+                self.assertEqual(data["lead"]["status"], "contact_engaged")
 
                 code, data = post_status({})
                 self.assertEqual(code, 200, data)
-                self.assertEqual(data["lead"]["status"], "send_info")
+                self.assertEqual(data["lead"]["status"], "contact_engaged")
 
                 lead["call_log"] = [
                     {"id": "d1", "started_at": "2026-01-01T12:00:00+00:00", "ended_at": "2026-01-01T12:01:00+00:00"},
@@ -82,12 +90,11 @@ class StatusUpdateDebugTests(unittest.TestCase):
                 ]
                 crm.leads = [lead]
                 crm.save()
-                code, data = post_status({"status": "send_info"})
+                code, data = post_status({"status": "contact_engaged"})
                 self.assertEqual(code, 200, data)
-                self.assertEqual(data["lead"]["status"], "send_info")
                 caps = crm.enforce_dial_caps()
                 self.assertEqual(caps["capped"], 1)
-                self.assertEqual(crm.snapshot()[0]["status"], "no_answer_disqualified")
+                self.assertEqual(crm.snapshot()[0]["status"], "closed")
             finally:
                 servers.stop()
 

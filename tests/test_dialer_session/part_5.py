@@ -46,23 +46,23 @@ class Part5:
         with tempfile.TemporaryDirectory() as directory:
             crm, _dialer = self._dialer(directory, [
                 _lead("booked", "+12025550101", status="booked"),
-                _lead("closed", "+12025550102", status="disqualified"),
+                _lead("closed", "+12025550102", status="closed"),
                 _lead("dnc", "+12025550103", status="do_not_call"),
             ])
             crm.set_status("closed", "new")
-            crm.set_status("booked", "call")
+            crm.set_status("booked", "dialed")
             self.assertEqual(
                 {lead["id"]: lead["status"] for lead in crm.snapshot()},
-                {"booked": "call", "closed": "new", "dnc": "disqualified"},
+                {"booked": "dialed", "closed": "new", "dnc": "closed"},
             )
-            crm.set_status("booked", "disqualified")
-            self.assertEqual(crm.snapshot()[0]["status"], "disqualified")
+            crm.set_status("booked", "closed")
+            self.assertEqual(crm.snapshot()[0]["status"], "closed")
 
     def test_closed_prospects_cannot_be_dialed_or_pinned(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer(directory, [
                 _lead("booked", "+12025550101", status="booked"),
-                _lead("closed", "+12025550102", status="disqualified"),
+                _lead("closed", "+12025550102", status="closed"),
                 _lead("open", "+12025550103"),
             ])
             for lead_id in ("booked", "closed"):
@@ -79,7 +79,7 @@ class Part5:
                 _lead("booked", "+12025550101", "Ada Lovelace", status="booked", **place),
                 _lead("same-phone", "(202) 555-0101", "Someone Else"),
                 _lead("same-person", "+12025550199", "ada  lovelace", **place),
-                _lead("closed", "+12025550102", "Grace Hopper", status="disqualified"),
+                _lead("closed", "+12025550102", "Grace Hopper", status="closed"),
                 _lead("closed-phone", "+12025550102", "Grace H"),
                 _lead("interested", "+12025550104", "Alan Turing", status="interested"),
                 _lead("interested-phone", "+12025550104", "Alan T"),
@@ -142,7 +142,7 @@ class Part5:
     def test_a_dropped_line_never_shortens_a_manual_callback(self):
         with tempfile.TemporaryDirectory() as directory:
             crm, dialer = self._dialer(directory, [_lead("held", "+12025550101", "Ada")])
-            manual = crm.set_status("held", "call", (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat())
+            manual = crm.set_status("held", "dialed", (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat())
             crm.append_call_log("held", {
                 "id": "drop-1",
                 "started_at": utc_now().isoformat(),
@@ -160,10 +160,10 @@ class Part5:
 
             def remaining(lead_id):
                 lead = next(item for item in crm.snapshot() if item["id"] == lead_id)
-                self.assertEqual(lead["status"], "call")
+                self.assertEqual(lead["status"], "dialed")
                 return datetime.fromisoformat(lead["scheduled_until"]) - utc_now()
 
-            dialer.update_status("menu", "call")
+            dialer.update_status("menu", "dialed")
             self.assertGreater(remaining("menu"), timedelta(hours=MANUAL_CALLBACK_HOURS) - timedelta(seconds=5))
             self.assertLessEqual(remaining("menu"), timedelta(hours=MANUAL_CALLBACK_HOURS))
 

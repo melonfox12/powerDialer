@@ -143,7 +143,7 @@ def skip_active(state):
         state.last_event = "Prospect skipped; choose a disposition" if state.running else "Prospect skipped"
     if not state.running and lead_id:
         queue.schedule_callback(state, lead_id)
-        rules._bump(state, OUTCOME_METRIC["call"])
+        rules._bump(state, OUTCOME_METRIC["dialed"])
         rules._flush_metrics(state)
     state.record_activity("Prospect skipped; choose a disposition", "call")
     if call_uuid:

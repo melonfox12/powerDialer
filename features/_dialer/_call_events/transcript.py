@@ -5,20 +5,16 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from twilio.twiml.voice_response import VoiceResponse
-
 from features._dialer import twilio
 
 def _live_twiml(state, call):
     """Bridge the prospect into the agent conference. Transcription starts after media is up."""
-    response = VoiceResponse()
-    response.dial().conference(
-        state.conference,
-        beep="false",
-        start_conference_on_enter="true",
-        end_conference_on_exit="false",
+    conf = twilio.escape_xml(state.conference)
+    return (
+        "<Response><Dial>"
+        f'<Conference beep="false" startConferenceOnEnter="true" endConferenceOnExit="false">{conf}</Conference>'
+        "</Dial></Response>"
     )
-    return response
 
 
 def _agent_call(state):

@@ -132,15 +132,21 @@ class Part4:
             finally:
                 calls._launch_call = original_launch
             self.assertIs(dialer.active, launched[0])
-            self.assertEqual(crm.snapshot()[0]["status"], "new")
-            for lead in crm.snapshot()[1:]:
-                self.assertEqual(lead["status"], "call")
+            winner_id = launched[0]["lead_id"]
+            kept = next(lead for lead in crm.snapshot() if lead["id"] == winner_id)
+            self.assertEqual(kept["status"], "dialed")
+            for lead in crm.snapshot():
+                if lead["id"] == winner_id:
+                    continue
+                self.assertEqual(lead["status"], "dialed")
                 remaining = datetime.fromisoformat(lead["scheduled_until"]) - utc_now()
                 self.assertGreater(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS) - timedelta(seconds=5))
                 self.assertLessEqual(remaining, timedelta(hours=NO_PICKUP_CALLBACK_HOURS))
                 self.assertEqual([item["answered_by"] for item in lead["call_log"]], ["race_lost"])
             dialer.public_state()
-            for lead in crm.snapshot()[1:]:
+            for lead in crm.snapshot():
+                if lead["id"] == winner_id:
+                    continue
                 self.assertEqual([item["answered_by"] for item in lead["call_log"]], ["race_lost"])
             self.assertTrue(launched[1]["skip_closed"])
             self.assertTrue(launched[2]["skip_closed"])
@@ -213,7 +219,7 @@ class Part4:
             self.assertEqual(launched, ["+12025550101"])
             self.assertIsNone(view["next_lead"])
             skipped = next(lead for lead in crm.snapshot() if lead["id"] == "prospect-0")
-            self.assertEqual(skipped["status"], "call")
+            self.assertEqual(skipped["status"], "dialed")
 
     def test_manual_dial_calls_the_chosen_prospect_and_can_wait_for_the_line(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -225,7 +231,7 @@ class Part4:
             }
             chosen = {
                 "id": "chosen", "name": "Chosen", "business": "Studio",
-                "phone": "+12025550199", "timezone": "Unknown", "status": "send_info",
+                "phone": "+12025550199", "timezone": "Unknown", "status": "contact_engaged",
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
             blocked = {
@@ -280,7 +286,7 @@ class Part4:
             crm = ProspectStore(Path(directory) / "crm.json")
             chosen = {
                 "id": "chosen", "name": "Chosen", "business": "Studio",
-                "phone": "+12025550199", "timezone": "Unknown", "status": "call",
+                "phone": "+12025550199", "timezone": "Unknown", "status": "dialed",
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
             crm.leads = [chosen]
@@ -434,17 +440,17 @@ class Part4:
                 "phone": "+12025550101", "timezone": "Eastern", "status": "new",
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
-            send_info = {
+            contact_engaged_lead = {
                 "id": "info-1", "name": "Info", "business": "Shop",
-                "phone": "+12025550102", "timezone": "Eastern", "status": "send_info",
+                "phone": "+12025550102", "timezone": "Eastern", "status": "contact_engaged",
                 "scheduled_until": None, "transcript": [], "fields": {},
             }
-            crm.leads = [new_lead, send_info]
+            crm.leads = [new_lead, contact_engaged_lead]
             dialer = Dialer(crm, str(Path(directory) / ".env"))
             dialer.session = new_session()
             self.assertEqual([lead["id"] for lead in dialer.public_state()["pool"]], ["new-1"])
-            dialer.set_pool_filters(pool_status="send_info")
-            self.assertEqual(dialer.public_state()["dial_pool_status"], "send_info")
+            dialer.set_pool_filters(pool_status="contact_engaged")
+            self.assertEqual(dialer.public_state()["dial_pool_status"], "contact_engaged")
             self.assertEqual([lead["id"] for lead in dialer.public_state()["pool"]], ["info-1"])
 
     def test_a_line_with_no_twilio_update_is_released(self):
@@ -469,7 +475,7 @@ class Part4:
                 self.assertTrue(call["end_processed"])
                 self.assertNotIn(call["token"], dialer.in_flight)
                 kept = crm.snapshot()[0]
-                self.assertEqual(kept["status"], "call")
+                self.assertEqual(kept["status"], "dialed")
                 self.assertTrue(kept["scheduled_until"])
                 call["end_processed"] = False
                 call["picked_up"] = True
@@ -487,17 +493,17 @@ class Part4:
         due = now + timedelta(hours=1)
         later = now + timedelta(hours=1, minutes=30)
         leads = [
-            self._scan_lead("held", "Ada Lovelace", "call", due, city="Austin", state="TX", dialed=True),
-            self._scan_lead("held-later", "Ada Lovelace", "call", later, city="Austin", state="TX", dialed=True),
+            self._scan_lead("held", "Ada Lovelace", "dialed", due, city="Austin", state="TX", dialed=True),
+            self._scan_lead("held-later", "Ada Lovelace", "dialed", later, city="Austin", state="TX", dialed=True),
             self._scan_lead("fresh", "ada   lovelace", "new", None, fields={"City": "Austin", "State": "tx"}),
             self._scan_lead("other-city", "Ada Lovelace", "new", None, city="Dallas", state="TX"),
             self._scan_lead("booked", "Ada Lovelace", "booked", None, city="Austin", state="TX"),
-            self._scan_lead("far", "Grace Hopper", "call", now + timedelta(hours=50), city="Austin", state="TX", dialed=True),
+            self._scan_lead("far", "Grace Hopper", "dialed", now + timedelta(hours=50), city="Austin", state="TX", dialed=True),
             self._scan_lead("far-copy", "Grace Hopper", "new", None, city="Austin", state="TX"),
-            self._scan_lead("quiet", "Alan Turing", "call", due, city="Austin", state="TX"),
+            self._scan_lead("quiet", "Alan Turing", "dialed", due, city="Austin", state="TX"),
             self._scan_lead("quiet-copy", "Alan Turing", "new", None, city="Austin", state="TX"),
             self._scan_lead("blank", "", "new", None, city="Austin", state="TX"),
-            self._scan_lead("zone", "Lin Zhao", "call", due, timezone="Pacific", dialed=True),
+            self._scan_lead("zone", "Lin Zhao", "dialed", due, timezone="Pacific", dialed=True),
             self._scan_lead("zone-copy", "Lin Zhao", "new", None, timezone="Pacific"),
             self._scan_lead("zone-other", "Lin Zhao", "new", None, timezone="Eastern"),
         ]
@@ -510,9 +516,9 @@ class Part4:
             result = Dialer(crm, str(Path(directory) / ".env")).scan_crm()
             stored = {lead["id"]: lead for lead in crm.snapshot()}
             self.assertEqual(result["synced"], 2)
-            self.assertEqual(stored["fresh"]["status"], "call")
+            self.assertEqual(stored["fresh"]["status"], "dialed")
             self.assertEqual(stored["fresh"]["scheduled_until"], later.isoformat())
-            self.assertEqual(stored["held"]["status"], "call")
+            self.assertEqual(stored["held"]["status"], "dialed")
             self.assertEqual(stored["held"]["scheduled_until"], due.isoformat())
             self.assertEqual(stored["other-city"]["status"], "new")
             self.assertEqual(stored["far-copy"]["status"], "new")
