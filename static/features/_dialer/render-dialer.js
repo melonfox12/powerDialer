@@ -43,9 +43,11 @@ export function renderDialer() {
   else if (state.running) indicator.classList.add("tone-amber");
   setDialerText("liveLabel", pending ? "Outcome needed" : active ? "Live" : state.paused ? "Paused" : connected ? "Dialing" : state.running ? "Connecting" : "Standby");
   const poolMode = state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS;
-  const poolLabel = DIAL_POOL_STATUS_LABELS[poolMode] || "New";
-  const queueSize = state.queue_count ?? state.pool?.length ?? 0;
-  setDialerText("lineCount", `${state.session_stats?.dials || 0} of ${queueSize} ${poolLabel.toLowerCase()} dialed`);
+  if (S.dialerWorkspaceDomId !== "aiDialerAgentTabPanel") {
+    const poolLabel = DIAL_POOL_STATUS_LABELS[poolMode] || "New";
+    const queueSize = state.queue_count ?? state.pool?.length ?? 0;
+    setDialerText("lineCount", `${state.session_stats?.dials || 0} of ${queueSize} ${poolLabel.toLowerCase()} dialed`);
+  }
   const lede = dialerById("dialerIssueLede");
   if (lede) {
     lede.textContent = poolMode === "contact_engaged"

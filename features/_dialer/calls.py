@@ -53,6 +53,9 @@ def _busy_lead_ids(state):
 
 def _pool_leads(state, leads=None):
     leads = state.crm.snapshot() if leads is None else leads
+    if getattr(state, "ai_agent_mode", False) and getattr(state, "ai_agent_id", None):
+        from features import ai_agents
+        return ai_agents.dialable_pool_for_agent(state, leads)
     return pool_leads(
         leads,
         pool_status=resolve_pool_status(getattr(state, "dial_pool_status", None)),
@@ -219,7 +222,7 @@ def _dial_record(call, duration, answered_by=None):
         "outcome": call.get("outcome"),
     }
 
-def _new_call(state, kind, lead):
+def _new_call(state, kind, lead, slot_index=None):
     token = secrets.token_urlsafe(24)
     call = {
         "token": token,
@@ -242,6 +245,8 @@ def _new_call(state, kind, lead):
         "transcript_lines": [],
         "end_processed": False,
     }
+    if slot_index is not None:
+        call["slot_index"] = int(slot_index)
     state.calls[token] = call
     _watch_token(state, token)
     if kind == "prospect":

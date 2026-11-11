@@ -64,6 +64,9 @@ class DialerState:
         self.calling_window_timer = None
         self.manual_lead_id = None
         self.queue_anchor_id = None
+        self.ai_agent_id = None
+        self.ai_agent_mode = False
+        self.ai_dial_starved = False
 
 
     def record_activity(self, message, source="dialer"):

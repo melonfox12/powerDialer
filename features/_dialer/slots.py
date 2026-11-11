@@ -4,6 +4,8 @@ import threading
 
 from features._dialer import calls, rules
 
+AGENT_LINE_CAP = 3
+
 
 def _prune_finished_lines(state):
     """Drop ended lines still listed in in_flight so open slots can refill."""
@@ -47,10 +49,16 @@ def _place_prospect_call(state):
         if open_slots <= 0:
             return
         leads = state.crm.snapshot()
+        if getattr(state, "ai_agent_mode", False):
+            dialable = calls._pool_leads(state, leads)
+            if len(dialable) < 1 and not prospect_lines:
+                state.ai_dial_starved = True
+                return
+            state.ai_dial_starved = False
         active_leads = {call["lead_id"] for call in state.in_flight.values() if call.get("lead_id")}
         selected = []
         taken = set()
-        if open_slots:
+        if open_slots and not getattr(state, "ai_agent_mode", False):
             manual = calls._claim_manual_lead(state, leads, active_leads)
             if manual:
                 selected.append(manual)
@@ -62,11 +70,32 @@ def _place_prospect_call(state):
                 lead for lead in calls._pool_leads(state, leads)
                 if lead["id"] not in active_leads and not (calls._contact_keys(lead) & taken)
             ]
-            selected.extend(pool[:open_slots])
+            if getattr(state, "ai_agent_mode", False):
+                line_cap = min(len(state.callers), AGENT_LINE_CAP)
+                occupied = {
+                    int(item["slot_index"])
+                    for item in prospect_lines
+                    if item.get("slot_index") is not None
+                }
+                free_indices = [index for index in range(line_cap) if index not in occupied]
+                batch = pool[: min(open_slots, len(free_indices))]
+                if not batch and not prospect_lines:
+                    state.ai_dial_starved = len(pool) < 1
+                elif len(pool) >= 1:
+                    state.ai_dial_starved = False
+                for index, lead in zip(free_indices, batch):
+                    selected.append((index, lead))
+            else:
+                selected.extend(pool[:open_slots])
         if open_slots and not selected:
             none_ready = True
-        for lead in selected:
-            call = calls._new_call(state, "prospect", lead)
+        for item in selected:
+            if getattr(state, "ai_agent_mode", False) and isinstance(item, tuple):
+                slot_index, lead = item
+                call = calls._new_call(state, "prospect", lead, slot_index=slot_index)
+            else:
+                lead = item
+                call = calls._new_call(state, "prospect", lead)
             call["caller_id"] = calls._next_caller(state)
             launches.append((call, lead["phone"]))
     if none_ready:

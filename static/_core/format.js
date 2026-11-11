@@ -78,6 +78,11 @@ const FALLBACK_CRM_STATUS_LABELS = {
 export const CRM_STATUS_KEYS = Array.isArray(vocabulary.crmStatusKeys) && vocabulary.crmStatusKeys.length
   ? vocabulary.crmStatusKeys
   : FALLBACK_CRM_STATUS_KEYS;
+export const AGENT_USE_STATUS = vocabulary.agentUseStatus || "agent_use";
+export const USER_SELECTABLE_CRM_STATUS_KEYS = Array.isArray(vocabulary.userSelectableCrmStatusKeys)
+  && vocabulary.userSelectableCrmStatusKeys.length
+  ? vocabulary.userSelectableCrmStatusKeys
+  : CRM_STATUS_KEYS.filter((key) => key !== AGENT_USE_STATUS);
 export const CRM_STATUS_LABELS = vocabulary.crmStatusLabels ?? FALLBACK_CRM_STATUS_LABELS;
 const FALLBACK_NEVER_DIAL_STATUSES = ["booked", "proposal_sent", "closed"];
 export const NEVER_DIAL_STATUSES = Array.isArray(vocabulary.neverDialStatuses) && vocabulary.neverDialStatuses.length
@@ -286,7 +291,14 @@ export function crmStatusOptionText(value, lead) {
   return CRM_STATUS_LABELS[value] || STATUS_LABELS[value] || value;
 }
 
+export function agentUseStatusText(lead) {
+  const fields = lead?.fields || {};
+  const name = String(lead?.agent_reserved_name || fields.agent_reserved_name || "").trim();
+  return name ? `Agent ${name} use` : (CRM_STATUS_LABELS[AGENT_USE_STATUS] || "Agent use");
+}
+
 export function callbackStatusText(lead, now = Date.now()) {
+  if (lead?.status === AGENT_USE_STATUS) return agentUseStatusText(lead);
   const label = STATUS_LABELS[lead?.status] || "New";
   if (lead?.status !== "dialed" || !lead.scheduled_until) return label;
   const countdown = callbackCountdown(lead.scheduled_until, now);
@@ -333,6 +345,16 @@ export function createCrmStatusSelect(lead) {
   select.className = `status-select status-${STATUS_STYLES[currentStatus]?.className || "neutral"}`;
   const name = lead?.name || lead?.phone || lead?.business || "prospect";
   select.setAttribute("aria-label", `Call status for ${name}`);
+  if (currentStatus === AGENT_USE_STATUS) {
+    select.disabled = true;
+    const locked = document.createElement("option");
+    locked.value = AGENT_USE_STATUS;
+    locked.textContent = agentUseStatusText(lead);
+    locked.selected = true;
+    select.append(locked);
+    bindCrmStatusSelectMenu(select);
+    return select;
+  }
   if (!CRM_STATUS_KEYS.includes(currentStatus)) {
     const current = document.createElement("option");
     current.value = currentStatus;
@@ -341,7 +363,12 @@ export function createCrmStatusSelect(lead) {
     current.disabled = true;
     select.append(current);
   }
-  for (const value of CRM_STATUS_KEYS) {
+  const ghostAgent = document.createElement("option");
+  ghostAgent.value = AGENT_USE_STATUS;
+  ghostAgent.textContent = CRM_STATUS_LABELS[AGENT_USE_STATUS] || "Agent use";
+  ghostAgent.disabled = true;
+  select.append(ghostAgent);
+  for (const value of USER_SELECTABLE_CRM_STATUS_KEYS) {
     const option = document.createElement("option");
     option.value = value;
     option.textContent = crmStatusOptionText(value, lead);

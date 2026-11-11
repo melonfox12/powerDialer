@@ -153,6 +153,8 @@ def log_booking(state, lead_id, booked_at):
     return lead
 
 def update_status(state, lead_id, status=None, scheduled_until=None, disposition=None, crm_only=False):
+    from features import ai_agents
+    ai_agents.assert_lead_mutable_by_user(state, lead_id)
     if disposition and not crm_only:
         status = status_for_disposition(disposition)
     raw = status

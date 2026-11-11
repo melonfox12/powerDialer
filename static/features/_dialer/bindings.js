@@ -16,11 +16,13 @@ import { bindNotesSidebar } from "./notes-sidebar.js";
 export function bindDialer() {
   bindNotesSidebar();
   for (const button of dialerMirrorNodes("startButton")) {
+    if (button.id?.startsWith("aiDialerAgent-")) continue;
     button.addEventListener("click", startDialing);
   }
   bindDialsExport();
   bindCrmStatus();
   for (const stopButton of dialerMirrorNodes("stopButton")) {
+    if (stopButton.id?.startsWith("aiDialerAgent-")) continue;
     stopButton.addEventListener("click", async () => {
       stopButton.disabled = true;
       try {

@@ -4,6 +4,7 @@ import json
 
 STATUSES = (
     {"key": "new", "label": "New", "color": "--muted", "className": "neutral"},
+    {"key": "agent_use", "label": "Agent use", "color": "--muted", "className": "neutral"},
     {"key": "dialed", "label": "Dialed", "color": "--callback", "className": "callback"},
     {"key": "contact_engaged", "label": "Contact (engaged)", "color": "--blue", "className": "info"},
     {"key": "qualified", "label": "Qualified", "color": "--blue", "className": "info"},
@@ -28,6 +29,15 @@ LEGACY_STATUSES = {
 
 # Never auto-dialed from the pool.
 NEVER_DIAL_STATUSES = ("booked", "proposal_sent", "closed")
+AGENT_USE_STATUS = "agent_use"
+AGENT_RESERVED_NAME_FIELD = "agent_reserved_name"
+AGENT_RESERVED_ID_FIELD = "agent_reserved_id"
+AGENT_POOL_SIZE = 50
+AI_AGENT_POOLS_JSON_KEY = "AI_AGENT_POOLS_JSON"
+# Shown in CRM menus; agent_use is display-only for humans.
+USER_SELECTABLE_CRM_STATUS_KEYS = tuple(
+    key for key in STATUS_KEYS if key != AGENT_USE_STATUS
+)
 # Auto-dial pool modes on the Dialer (timezone filter stacks on top).
 DIAL_POOL_STATUSES = ("new", "contact_engaged")
 DEFAULT_DIAL_POOL_STATUS = "new"
@@ -252,6 +262,7 @@ SETTING_DEFAULTS = {
     "CALLING_START_HOUR": "8",
     "CALLING_END_HOUR": "21",
     "OPENING_SCRIPT": "",
+    "AI_AGENT_POOLS_JSON": "{}",
     "DAILY_GOAL_MINUTES": "60",
     "DAILY_CONVERSATION_GOAL": "30",
     # 0 turns the weekly increase off. The anchor is the local date the goal was last set.
@@ -325,6 +336,20 @@ def parse_prospect_status(value):
     return LEGACY_STATUSES.get(text)
 
 
+def agent_reserved_name(lead):
+    fields = (lead or {}).get("fields") or {}
+    direct = str((lead or {}).get(AGENT_RESERVED_NAME_FIELD) or fields.get(AGENT_RESERVED_NAME_FIELD) or "").strip()
+    return direct
+
+
+def agent_use_status_text(lead):
+    """CRM label while a prospect is locked to an AI agent seat."""
+    name = agent_reserved_name(lead)
+    if name:
+        return f"Agent {name} use"
+    return CRM_STATUS_LABELS.get(AGENT_USE_STATUS, "Agent use")
+
+
 def canonical_status(status):
     """The current status for a stored one. Missing or unknown labels read as new when possible."""
     if status is None:
@@ -342,7 +367,11 @@ def browser_vocabulary():
     return {
         "statuses": [dict(item) for item in STATUSES],
         "crmStatusKeys": list(CRM_STATUS_KEYS),
+        "userSelectableCrmStatusKeys": list(USER_SELECTABLE_CRM_STATUS_KEYS),
         "crmStatusLabels": dict(CRM_STATUS_LABELS),
+        "agentUseStatus": AGENT_USE_STATUS,
+        "agentReservedNameField": AGENT_RESERVED_NAME_FIELD,
+        "agentReservedIdField": AGENT_RESERVED_ID_FIELD,
         "neverDialStatuses": list(NEVER_DIAL_STATUSES),
         "dialPoolStatuses": list(DIAL_POOL_STATUSES),
         "dialPoolStatusLabels": dict(DIAL_POOL_STATUS_LABELS),

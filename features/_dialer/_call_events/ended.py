@@ -91,6 +91,19 @@ def _call_ended(state, call, params):
     if log_entry and call.get("lead_id"):
         try:
             state.crm.append_call_log(call["lead_id"], log_entry, call.get("token"))
+            if getattr(state, "ai_agent_mode", False):
+                from features import ai_agents
+                was_live = bool(call.get("picked_up")) and call.get("answered_by") != "voicemail"
+                ai_agents.finalize_agent_call(
+                    state,
+                    call["lead_id"],
+                    connected=was_live,
+                    voicemail=call.get("answered_by") == "voicemail",
+                )
+                with state.lock:
+                    if state.pending_outcome == call.get("lead_id"):
+                        state.pending_outcome = None
+                ai_agents.try_resume_agent_dial(state)
             queue.maybe_enforce_dial_caps(state)
         except (KeyError, ValueError, OSError) as exc:
             state.record_activity(f"Could not log the call: {exc}", "error")

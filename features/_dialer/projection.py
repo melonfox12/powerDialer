@@ -2,7 +2,8 @@
 
 from features._dialer import calls
 from features._dialer.rules import clear_stale_active, dialer_stage, new_session, recent_streak
-from shared.dial_policy import leads_for_timezone_counts, resolve_pool_status, unique_business_types
+from features import ai_agents
+from shared.dial_policy import global_dialer_pool, leads_for_timezone_counts, resolve_pool_status, unique_business_types
 from shared.vocabulary import resolve_caller_id_group
 from shared.infra import utc_now
 
@@ -15,6 +16,13 @@ def crm_catalog(state, leads=None):
         leads_for_timezone_counts(leads, pool_status, utc_now(), selected_business_type=business_type),
     )
     pool = calls._pool_leads(state, leads)
+    busy = calls._busy_lead_ids(state)
+    dialer_pool = global_dialer_pool(
+        leads,
+        busy_ids=busy,
+        selected_timezone=state.selected_timezone,
+        selected_business_type=getattr(state, "selected_business_type", None) or None,
+    )
     pipeline_revision = getattr(state.crm, "pipeline_revision", 0)
     return {
         "leads_version": getattr(state.crm, "revision", 0),
@@ -22,6 +30,7 @@ def crm_catalog(state, leads=None):
         "pipeline_revision": pipeline_revision,
         "leads": leads,
         "pool": pool,
+        "global_dialer_pool": dialer_pool,
         "timezone_groups": [{"name": name, "count": count} for name, count in groups],
         "business_type_options": unique_business_types(leads),
         "counts": {
@@ -75,6 +84,7 @@ def public_state(state, include_leads=False):
                 "state": call["state"],
                 "caller_id": call.get("caller_id") or "",
                 "answered_by": call.get("answered_by") or "",
+                "slot_index": call.get("slot_index"),
             }
             for call in prospect_calls
         ]
@@ -124,6 +134,15 @@ def public_state(state, include_leads=False):
     view["dial_pool_status"] = resolve_pool_status(getattr(state, "dial_pool_status", None))
     view["caller_id_group"] = resolve_caller_id_group(getattr(state, "caller_id_group", None))
     view["pool"] = catalog["pool"]
+    view["global_dialer_pool"] = catalog.get("global_dialer_pool") or []
+    view["global_dialer_pool_count"] = len(view["global_dialer_pool"])
+    view["ai_agents"] = ai_agents.agents_public_view(state)
+    view["ai_dial_starved"] = bool(getattr(state, "ai_dial_starved", False))
+    if getattr(state, "ai_agent_mode", False) and getattr(state, "ai_agent_id", None):
+        pool_stats = ai_agents.agent_pool_stats(state)
+        view["agent_pool_total"] = pool_stats["agent_pool_total"]
+        view["agent_pool_dialable"] = pool_stats["agent_pool_dialable"]
+        view["queue_count"] = pool_stats["agent_pool_total"]
     if include_leads:
         view["leads"] = leads
     preferences = state.read_settings()

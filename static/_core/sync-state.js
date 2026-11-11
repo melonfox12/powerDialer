@@ -46,6 +46,8 @@ export function applyLeadsCatalog(catalog) {
   state.dial_records = catalog.dial_records || [];
   state.dial_records_version = catalog.dial_records_version ?? state.dial_records_version;
   state.pool = catalog.pool || [];
+  state.global_dialer_pool = catalog.global_dialer_pool || catalog.pool || [];
+  state.global_dialer_pool_count = state.global_dialer_pool.length;
   state.timezone_groups = catalog.timezone_groups || [];
   state.business_type_options = catalog.business_type_options || [];
   state.counts = catalog.counts || state.counts;

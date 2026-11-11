@@ -235,7 +235,11 @@ def start(state, priority_lead_id=None):
     state.record_activity(f"Twilio ready: {len(callers)} rotating caller ID(s)", "api")
     twilio.prepare_browser_voice(state, values)
     eligible = calls._pool_leads(state)
+    ai_agent_id = getattr(state, "ai_agent_id", None)
+    ai_mode = getattr(state, "ai_agent_mode", False)
     if not eligible and priority is None:
+        if ai_mode and ai_agent_id:
+            raise ValueError("This agent pool has no dialable prospects right now.")
         label = DIAL_POOL_STATUS_LABELS.get(state.dial_pool_status, "New")
         where = f" with {label} status"
         if state.selected_timezone:
@@ -261,7 +265,11 @@ def start(state, priority_lead_id=None):
         state.manual_lead_id = priority["id"] if priority else None
         state.queue_anchor_id = None
         pinned_extra = 1 if priority and all(item["id"] != priority["id"] for item in eligible) else 0
-        state.queue_total = len(eligible) + pinned_extra
+        if ai_mode and ai_agent_id:
+            from features import ai_agents
+            state.queue_total = len(ai_agents.agent_pool_lead_ids(state, ai_agent_id))
+        else:
+            state.queue_total = len(eligible) + pinned_extra
         state.advance_at = None
         state.advance_remaining = None
         rules._save_session(state)
@@ -540,6 +548,8 @@ def stop(state):
         state.pending_outcome = None
         state.manual_lead_id = None
         state.queue_anchor_id = None
+        state.ai_agent_id = None
+        state.ai_agent_mode = False
         state.in_flight.clear()
         state.last_event = "Stopped"
         if state.advance_timer:

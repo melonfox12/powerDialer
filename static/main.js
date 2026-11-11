@@ -2,6 +2,7 @@ import { bindDebugListeners } from "./_core/api.js";
 import { bindAuth, initAuth, showLoginGate } from "./features/auth.js";
 import { bindNavigation, renderTable } from "./core.js";
 import { bindCallMonitor, bindDialer, bindKeyboard, bindSessionGoal, bindVoice, startPolling } from "./features/dialer.js";
+import { bindAiDialer } from "./features/ai-dialer-agent.js";
 import { bindPerformance } from "./features/performance.js";
 import "./features/pipeline.js";
 import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "./features/prospects.js";
@@ -29,6 +30,7 @@ for (const id of ["minTotalReviews", "maxTotalReviews", "minRecentReviews"]) {
 bindCallMonitor();
 bindSessionGoal();
 bindDialer();
+bindAiDialer();
 bindKeyboard();
 byId("arcadeEnabledInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ enabled: event.target.checked }));
 byId("arcadeReelsInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ reels: event.target.checked }));

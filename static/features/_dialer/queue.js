@@ -5,6 +5,7 @@ import { formatPhoneNumber } from "../../_core/phone.js";
 export function renderQueueStrip() {
   const lines = dialLines();
   for (const activeCall of dialerMirrorNodes("activeCall")) {
+    if (activeCall.id === "aiDialerAgent-activeCall") continue;
     activeCall.replaceChildren();
     if (!lines.length) {
       const empty = document.createElement("p");

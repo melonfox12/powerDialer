@@ -7,6 +7,10 @@ from datetime import datetime, timedelta, timezone
 
 from shared.infra import utc_now
 from shared.vocabulary import (
+    AGENT_POOL_SIZE,
+    AGENT_RESERVED_ID_FIELD,
+    AGENT_RESERVED_NAME_FIELD,
+    AGENT_USE_STATUS,
     CALLBACK_TIMER_MIGRATION_FIELD,
     CALLBACK_TIMER_MIGRATION_SHIFT_HOURS,
     DEFAULT_BUSINESS_TYPE,
@@ -341,10 +345,39 @@ def is_dialable_callback(lead, now=None):
     return due <= moment
 
 
+def is_agent_reserved(lead):
+    return canonical_status((lead or {}).get("status")) == AGENT_USE_STATUS
+
+
+def agent_reservation_blocks_other_apps(lead, agent_id=None):
+    """True when a lead is locked to an AI agent and this caller may not change it."""
+    if not is_agent_reserved(lead):
+        return False
+    if agent_id:
+        reserved_id = str((lead or {}).get(AGENT_RESERVED_ID_FIELD) or ((lead or {}).get("fields") or {}).get(AGENT_RESERVED_ID_FIELD) or "").strip()
+        return reserved_id != str(agent_id)
+    return True
+
+
+def matches_ai_agent_dial(lead, now=None):
+    """AI agents dial only fresh New rows and static Dialed (callback elapsed or no timer)."""
+    moment = now or utc_now()
+    status = canonical_status(lead.get("status"))
+    if status == AGENT_USE_STATUS:
+        return True
+    if status == "new":
+        return True
+    if status == "dialed":
+        return is_dialable_callback(lead, moment)
+    return False
+
+
 def matches_dial_pool(lead, pool_status, now=None):
     """Whether a prospect belongs in the active dial-pool mode."""
     moment = now or utc_now()
     status = canonical_status(lead.get("status"))
+    if status == AGENT_USE_STATUS:
+        return False
     pool_status = resolve_pool_status(pool_status)
     if pool_status == "contact_engaged":
         return status == "contact_engaged"
@@ -531,6 +564,7 @@ def manual_lead_blocked(lead, leads, active_lead_ids):
         not lead
         or not lead.get("phone")
         or is_never_dial_status(lead.get("status"))
+        or is_agent_reserved(lead)
         or lead["id"] in active_lead_ids
     ):
         return True
@@ -538,5 +572,89 @@ def manual_lead_blocked(lead, leads, active_lead_ids):
     return any(
         keys & contact_keys(other) for other in leads
         if other["id"] != lead["id"]
-        and (other["id"] in active_lead_ids or is_never_dial_status(other.get("status")))
+        and (other["id"] in active_lead_ids or is_never_dial_status(other.get("status")) or is_agent_reserved(other))
     )
+
+
+def global_dialer_pool(
+    leads,
+    *,
+    busy_ids,
+    now=None,
+    selected_timezone=None,
+    selected_business_type=None,
+):
+    """Every prospect eligible for the manual auto-dial pool app-wide (main caller pool ordering)."""
+    return pool_leads(
+        leads,
+        pool_status=DEFAULT_DIAL_POOL_STATUS,
+        busy_ids=busy_ids,
+        now=now,
+        selected_timezone=selected_timezone,
+        selected_business_type=selected_business_type,
+    )
+
+
+def pick_agent_pool_ids(
+    leads,
+    *,
+    busy_ids,
+    reserved_ids,
+    selected_timezone=None,
+    selected_business_type=None,
+    limit=AGENT_POOL_SIZE,
+):
+    """Top N prospects from the global pool that are not already reserved elsewhere."""
+    ordered = global_dialer_pool(
+        leads,
+        busy_ids=busy_ids | set(reserved_ids or ()),
+        selected_timezone=selected_timezone,
+        selected_business_type=selected_business_type,
+    )
+    chosen = []
+    for lead in ordered:
+        if lead["id"] in reserved_ids:
+            continue
+        if is_agent_reserved(lead):
+            continue
+        chosen.append(lead["id"])
+        if len(chosen) >= limit:
+            break
+    return chosen
+
+
+def agent_dial_queue(lead_ids, leads, busy_ids, now=None):
+    """Ordered prospects in an agent seat pool that are dialable right now."""
+    moment = now or utc_now()
+    by_id = {lead["id"]: lead for lead in leads if lead.get("id")}
+    queue = []
+    for lead_id in lead_ids or []:
+        lead = by_id.get(lead_id)
+        if not lead or lead_id in busy_ids:
+            continue
+        if not matches_ai_agent_dial(lead, moment):
+            continue
+        if dialed_recently(lead, moment):
+            continue
+        queue.append(lead)
+    return queue
+
+
+def apply_agent_reservation(lead, agent_id, agent_name):
+    """Mark a prospect as locked to one AI agent seat."""
+    lead[AGENT_RESERVED_NAME_FIELD] = str(agent_name or "").strip()
+    lead[AGENT_RESERVED_ID_FIELD] = str(agent_id or "").strip()
+    fields = lead.setdefault("fields", {})
+    fields[AGENT_RESERVED_NAME_FIELD] = lead[AGENT_RESERVED_NAME_FIELD]
+    fields[AGENT_RESERVED_ID_FIELD] = lead[AGENT_RESERVED_ID_FIELD]
+    lead["status"] = AGENT_USE_STATUS
+    lead["scheduled_until"] = None
+
+
+def clear_agent_reservation_fields(lead):
+    for key in (AGENT_RESERVED_NAME_FIELD, AGENT_RESERVED_ID_FIELD):
+        lead.pop(key, None)
+        fields = lead.get("fields") or {}
+        if key in fields:
+            fields.pop(key, None)
+            lead["fields"] = fields

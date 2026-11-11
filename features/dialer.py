@@ -8,7 +8,7 @@ slots imports calls and rules. timing imports slots and projection. queue import
 import urllib.parse
 from datetime import date
 
-from features import settings as settings_feature
+from features import ai_agents, settings as settings_feature
 from features._dialer import call_events, outcomes, projection, queue, twilio
 from features._dialer._call_events import ended, pickup, transcript
 from features._dialer import calls, rules, slots, timing
@@ -64,6 +64,18 @@ class Dialer(DialerState):
 
     def start(self, priority_lead_id=None):
         return queue.start(self, priority_lead_id)
+
+    def start_ai_agent(self, agent_id):
+        return ai_agents.start_agent(self, agent_id)
+
+    def stop_ai_agent(self, agent_id):
+        return ai_agents.stop_agent(self, agent_id)
+
+    def boot_ai_agent_pool(self, agent_id):
+        return ai_agents.boot_agent_pool(self, agent_id)
+
+    def release_ai_agent_pool(self, agent_id):
+        return ai_agents.release_agent_pool(self, agent_id)
 
     def rejoin_browser_voice(self):
         return queue.rejoin_browser_voice(self)
@@ -370,6 +382,46 @@ def post_call_outcome(request, data):
     request.send_json(200, {"lead": lead, "state": dialer.public_state(include_leads=False)})
 
 
+def get_ai_agents(request):
+    request.send_json(200, ai_agents.agents_public_view(request.account.dialer))
+
+
+def post_ai_agent_boot(request, data):
+    agent_id = data.get("agent_id") or urllib.parse.unquote(
+        request._trace_path.removeprefix("/api/ai-agents/").removesuffix("/boot").strip("/"),
+    )
+    dialer = request.account.dialer
+    result = dialer.boot_ai_agent_pool(agent_id)
+    request.send_json(200, {**result, "state": dialer.public_state(include_leads=False)})
+
+
+def post_ai_agent_start(request, data):
+    agent_id = data.get("agent_id") or urllib.parse.unquote(
+        request._trace_path.removeprefix("/api/ai-agents/").removesuffix("/start").strip("/"),
+    )
+    dialer = request.account.dialer
+    view = dialer.start_ai_agent(agent_id)
+    request.send_json(200, view)
+
+
+def post_ai_agent_stop(request, data):
+    agent_id = data.get("agent_id") or urllib.parse.unquote(
+        request._trace_path.removeprefix("/api/ai-agents/").removesuffix("/stop").strip("/"),
+    )
+    dialer = request.account.dialer
+    view = dialer.stop_ai_agent(agent_id)
+    request.send_json(200, view)
+
+
+def post_ai_agent_release(request, data):
+    agent_id = data.get("agent_id") or urllib.parse.unquote(
+        request._trace_path.removeprefix("/api/ai-agents/").removesuffix("/release-pool").strip("/"),
+    )
+    dialer = request.account.dialer
+    result = dialer.release_ai_agent_pool(agent_id)
+    request.send_json(200, {**result, "state": dialer.public_state(include_leads=False)})
+
+
 ROUTES = [
     ("GET", "/api/state", get_state, "GET reads"),
     ("GET", "/api/leads", get_leads, "GET reads"),
@@ -395,4 +447,9 @@ ROUTES = [
     ("POST", "/api/leads/{id}/dial", post_dial, "POST"),
     ("POST", "/api/leads/{id}/status", post_status, "POST"),
     ("POST", "/api/leads/{id}/call-outcome", post_call_outcome, "POST"),
+    ("GET", "/api/ai-agents", get_ai_agents, "GET reads"),
+    ("POST", "/api/ai-agents/boot", post_ai_agent_boot, "POST"),
+    ("POST", "/api/ai-agents/start", post_ai_agent_start, "POST"),
+    ("POST", "/api/ai-agents/stop", post_ai_agent_stop, "POST"),
+    ("POST", "/api/ai-agents/release-pool", post_ai_agent_release, "POST"),
 ]

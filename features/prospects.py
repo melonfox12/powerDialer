@@ -30,7 +30,11 @@ from shared.pipeline_config import (
     parse_custom_pipeline_steps_json,
     validate_pipeline_tail_payload,
 )
+from shared.dial_policy import agent_reservation_blocks_other_apps, clear_agent_reservation_fields
 from shared.vocabulary import (
+    AGENT_RESERVED_ID_FIELD,
+    AGENT_RESERVED_NAME_FIELD,
+    AGENT_USE_STATUS,
     CALL_OUTCOME_KEYS,
     DEFAULT_BUSINESS_TYPE,
     MANUAL_CALLBACK_HOURS,
@@ -40,6 +44,7 @@ from shared.vocabulary import (
     PIPELINE_FIRST_STEP,
     PIPELINE_SEND_INFO_STEP,
     STATUS_KEYS,
+    agent_use_status_text,
     canonical_status,
     parse_prospect_status,
     pipeline_step_to_status,
@@ -334,7 +339,7 @@ class ProspectStore:
             self.backend.save_locked(lead)
             return dict(lead)
 
-    def set_status(self, lead_id, status, scheduled_until=None, *, repair=False):
+    def set_status(self, lead_id, status, scheduled_until=None, *, repair=False, agent_writer_id=None):
         status = parse_prospect_status(status)
         if status not in STATUS_KEYS:
             raise ValueError("Unknown prospect status")
@@ -342,6 +347,8 @@ class ProspectStore:
             leads = self.backend.leads_locked()
             self.backend.expire_locked(leads)
             lead = _copy_of(leads, lead_id)
+            if agent_reservation_blocks_other_apps(lead, agent_writer_id):
+                raise ValueError(f"{agent_use_status_text(lead)} — reserved for an AI agent.")
             previous = canonical_status(lead.get("status"))
             changed_at = utc_now().isoformat()
             if previous != status:
@@ -351,6 +358,8 @@ class ProspectStore:
                     "changed_at": changed_at,
                 })
             lead["status"] = status
+            if status == AGENT_USE_STATUS:
+                lead["scheduled_until"] = None
             if status in PIPELINE_FOLLOW_STATUSES:
                 self._sync_pipeline_from_status(lead, status, changed_at)
             if status == "booked" and not lead.get("booked_at"):
@@ -369,6 +378,58 @@ class ProspectStore:
                 lead["scheduled_until"] = (
                     (utc_now() + timedelta(hours=MANUAL_CALLBACK_HOURS)).isoformat() if status == "dialed" else None
                 )
+            self.backend.save_locked(lead)
+            return dict(lead)
+
+    def reserve_for_agent(self, lead_id, agent_id, agent_name):
+        with self.lock:
+            leads = self.backend.leads_locked()
+            lead = _copy_of(leads, lead_id)
+            if agent_reservation_blocks_other_apps(lead):
+                raise ValueError(f"{agent_use_status_text(lead)} — already reserved.")
+            lead[AGENT_RESERVED_NAME_FIELD] = str(agent_name or "").strip()
+            lead[AGENT_RESERVED_ID_FIELD] = str(agent_id or "").strip()
+            fields = lead.setdefault("fields", {})
+            fields[AGENT_RESERVED_NAME_FIELD] = lead[AGENT_RESERVED_NAME_FIELD]
+            fields[AGENT_RESERVED_ID_FIELD] = lead[AGENT_RESERVED_ID_FIELD]
+            previous = canonical_status(lead.get("status"))
+            changed_at = utc_now().isoformat()
+            if previous != AGENT_USE_STATUS:
+                lead.setdefault("status_history", []).append({
+                    "from_status": previous,
+                    "to_status": AGENT_USE_STATUS,
+                    "changed_at": changed_at,
+                })
+            lead["status"] = AGENT_USE_STATUS
+            lead["scheduled_until"] = None
+            self.backend.save_locked(lead)
+            return dict(lead)
+
+    def agent_finalize_status(self, lead_id, status, *, agent_id=None):
+        status = parse_prospect_status(status)
+        if status not in STATUS_KEYS or status == AGENT_USE_STATUS:
+            raise ValueError("Invalid agent status update")
+        with self.lock:
+            leads = self.backend.leads_locked()
+            lead = _copy_of(leads, lead_id)
+            if agent_reservation_blocks_other_apps(lead, agent_id):
+                raise ValueError(f"{agent_use_status_text(lead)} — reserved by another agent.")
+            clear_agent_reservation_fields(lead)
+            previous = canonical_status(lead.get("status"))
+            changed_at = utc_now().isoformat()
+            if previous != status:
+                lead.setdefault("status_history", []).append({
+                    "from_status": previous,
+                    "to_status": status,
+                    "changed_at": changed_at,
+                })
+            lead["status"] = status
+            if status == "dialed":
+                lead["scheduled_until"] = None
+            elif status != "dialed":
+                lead["scheduled_until"] = None
+            if status in PIPELINE_FOLLOW_STATUSES:
+                self._sync_pipeline_from_status(lead, status, changed_at)
             self.backend.save_locked(lead)
             return dict(lead)
 
