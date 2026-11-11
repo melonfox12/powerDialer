@@ -1,4 +1,4 @@
-import { dialerMirrorNodes } from "../../_core/format.js";
+import { dialerEls, humanDialerPanel } from "../../_core/format.js";
 
 const STORAGE_WIDTH = "dialerNotesWidth";
 const STORAGE_COLLAPSED = "dialerNotesCollapsed";
@@ -10,7 +10,8 @@ const COLLAPSED_WIDTH = 44;
 let bound = false;
 
 function workspacePanels() {
-  return [document.getElementById("dialerTabPanel"), document.getElementById("aiDialerAgentTabPanel")].filter(Boolean);
+  const panel = humanDialerPanel();
+  return panel ? [panel] : [];
 }
 
 function clampWidth(value) {
@@ -36,11 +37,11 @@ function setCollapsed(collapsed) {
     panel.dataset.notesCollapsed = collapsed ? "true" : "false";
   }
   localStorage.setItem(STORAGE_COLLAPSED, collapsed ? "1" : "0");
-  for (const collapseBtn of dialerMirrorNodes("prospectNotesCollapse")) {
+  for (const collapseBtn of dialerEls("prospectNotesCollapse")) {
     collapseBtn.hidden = collapsed;
     collapseBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
   }
-  for (const expandTab of dialerMirrorNodes("prospectNotesExpandTab")) {
+  for (const expandTab of dialerEls("prospectNotesExpandTab")) {
     expandTab.hidden = !collapsed;
   }
   if (collapsed) {
@@ -60,7 +61,7 @@ function restoreLayout() {
 }
 
 function bindResizeHandle() {
-  for (const handle of dialerMirrorNodes("prospectNotesResizeHandle")) {
+  for (const handle of dialerEls("prospectNotesResizeHandle")) {
     const panel = handle.closest(".dialer-run-panel");
     if (!panel) continue;
 
@@ -118,10 +119,10 @@ export function bindNotesSidebar() {
   bound = true;
   restoreLayout();
   bindResizeHandle();
-  for (const btn of dialerMirrorNodes("prospectNotesCollapse")) {
+  for (const btn of dialerEls("prospectNotesCollapse")) {
     btn.addEventListener("click", () => setCollapsed(true));
   }
-  for (const btn of dialerMirrorNodes("prospectNotesExpandTab")) {
+  for (const btn of dialerEls("prospectNotesExpandTab")) {
     btn.addEventListener("click", () => setCollapsed(false));
   }
 }

@@ -6,7 +6,9 @@ import { errorText } from "../_core/notify.js";
 import { mergeLiveState, loadAppState } from "../_core/sync-state.js";
 import { connectBrowserCall, connectAndCleanup } from "./_dialer/connect.js";
 import { takeLatestVoiceError } from "./_dialer/_voice/connect.js";
-import { renderCallMonitor } from "./_dialer/monitor.js";
+import { drawProspectWaveform } from "./_dialer/card.js";
+import { renderAiActivityLog } from "./_ai_dialer/activity-log.js";
+import { renderAiLiveStatus } from "./_ai_dialer/live-status.js";
 import {
   renderAiAgentDetailStats,
   renderAiDialerFleet,
@@ -29,7 +31,9 @@ function renderAiDialerWorkspace() {
   const agentId = S.aiDialerSelectedAgentId;
   if (!agentId) return;
   renderAiAgentDetailStats(agentId);
-  renderCallMonitor();
+  renderAiLiveStatus();
+  renderAiActivityLog();
+  drawProspectWaveform();
   renderChatTranscript();
   renderAiListenState();
   renderAgentQueueList(agentId);

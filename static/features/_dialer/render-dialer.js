@@ -2,8 +2,9 @@ import { S, state } from "../../_core/state.js";
 import {
   byId,
   dialerById,
-  dialerMirrorNodes,
-  dialerWorkspacePanel,
+  dialerEl,
+  dialerEls,
+  humanDialerPanel,
   setDialerText,
   DEFAULT_DIAL_POOL_STATUS,
   DIAL_POOL_STATUS_LABELS,
@@ -17,13 +18,15 @@ import { renderSessionMomentum } from "./session-goal.js";
 import { renderProspectNotesPanel } from "./notes-panel.js";
 
 export function renderDialer() {
+  if (S.dashboardTab !== "dialer") return;
   const stage = state.stage || "idle";
   const connected = state.running && state.agent_ready;
   const pending = state.pending_outcome;
   const active = state.active_lead;
   const activeLeadId = active?.id || null;
   if (activeLeadId && activeLeadId !== S.observedActiveLeadId) {
-    for (const disclosure of dialerMirrorNodes("callMonitorDisclosure")) disclosure.open = true;
+    const disclosure = dialerEl("callMonitorDisclosure");
+    if (disclosure) disclosure.open = true;
   }
   S.observedActiveLeadId = activeLeadId;
   const busy = state.running || Boolean(pending);
@@ -34,7 +37,7 @@ export function renderDialer() {
     ? "Needs attention"
     : pending ? "Outcome needed" : state.paused ? "Paused" : connected ? "Dialing" : state.running ? "Connecting" : "Ready";
 
-  const indicator = dialerWorkspacePanel()?.querySelector(".live-indicator");
+  const indicator = humanDialerPanel()?.querySelector(".live-indicator");
   indicator.classList.remove("on", "tone-amber", "tone-success", "tone-primary", "is-pulsing");
   if (pending) indicator.classList.add("tone-amber");
   else if (active) indicator.classList.add("tone-success", "is-pulsing");
@@ -43,11 +46,9 @@ export function renderDialer() {
   else if (state.running) indicator.classList.add("tone-amber");
   setDialerText("liveLabel", pending ? "Outcome needed" : active ? "Live" : state.paused ? "Paused" : connected ? "Dialing" : state.running ? "Connecting" : "Standby");
   const poolMode = state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS;
-  if (S.dialerWorkspaceDomId !== "aiDialerAgentTabPanel") {
-    const poolLabel = DIAL_POOL_STATUS_LABELS[poolMode] || "New";
-    const queueSize = state.queue_count ?? state.pool?.length ?? 0;
-    setDialerText("lineCount", `${state.session_stats?.dials || 0} of ${queueSize} ${poolLabel.toLowerCase()} dialed`);
-  }
+  const poolLabel = DIAL_POOL_STATUS_LABELS[poolMode] || "New";
+  const queueSize = state.queue_count ?? state.pool?.length ?? 0;
+  setDialerText("lineCount", `${state.session_stats?.dials || 0} of ${queueSize} ${poolLabel.toLowerCase()} dialed`);
   const lede = dialerById("dialerIssueLede");
   if (lede) {
     lede.textContent = poolMode === "contact_engaged"

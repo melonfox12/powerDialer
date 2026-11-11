@@ -32,22 +32,10 @@
         <p class="ai-global-pool-note">Global dialer pool: <strong id="aiDialerAgent-globalPoolCount">0</strong> eligible now</p>
         <p class="ai-agent-pool-note">Agent pool: <strong id="aiDialerAgent-agentPoolCount">0</strong> assigned</p>
 
-        <div class="dialer-pool-filter visually-hidden" aria-hidden="true">
-          <select id="aiDialerAgent-dialerPoolStatusFilter" tabindex="-1"><option value="new">New</option></select>
-          <select id="aiDialerAgent-dialerBusinessTypeFilter" tabindex="-1"><option value=""></option></select>
-          <select id="aiDialerAgent-dialerCallerIdGroup" tabindex="-1"><option value="eastern">Eastern</option></select>
-          <span id="aiDialerAgent-dialerTimezoneLabel"></span>
-          <select id="aiDialerAgent-dialerTimezoneFilter" tabindex="-1"><option value=""></option></select>
-          <button id="aiDialerAgent-dialerTimezoneButton" type="button" tabindex="-1"></button>
-          <ul id="aiDialerAgent-dialerTimezoneList" hidden></ul>
-        </div>
-
         <section class="queue-strip ai-queue-strip" aria-label="Prospect number queue">
           <div id="aiDialerAgent-activeCall" class="power-lines ai-power-lines"></div>
         </section>
         <ol id="aiDialerAgent-agentQueueList" class="ai-agent-queue-list" aria-label="Agent dialer pool queue"></ol>
-        <p id="aiDialerAgent-dialerIssueLede" class="visually-hidden">Three lines dial at once.</p>
-
         <div id="aiDialerAgent-dialerMessage" class="dialer-message" role="status" hidden></div>
 
         <div class="dialer-controls ai-dialer-controls" data-controls="idle">
@@ -57,18 +45,6 @@
           <button type="button" id="aiDialerAgent-releasePoolButton" class="button button-quiet">Release pool</button>
         </div>
 
-        <div class="visually-hidden" aria-hidden="true">
-          <strong id="aiDialerAgent-sessionGoalLabel">0 / 20</strong>
-          <div id="aiDialerAgent-sessionGoalTrack" aria-hidden="true"><span id="aiDialerAgent-sessionGoalProgress"></span></div>
-          <span id="aiDialerAgent-sessionHalfway" hidden></span>
-          <p id="aiDialerAgent-sessionStreak" hidden></p>
-          <div id="aiDialerAgent-crmStatusButtons"></div>
-          <div id="aiDialerAgent-crmStatusLabel"></div>
-          <span id="aiDialerAgent-crmStatusTarget"></span>
-        </div>
-
-        <section id="aiDialerAgent-callStage" class="call-stage visually-hidden" data-stage="idle" aria-hidden="true" hidden></section>
-        <section id="aiDialerAgent-arcadeViewport" class="arcade-viewport visually-hidden" hidden aria-hidden="true"></section>
       </section>
 
       <section class="ai-live-console" aria-label="Live conversation">
@@ -90,25 +66,11 @@
           </div>
         </div>
 
-        <div id="aiDialerAgent-dialedProspect" class="visually-hidden" aria-hidden="true">
-          <strong id="aiDialerAgent-dialedProspectName"></strong>
-          <span id="aiDialerAgent-dialedProspectBusiness" hidden></span>
-        </div>
-        <div id="aiDialerAgent-liveTranscript" class="visually-hidden" aria-hidden="true" hidden></div>
-
         <details class="activity-log-disclosure ai-activity-log">
           <summary class="monitor-subheading"><span>Recent activity</span><span id="aiDialerAgent-activityCount">0 events</span></summary>
           <ol id="aiDialerAgent-activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
         </details>
 
-        <details id="aiDialerAgent-callMonitorDisclosure" class="visually-hidden" hidden aria-hidden="true">
-          <span id="aiDialerAgent-monitorActivity" data-state="idle" hidden></span>
-          <span id="aiDialerAgent-monitorStatus" hidden></span>
-        </details>
-        <span id="aiDialerAgent-stageAnnouncer" class="visually-hidden" role="status" aria-live="polite"></span>
-        <div id="aiDialerAgent-advanceControls" class="advance-controls" hidden></div>
-        <div id="aiDialerAgent-breakNudge" class="break-nudge" hidden></div>
-        <h2 id="aiDialerAgent-liveTitle" class="visually-hidden">Call desk</h2>
       </section>
     </div>
 

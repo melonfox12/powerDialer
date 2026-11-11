@@ -1,4 +1,4 @@
-import { byId, dialerWorkspacePanel, setText } from "./format.js";
+import { byId, humanDialerPanel, setText } from "./format.js";
 import { renderCallerPool, renderTable } from "./registry.js";
 import { render } from "./render.js";
 import { S } from "./state.js";
@@ -79,7 +79,7 @@ function rememberDashboardTab(name) {
 /** Match Performance column height to Dialer: document top → Recent activity row (+ doc bottom padding). */
 export function syncPerformanceDocumentHeight() {
   const perf = document.querySelector(".performance-document");
-  const panel = dialerWorkspacePanel();
+  const panel = humanDialerPanel();
   const doc = panel?.querySelector(".dialer-document");
   const recent = doc?.querySelector(".activity-log-disclosure summary");
   if (!perf || !doc || !recent) return;
@@ -166,7 +166,6 @@ function bindTabReorder() {
 export function setDashboardTab(name, moveFocus = false) {
   S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : "dialer";
   rememberDashboardTab(S.dashboardTab);
-  S.dialerWorkspaceDomId = S.dashboardTab === "aiDialerAgent" ? "aiDialerAgentTabPanel" : "dialerTabPanel";
   syncPerformanceDocumentHeight();
   const selectedButton = byId(TAB_BUTTONS[S.dashboardTab]);
   for (const button of document.querySelectorAll("[data-dashboard-tab]")) {

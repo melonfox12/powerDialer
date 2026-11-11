@@ -1,5 +1,5 @@
 import { state } from "../../_core/state.js";
-import { dialerMirrorNodes, setDialerText } from "../../_core/format.js";
+import { dialerEls, setDialerText } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 import { leadNotes, notesLeadLabel, persistLeadNotes } from "../../_core/notes.js";
 
@@ -26,7 +26,7 @@ export function notesPanelLead() {
 
 function syncEditorsFrom(source) {
   if (!source) return;
-  for (const editor of dialerMirrorNodes("prospectNotesEditor")) {
+  for (const editor of dialerEls("prospectNotesEditor")) {
     if (editor === source) continue;
     editor.value = source.value;
     editor.dataset.leadId = source.dataset.leadId;
@@ -38,7 +38,7 @@ function syncEditorsFrom(source) {
 function bindNotesPanelOnce() {
   if (bound) return;
   bound = true;
-  const editors = dialerMirrorNodes("prospectNotesEditor");
+  const editors = dialerEls("prospectNotesEditor");
   if (!editors.length) return;
   for (const editor of editors) {
     editor.addEventListener("input", () => {
@@ -78,7 +78,7 @@ function sendInfoLeads() {
 }
 
 function sendInfoListFocused() {
-  return dialerMirrorNodes("sendInfoProspectsList").some((list) => list.contains(document.activeElement));
+  return dialerEls("sendInfoProspectsList").some((list) => list.contains(document.activeElement));
 }
 
 function extraFieldLines(lead) {
@@ -101,7 +101,7 @@ function renderSendInfoProspectsList() {
   const leads = sendInfoLeads();
   setDialerText("sendInfoProspectsCount", leads.length ? `${leads.length} prospect${leads.length === 1 ? "" : "s"}` : "None");
 
-  const firstList = dialerMirrorNodes("sendInfoProspectsList")[0];
+  const firstList = dialerEls("sendInfoProspectsList")[0];
   const openIds = new Set(
     firstList
       ? [...firstList.querySelectorAll("details.send-info-prospect-item[open]")].map((node) => node.dataset.leadId)
@@ -160,15 +160,15 @@ function renderSendInfoProspectsList() {
     }
   }
   const rowTemplates = [...fragment.childNodes];
-  for (const list of dialerMirrorNodes("sendInfoProspectsList")) {
+  for (const list of dialerEls("sendInfoProspectsList")) {
     list.replaceChildren(...rowTemplates.map((node) => node.cloneNode(true)));
   }
 }
 
 export function renderProspectNotesPanel() {
   bindNotesPanelOnce();
-  const panels = dialerMirrorNodes("prospectNotesPanel");
-  const editors = dialerMirrorNodes("prospectNotesEditor");
+  const panels = dialerEls("prospectNotesPanel");
+  const editors = dialerEls("prospectNotesEditor");
   if (!panels.length || !editors.length) return;
   renderSendInfoProspectsList();
 

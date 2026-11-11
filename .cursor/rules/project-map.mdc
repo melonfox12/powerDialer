@@ -25,7 +25,7 @@ Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_pa
 ## Pages
 
 - Dialer: `static/features/dialer.html` `#dialerTabPanel`; JS `static/features/dialer.js` and `static/features/_dialer/`
-- AI Dialer Agent (sandbox duplicate UI): `static/features/ai-dialer-agent.html` `#aiDialerAgentTabPanel`; same JS as Dialer; shared controls use `dialerMirrorNodes` / `setDialerText` in `static/_core/format.js`
+- AI Dialer Agent: `static/features/ai-dialer-agent.html` `#aiDialerAgentTabPanel` (fleet + per-seat UI). Human dialer DOM lives only under `#dialerTabPanel`; use `dialerEl` / `setDialerText` in `static/_core/format.js` for human chrome. AI tab uses `aiDialerAgent-*` ids and `static/features/_ai_dialer/*` renderers.
 - Session summary modal: `static/features/session-summary-dialog.html`
 - Prospects: `static/features/prospects.html` `#prospectsTabPanel`; JS `static/features/prospects.js` and `static/features/_prospects/`
 - Caller pool: `#poolTabPanel` is in `static/features/prospects.html`; render `static/features/_dialer/pool-view.js`; timezone `static/features/_dialer/pool.js`

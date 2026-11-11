@@ -1,7 +1,7 @@
 import { postJson } from "../../_core/api.js";
 import { applyMutationPayload } from "../../_core/sync-state.js";
 import { state } from "../../_core/state.js";
-import { CRM_STATUS_KEYS, dialerMirrorNodes, leavesQueueForGood } from "../../_core/format.js";
+import { CRM_STATUS_KEYS, dialerEls, leavesQueueForGood } from "../../_core/format.js";
 import { errorText, showToast } from "../../_core/notify.js";
 import { render } from "../../core.js";
 import { nextProspectLabel, queueProspect } from "./queue.js";
@@ -18,7 +18,7 @@ const DIALER_STATUSES = [
 let saving = false;
 
 export function bindCrmStatus() {
-  for (const root of dialerMirrorNodes("crmStatusButtons")) {
+  for (const root of dialerEls("crmStatusButtons")) {
     root.addEventListener("click", (event) => {
       const button = event.target.closest("[data-status]");
       if (!button || saving) return;
@@ -45,8 +45,8 @@ export function renderCrmStatus() {
     button.setAttribute("aria-pressed", lead?.status === item.status ? "true" : "false");
     return button;
   });
-  for (const target of dialerMirrorNodes("crmStatusTarget")) target.textContent = label;
-  for (const root of dialerMirrorNodes("crmStatusButtons")) {
+  for (const target of dialerEls("crmStatusTarget")) target.textContent = label;
+  for (const root of dialerEls("crmStatusButtons")) {
     root.replaceChildren(...buttons.map((button) => document.importNode(button, true)));
   }
 }

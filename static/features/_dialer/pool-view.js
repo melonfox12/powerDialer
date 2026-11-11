@@ -7,7 +7,7 @@ import {
   DEFAULT_DIAL_POOL_STATUS,
   DIAL_POOL_STATUSES,
   DIAL_POOL_STATUS_LABELS,
-  dialerMirrorNodes,
+  dialerEls,
   setText,
 } from "../../_core/format.js";
 import { appendNotesCell, notesEditorFocused } from "../../_core/notes.js";
@@ -18,7 +18,7 @@ export function renderPoolStatusFilters() {
   const labels = DIAL_POOL_STATUS_LABELS;
   const selected = state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS;
   const options = keys.map((key) => new Option(labels[key] || key, key));
-  for (const select of [...dialerMirrorNodes("dialerPoolStatusFilter"), document.getElementById("poolStatusFilter")].filter(Boolean)) {
+  for (const select of [...dialerEls("dialerPoolStatusFilter"), document.getElementById("poolStatusFilter")].filter(Boolean)) {
     select.replaceChildren(...options.map((option) => option.cloneNode(true)));
     select.value = keys.includes(selected) ? selected : "new";
   }
@@ -40,7 +40,7 @@ function industryFilterOptions() {
 }
 
 export function renderBusinessTypeFilter() {
-  const selects = dialerMirrorNodes("dialerBusinessTypeFilter");
+  const selects = dialerEls("dialerBusinessTypeFilter");
   if (!selects.length) return;
   const selected = state.selected_business_type || "";
   const industries = industryFilterOptions();
@@ -58,7 +58,7 @@ export function renderBusinessTypeFilter() {
 }
 
 export function renderCallerIdGroupStatus() {
-  const selects = dialerMirrorNodes("dialerCallerIdGroup");
+  const selects = dialerEls("dialerCallerIdGroup");
   if (!selects.length) return;
   const selectedKey = state.caller_id_group || DEFAULT_CALLER_ID_GROUP;
   const keys = CALLER_ID_GROUPS.map((item) => item.key);
@@ -86,7 +86,7 @@ export function renderTimezoneFilters() {
   const options = [new Option(`All time zones (${totalNew})`, "")];
   if (selected && !knownZones.includes(selected)) options.push(new Option(selected, selected));
   options.push(...groups.map((group) => new Option(`${group.name} (${group.count})`, group.name)));
-  for (const select of [...dialerMirrorNodes("dialerTimezoneFilter"), document.getElementById("poolTimezoneFilter")].filter(Boolean)) {
+  for (const select of [...dialerEls("dialerTimezoneFilter"), document.getElementById("poolTimezoneFilter")].filter(Boolean)) {
     select.replaceChildren(...options.map((option) => option.cloneNode(true)));
     select.value = selected;
   }
@@ -94,9 +94,9 @@ export function renderTimezoneFilters() {
 }
 
 function syncDialerTimezoneMenu() {
-  const selects = dialerMirrorNodes("dialerTimezoneFilter");
-  const buttons = dialerMirrorNodes("dialerTimezoneButton");
-  const lists = dialerMirrorNodes("dialerTimezoneList");
+  const selects = dialerEls("dialerTimezoneFilter");
+  const buttons = dialerEls("dialerTimezoneButton");
+  const lists = dialerEls("dialerTimezoneList");
   for (let i = 0; i < selects.length; i++) {
     const select = selects[i];
     const button = buttons[i];
@@ -123,7 +123,7 @@ export function bindDialerTimezoneMenu() {
   if (perMenuTimezoneBound) return;
   perMenuTimezoneBound = true;
   const menus = [];
-  for (const select of dialerMirrorNodes("dialerTimezoneFilter")) {
+  for (const select of dialerEls("dialerTimezoneFilter")) {
     const menuRoot = select.closest(".timezone-menu");
     const button = menuRoot?.querySelector(".timezone-menu-button");
     const list = menuRoot?.querySelector(".timezone-menu-list");
@@ -133,16 +133,16 @@ export function bindDialerTimezoneMenu() {
     timezoneMenuGlobalBound = true;
     document.addEventListener("click", (event) => {
       if (event.target.closest(".timezone-menu")) return;
-      for (const list of dialerMirrorNodes("dialerTimezoneList")) {
+      for (const list of dialerEls("dialerTimezoneList")) {
         list.hidden = true;
       }
-      for (const button of dialerMirrorNodes("dialerTimezoneButton")) {
+      for (const button of dialerEls("dialerTimezoneButton")) {
         button.setAttribute("aria-expanded", "false");
       }
     });
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
-      const openList = dialerMirrorNodes("dialerTimezoneList").find((node) => !node.hidden);
+      const openList = dialerEls("dialerTimezoneList").find((node) => !node.hidden);
       if (!openList) return;
       openList.hidden = true;
       const menu = openList.closest(".timezone-menu");

@@ -1,8 +1,8 @@
-import { dialerMirrorNodes } from "../../_core/format.js";
+import { dialerEls } from "../../_core/format.js";
 import { S, state } from "../../_core/state.js";
 
 export function celebrateBooked() {
-  for (const stage of dialerMirrorNodes("callStage")) {
+  for (const stage of dialerEls("callStage")) {
     stage.classList.remove("booked-celebration");
     void stage.offsetWidth;
     stage.classList.add("booked-celebration");

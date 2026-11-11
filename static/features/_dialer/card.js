@@ -1,5 +1,5 @@
 import { S, state } from "../../_core/state.js";
-import { dialerMirrorNodes, setDialerText } from "../../_core/format.js";
+import { byId, dialerEl, dialerEls, setDialerText } from "../../_core/format.js";
 
 function paintWaveformCanvas(canvas, level, samples) {
   const bounds = canvas.getBoundingClientRect();
@@ -46,10 +46,18 @@ function paintWaveformCanvas(canvas, level, samples) {
 
 export function drawProspectWaveform(level = 0, samples = null) {
   let shown = 0;
-  for (const canvas of dialerMirrorNodes("prospectWaveform")) {
+  const canvases = S.dashboardTab === "aiDialerAgent"
+    ? [byId("aiDialerAgent-prospectWaveform")].filter(Boolean)
+    : dialerEls("prospectWaveform");
+  for (const canvas of canvases) {
     shown = paintWaveformCanvas(canvas, level, samples) ?? shown;
   }
-  setDialerText("prospectAudioLevel", `${Math.max(0, Math.min(100, shown))}%`);
+  if (S.dashboardTab === "aiDialerAgent") {
+    const level = byId("aiDialerAgent-prospectAudioLevel");
+    if (level) level.textContent = `${Math.max(0, Math.min(100, shown))}%`;
+  } else {
+    setDialerText("prospectAudioLevel", `${Math.max(0, Math.min(100, shown))}%`);
+  }
 }
 
 export function stopProspectWaveform() {
@@ -108,12 +116,12 @@ export function renderDialedProspect() {
   const dialedBusiness = String(dialed?.business || "").trim();
   const dialedTitle = dialedName || dialedBusiness;
   const dialedSubtitle = dialedBusiness && dialedBusiness !== dialedTitle ? dialedBusiness : "";
-  for (const dialedPlate of dialerMirrorNodes("dialedProspect")) {
+  for (const dialedPlate of dialerEls("dialedProspect")) {
     dialedPlate.classList.toggle("is-empty", !dialedTitle);
   }
   const nameText = dialedTitle || "No one is being dialed";
-  for (const node of dialerMirrorNodes("dialedProspectName")) node.textContent = nameText;
-  for (const sub of dialerMirrorNodes("dialedProspectBusiness")) {
+  for (const node of dialerEls("dialedProspectName")) node.textContent = nameText;
+  for (const sub of dialerEls("dialedProspectBusiness")) {
     sub.hidden = !dialedSubtitle;
     sub.textContent = dialedSubtitle;
   }

@@ -2,8 +2,8 @@ import { stageEffects } from "./effects.js";
 import { S, state } from "../../_core/state.js";
 import {
   STATUS_LABELS,
-  dialerMirrorNodes,
-  dialerScopedId,
+  dialerEl,
+  dialerEls,
   callbackStatusText,
   markCallback,
   setDialerText,
@@ -12,7 +12,7 @@ import { formatPhoneNumber } from "../../_core/phone.js";
 import { startCallTimer, stopCallTimer } from "./timer.js";
 
 export function renderCallStage(stage, target) {
-  const containers = dialerMirrorNodes("callStage");
+  const containers = dialerEls("callStage");
   if (!containers.length) return;
 
   const fragment = document.createDocumentFragment();
@@ -45,7 +45,7 @@ export function renderCallStage(stage, target) {
       meta.append(clockElement);
     }
     const timer = document.createElement("span");
-    timer.id = dialerScopedId("callTimer");
+    timer.id = "callTimer";
     timer.textContent = "0:00";
     meta.append(timer);
     fragment.append(meta);

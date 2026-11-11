@@ -1,4 +1,4 @@
-import { dialerMirrorNodes, setDialerText } from "../../_core/format.js";
+import { dialerEls, setDialerText } from "../../_core/format.js";
 
 export function stopTicking(arcade) {
     clearInterval(arcade.tickTimer);
@@ -70,7 +70,7 @@ export function match(arcade, lead) {
     }
     const rawValue = lead?.estimated_value ?? lead?.value;
     const value = Number(rawValue);
-    const valueElements = dialerMirrorNodes("arcadeValue");
+    const valueElements = dialerEls("arcadeValue");
     if (Number.isFinite(value) && value > 0) {
       for (const valueElement of valueElements) {
         valueElement.hidden = false;

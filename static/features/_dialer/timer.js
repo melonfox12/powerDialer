@@ -1,5 +1,5 @@
 import { S, state } from "../../_core/state.js";
-import { dialerScopedId } from "../../_core/format.js";
+import { dialerEl } from "../../_core/format.js";
 
 export function stopCallTimer() {
   clearInterval(S.callTimerId);
@@ -8,7 +8,7 @@ export function stopCallTimer() {
 
 export function startCallTimer(startedMs) {
   stopCallTimer();
-  const node = document.getElementById(dialerScopedId("callTimer"));
+  const node = dialerEl("callTimer");
   if (!node) return;
   const tick = () => {
     if (!node.isConnected || (state.stage || "idle") !== "connected") {

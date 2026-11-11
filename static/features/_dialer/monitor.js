@@ -1,5 +1,5 @@
 import { S, state } from "../../_core/state.js";
-import { dialerMirrorNodes, setDialerText } from "../../_core/format.js";
+import { dialerEls, setDialerText } from "../../_core/format.js";
 import { renderTranscriptEntries, transcriptTimestamp } from "../../_core/transcript.js";
 import { drawProspectWaveform, renderDialedProspect } from "./card.js";
 
@@ -28,7 +28,7 @@ export function renderCallMonitor() {
       activityItems.push(row);
     }
   }
-  for (const activityList of dialerMirrorNodes("activityLog")) {
+  for (const activityList of dialerEls("activityLog")) {
     activityList.replaceChildren(...activityItems.map((node) => node.cloneNode(true)));
     activityList.scrollTop = activityList.scrollHeight;
   }
@@ -53,7 +53,7 @@ export function renderCallMonitor() {
         : state.agent_ready ? "Waiting"
           : state.running ? "Connecting" : "Idle";
   const statusState = status.toLowerCase();
-  for (const monitorActivity of dialerMirrorNodes("monitorActivity")) {
+  for (const monitorActivity of dialerEls("monitorActivity")) {
     monitorActivity.dataset.state = ["dialing", "live", "voicemail"].includes(statusState) ? statusState : "idle";
   }
   const onLine = Boolean(state.active_lead);
@@ -65,7 +65,7 @@ export function renderCallMonitor() {
   const transcriptKey = JSON.stringify([lead?.id || null, entries]);
   if (transcriptKey !== S.lastLiveTranscriptKey) {
     S.lastLiveTranscriptKey = transcriptKey;
-    for (const liveNode of dialerMirrorNodes("liveTranscript")) {
+    for (const liveNode of dialerEls("liveTranscript")) {
       renderTranscriptEntries(
         liveNode,
         entries,
@@ -77,11 +77,11 @@ export function renderCallMonitor() {
 }
 
 export function bindCallMonitor() {
-  for (const disclosure of dialerMirrorNodes("callMonitorDisclosure")) {
+  for (const disclosure of dialerEls("callMonitorDisclosure")) {
     disclosure.addEventListener("toggle", () => {
       if (!disclosure.open) return;
       renderCallMonitor();
-      for (const live of dialerMirrorNodes("liveTranscript")) {
+      for (const live of dialerEls("liveTranscript")) {
         live.scrollTop = live.scrollHeight;
       }
       drawProspectWaveform();

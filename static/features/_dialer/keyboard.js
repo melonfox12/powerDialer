@@ -1,5 +1,5 @@
 import { state } from "../../_core/state.js";
-import { byId, dialerById, dialerMirrorNodes } from "../../_core/format.js";
+import { byId, dialerById } from "../../_core/format.js";
 
 export function bindKeyboard() {
   document.addEventListener("keydown", (event) => {
@@ -12,7 +12,7 @@ export function bindKeyboard() {
     if ((event.key === " " || event.key === "Enter") && onActivator) return;
     if (event.key === " " && !event.repeat && !state.running) {
       event.preventDefault();
-      const start = dialerById("startButton") || dialerMirrorNodes("startButton")[0];
+      const start = dialerById("startButton");
       start?.click();
     }
   });

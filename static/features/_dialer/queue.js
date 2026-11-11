@@ -1,11 +1,10 @@
 import { state } from "../../_core/state.js";
-import { dialerMirrorNodes } from "../../_core/format.js";
+import { dialerEls } from "../../_core/format.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
 
 export function renderQueueStrip() {
   const lines = dialLines();
-  for (const activeCall of dialerMirrorNodes("activeCall")) {
-    if (activeCall.id === "aiDialerAgent-activeCall") continue;
+  for (const activeCall of dialerEls("activeCall")) {
     activeCall.replaceChildren();
     if (!lines.length) {
       const empty = document.createElement("p");
