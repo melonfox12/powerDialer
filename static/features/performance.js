@@ -251,4 +251,4 @@ export function bindPerformance() {
   byId("dailyTalkGoalButton").addEventListener("click", () => editGoal("talk"));
 }
 
-registerRenderer(renderMetrics);
+registerRenderer(renderMetrics, "end", "performance");

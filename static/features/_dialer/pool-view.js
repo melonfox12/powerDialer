@@ -169,10 +169,13 @@ export function bindDialerTimezoneMenu() {
   }
 }
 
+export function syncDialFiltersFromState() {
+  renderTimezoneFilters();
+}
+
 export function renderCallerPool() {
   if (notesEditorFocused("poolTable")) return;
   const pool = state.pool || [];
-  renderTimezoneFilters();
   setText("poolTabCount", String(pool.length));
   const poolLabel = DIAL_POOL_STATUS_LABELS[state.dial_pool_status || DEFAULT_DIAL_POOL_STATUS] || "New";
   const typeSuffix = state.selected_business_type ? ` · ${state.selected_business_type}` : "";

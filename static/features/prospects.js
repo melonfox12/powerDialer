@@ -4,7 +4,7 @@ import { downloadTranscript, openTranscript } from "./_prospects/transcript.js";
 
 registerTranscriptActions(openTranscript, downloadTranscript);
 registerTable(renderTable);
-registerRenderer(renderTableIfStale, "start");
+registerRenderer(renderTableIfStale, "start", "prospects");
 
 export { bindAddProspect } from "./_prospects/add-prospect.js";
 export { bindCsv } from "./_prospects/csv.js";

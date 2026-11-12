@@ -45,7 +45,7 @@ Plain CSS. Link order in `static/shell.html` is the cascade: `01-tokens.css` thr
 ## Dialer and metrics state
 
 - Snapshot: `static/_core/state.js` `state` (`leads`, `pool`, `metrics`, dialer flags) and `S` (poll clock, tab, voice, session UI).
-- Fetch: `static/features/_dialer/poller.js` `refreshState` every 1.5s — `GET /api/live`, `GET /api/leads` when `leads_version` changes (not full `/api/state`), `GET /api/metrics` every 15s into `state.metrics`. Client merge helpers: `static/_core/sync-state.js`. Then `render()` in `static/_core/render.js`.
+- Fetch: `static/features/_dialer/poller.js` `refreshState` every 1.5s — `GET /api/live`, `GET /api/leads` when `leads_version` changes (not full `/api/state`), `GET /api/metrics` every 15s into `state.metrics`. Client merge helpers: `static/_core/sync-state.js`. Then `render()` in `static/_core/render.js` → `runRenderers()` in `static/_core/registry.js` runs only tab-scoped painters (`dialer`, `aiDialerAgent`, `prospects`, `pool`, etc.).
 - Dialer paint: `static/features/_dialer/render-dialer.js`, registered from `static/features/dialer.js`.
 - Metrics paint: `static/features/performance.js` `renderMetrics`.
 - Server: `features/dialer.py` `GET /api/state` (dialer snapshot, no lead rows), `GET /api/leads` (CRM table + pool), `GET /api/live`. `features/metrics.py` `GET /api/metrics`.

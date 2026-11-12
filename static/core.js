@@ -59,6 +59,7 @@ export function stopMicrophoneTest() {
 export {
   registerRenderer,
   runRenderers,
+  rendererScopeEnabled,
   registerTable,
   renderTable,
   registerCallerPool,

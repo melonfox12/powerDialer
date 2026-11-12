@@ -157,6 +157,6 @@ export function bindAiDialer() {
       showToast(errorText(error, "Could not release pool."), true);
     }
   });
-  registerRenderer(renderAiDialerWorkspace);
+  registerRenderer(renderAiDialerWorkspace, "end", "aiDialerAgent");
   syncAiDialerViews();
 }

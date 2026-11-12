@@ -10,8 +10,8 @@ import {
   renderPipelineEditor,
 } from "./_pipeline/pipeline-editor.js";
 
-registerRenderer(refreshPipelineEditorIfStale);
-registerRenderer(renderPipelineIfStale);
+registerRenderer(refreshPipelineEditorIfStale, "end", "pipeline");
+registerRenderer(renderPipelineIfStale, "end", "pipeline");
 
 bindPipelineEditor();
 
