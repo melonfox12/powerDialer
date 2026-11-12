@@ -70,6 +70,7 @@ class DialerState:
         self.voice_profile = VOICE_PROFILE_HUMAN_BROWSER
         self.ai_voice_armed = False
         self.ai_voice_sessions = {}
+        self.ai_sandbox_sessions = {}
 
 
     def record_activity(self, message, source="dialer"):

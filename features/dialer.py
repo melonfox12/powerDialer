@@ -8,7 +8,7 @@ slots imports calls and rules. timing imports slots and projection. queue import
 import urllib.parse
 from datetime import date
 
-from features import ai_agents, ai_agent_playbook, settings as settings_feature
+from features import ai_agent_playbook, ai_agent_sandbox, ai_agents, settings as settings_feature
 from features._dialer import call_events, outcomes, projection, queue, twilio
 from features._dialer._call_events import ended, pickup, transcript
 from features._dialer import calls, rules, slots, timing
@@ -84,6 +84,15 @@ class Dialer(DialerState):
     def save_ai_agent_playbook(self, agent_id, payload):
         name = ai_agents._agent_name(agent_id)
         return ai_agent_playbook.save_playbook(self, agent_id, payload, name)
+
+    def ai_sandbox_start(self, agent_id, prospect=None):
+        return ai_agent_sandbox.start(self, agent_id, prospect)
+
+    def ai_sandbox_turn(self, agent_id, text):
+        return ai_agent_sandbox.turn(self, agent_id, text)
+
+    def ai_sandbox_reset(self, agent_id):
+        return ai_agent_sandbox.reset(self, agent_id)
 
     def rejoin_browser_voice(self):
         return queue.rejoin_browser_voice(self)
@@ -445,6 +454,28 @@ def post_ai_agent_playbook(request, data):
     request.send_json(200, {"agent_id": str(agent_id).strip(), "playbook": playbook})
 
 
+def post_ai_sandbox_start(request, data):
+    agent_id = str(data.get("agent_id") or "").strip()
+    dialer = request.account.dialer
+    prospect = data.get("prospect") if isinstance(data.get("prospect"), dict) else None
+    payload = dialer.ai_sandbox_start(agent_id, prospect)
+    request.send_json(200, payload)
+
+
+def post_ai_sandbox_turn(request, data):
+    agent_id = str(data.get("agent_id") or "").strip()
+    dialer = request.account.dialer
+    payload = dialer.ai_sandbox_turn(agent_id, data.get("text") or data.get("message") or "")
+    request.send_json(200, payload)
+
+
+def post_ai_sandbox_reset(request, data):
+    agent_id = str(data.get("agent_id") or "").strip()
+    dialer = request.account.dialer
+    payload = dialer.ai_sandbox_reset(agent_id)
+    request.send_json(200, payload)
+
+
 ROUTES = [
     ("GET", "/api/state", get_state, "GET reads"),
     ("GET", "/api/leads", get_leads, "GET reads"),
@@ -477,4 +508,7 @@ ROUTES = [
     ("POST", "/api/ai-agents/release-pool", post_ai_agent_release, "POST"),
     ("GET", "/api/ai-agents/playbook", get_ai_agent_playbook, "GET reads"),
     ("POST", "/api/ai-agents/playbook", post_ai_agent_playbook, "POST"),
+    ("POST", "/api/ai-agents/sandbox/start", post_ai_sandbox_start, "POST"),
+    ("POST", "/api/ai-agents/sandbox/turn", post_ai_sandbox_turn, "POST"),
+    ("POST", "/api/ai-agents/sandbox/reset", post_ai_sandbox_reset, "POST"),
 ]

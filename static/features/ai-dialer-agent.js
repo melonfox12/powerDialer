@@ -25,6 +25,7 @@ import { render } from "../core.js";
 import { tearDownVoice } from "./_dialer/connect.js";
 import { bindPlaybookEditor, renderPlaybookPreview } from "./_ai_dialer/playbook-editor.js";
 import { bindWorkspaceTabs, paintWorkspaceTabs, resetWorkspaceTabs } from "./_ai_dialer/workspace-tabs.js";
+import { bindSandbox, isSandboxActive, paintSandboxChrome, resetSandbox } from "./_ai_dialer/sandbox.js";
 
 function renderAiDialerWorkspace() {
   if (S.dashboardTab !== "aiDialerAgent") return;
@@ -43,6 +44,7 @@ function renderAiDialerWorkspace() {
   renderAgentQueueList(agentId);
   renderAgentPowerSlots();
   renderTodayDialTable(agentId);
+  paintSandboxChrome();
   const agent = primaryAgent();
   const slotNote = byId("aiDialerAgent-slotNotice");
   if (slotNote) {
@@ -85,6 +87,10 @@ async function listenInOnCall() {
 }
 
 async function startAgentSeat(agentId) {
+  if (isSandboxActive()) {
+    showToast("Turn off sandbox mode before live dialing.", true);
+    return;
+  }
   const agent = primaryAgent();
   if (agentId !== agent.id) {
     showToast("Only the live-line seat can start dialing right now.", true);
@@ -121,6 +127,7 @@ async function stopAgentSeat(agentId) {
 export function bindAiDialer() {
   const back = byId("aiDialerAgent-backToFleet");
   back?.addEventListener("click", () => {
+    if (isSandboxActive()) resetSandbox().catch(() => {});
     S.aiDialerSelectedAgentId = null;
     resetWorkspaceTabs();
     syncAiDialerViews();
@@ -168,6 +175,7 @@ export function bindAiDialer() {
   });
   bindWorkspaceTabs();
   bindPlaybookEditor();
+  bindSandbox();
   registerRenderer(renderAiDialerWorkspace, "end", "aiDialerAgent");
   syncAiDialerViews();
 }

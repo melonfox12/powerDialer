@@ -1,8 +1,10 @@
 import { byId } from "../../_core/format.js";
 import { transcriptTimestamp } from "../../_core/transcript.js";
-import { state } from "../../_core/state.js";
+import { S, state } from "../../_core/state.js";
+import { isSandboxActive, sandboxTranscript } from "./sandbox.js";
 
 function mergedTranscriptEntries() {
+  if (isSandboxActive()) return sandboxTranscript();
   const liveTranscript = state.live_transcript || {};
   const lead = state.active_lead || state.pending_outcome
     || state.leads.find((item) => item.id === liveTranscript.lead_id) || null;

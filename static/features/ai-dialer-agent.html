@@ -38,6 +38,10 @@
                   <span id="aiDialerAgent-dialerStatusHeadline" class="ai-desk-status">Ready to start</span>
                 </div>
                 <div id="aiDialerAgent-dialerMessage" class="dialer-message ai-desk-message" role="status" hidden></div>
+                <label class="ai-sandbox-toggle sound-setting" title="Practice as the prospect — no phone calls">
+                  <input id="aiDialerAgent-sandboxMode" type="checkbox">
+                  Sandbox mode
+                </label>
                 <div class="ai-desk-compact-controls dialer-controls" data-controls="idle">
                   <button id="aiDialerAgent-startButton" class="button button-primary" type="button" disabled>Start</button>
                   <button id="aiDialerAgent-stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
@@ -93,6 +97,20 @@
                 <div id="aiDialerAgent-chatTranscript" class="ai-chat-thread" role="log" aria-live="polite" aria-label="Live call transcript">
                   <p class="transcript-empty">Conversation appears here as agent and prospect speak.</p>
                 </div>
+                <form id="aiDialerAgent-sandboxComposer" class="ai-sandbox-composer" hidden>
+                  <p class="ai-sandbox-hint">You are the prospect. Reply as they would on a real call.</p>
+                  <div class="ai-sandbox-prospect-fields">
+                    <label class="form-field form-field--inline"><span>Name</span><input id="aiDialerAgent-sandboxProspectName" type="text" maxlength="80" autocomplete="off"></label>
+                    <label class="form-field form-field--inline"><span>Business</span><input id="aiDialerAgent-sandboxProspectBusiness" type="text" maxlength="120" autocomplete="off"></label>
+                  </div>
+                  <div class="ai-sandbox-compose-row">
+                    <textarea id="aiDialerAgent-sandboxInput" rows="2" maxlength="2000" placeholder="Type what the prospect says…" aria-label="Prospect line"></textarea>
+                    <div class="ai-sandbox-compose-actions">
+                      <button type="button" id="aiDialerAgent-sandboxRestart" class="button button-quiet">Restart</button>
+                      <button type="submit" id="aiDialerAgent-sandboxSend" class="button button-primary">Send</button>
+                    </div>
+                  </div>
+                </form>
                 <div class="ai-waveform-rail" aria-hidden="true">
                   <canvas id="aiDialerAgent-prospectWaveform" height="48" width="640" role="img" aria-label="Live audio activity"></canvas>
                   <output id="aiDialerAgent-prospectAudioLevel" class="visually-hidden">0%</output>

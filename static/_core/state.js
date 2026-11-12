@@ -44,6 +44,8 @@ export const S = {
   aiWorkspaceActiveTab: "desk",
   aiWorkspacePlaybookOpen: false,
   aiPlaybookByAgent: {},
+  /** Per-seat sandbox transcript while testing (no Twilio). */
+  aiSandboxByAgent: {},
   performanceMode: "summary",
   performanceRange: "",
   performanceFetchedAt: 0,

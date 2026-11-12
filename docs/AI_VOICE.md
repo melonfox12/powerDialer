@@ -39,8 +39,12 @@ Expose `ws://127.0.0.1:8766` as HTTPS/WSS (e.g. ngrok) and set `AI_BRIDGE_WSS_UR
 - `POST /api/ai-voice/inbound` — inbound mulaw batch from bridge
 - `POST /api/ai-voice/stream-started` / `stream-stopped` — stream lifecycle
 
+## Sandbox mode (agent desk)
+
+On an agent seat, enable **Sandbox mode** to role-play as the prospect. Uses the seat prompt and OpenAI only — no Twilio, bridge, or Cartesia required for text rehearsal.
+
 ## Optional
 
-- End a call from the prompt with `[END_CALL]` in the model reply.
+- End a call from the prompt with `[END_CALL]` in the model reply (works in sandbox too).
 - Without Cartesia keys, transcript still updates; prospect hears silence until TTS is configured.
 - Listen-in is disabled in AI mode (server-side audio only).
