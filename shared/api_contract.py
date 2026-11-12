@@ -15,11 +15,18 @@ DIALER_STATE_KEYS = (
     "activity_log",
     "advance_at",
     "agent_ready",
+    "ai_agents",
+    "ai_dial_starved",
+    "ai_voice_configured",
+    "ai_voice_sessions",
+    "ai_voice_stream_active",
     "caller_ids",
     "caller_id_group",
     "counts",
     "current_caller_id",
     "dial_pool_status",
+    "global_dialer_pool",
+    "global_dialer_pool_count",
     "in_flight",
     "last_error",
     "last_event",
@@ -35,6 +42,7 @@ DIALER_STATE_KEYS = (
     "pickup_answered_by",
     "pool",
     "queue_count",
+    "requires_browser_voice",
     "running",
     "selected_business_type",
     "selected_timezone",
@@ -44,7 +52,6 @@ DIALER_STATE_KEYS = (
     "tag_call",
     "timezone_groups",
     "voice_profile",
-    "requires_browser_voice",
 )
 
 LIVE_STATE_KEYS = tuple(key for key in DIALER_STATE_KEYS if key != "pool")
@@ -56,6 +63,7 @@ LEADS_CATALOG_KEYS = (
     "dial_records",
     "dial_records_version",
     "dials_version",
+    "global_dialer_pool",
     "leads",
     "leads_version",
     "pipeline_revision",
@@ -81,6 +89,13 @@ DIALER_SETTINGS_KEYS = (
 SETTINGS_VIEW_KEYS = (
     "account_email",
     "account_sid",
+    "ai_bridge_app_url",
+    "ai_bridge_embedded",
+    "ai_bridge_secret",
+    "ai_bridge_wss_url",
+    "ai_voicemail_drop",
+    "ai_voicemail_message",
+    "ai_llm_model",
     "api_key",
     "api_secret",
     "auth_token",
@@ -88,14 +103,20 @@ SETTINGS_VIEW_KEYS = (
     "break_nudge_minutes",
     "calling_end_hour",
     "calling_start_hour",
+    "cartesia_api_key",
+    "cartesia_voice_id",
     "conversation_threshold",
     "daily_conversation_goal",
     "daily_goal_anchor",
     "daily_goal_minutes",
     "daily_goal_weekly_step",
+    "has_ai_bridge_secret",
     "has_api_secret",
     "has_auth_token",
+    "has_cartesia_api_key",
+    "has_openai_api_key",
     "opening_script",
+    "openai_api_key",
     "pipeline_custom_steps",
     "pipeline_locked_step_keys",
     "public_base_url",
@@ -120,7 +141,7 @@ SESSION_STATS_KEYS = (
     "best_streak",
 )
 
-IN_FLIGHT_KEYS = ("answered_by", "caller_id", "lead", "lead_id", "name", "state")
+IN_FLIGHT_KEYS = ("answered_by", "caller_id", "lead", "lead_id", "name", "slot_index", "state")
 
 LIVE_TRANSCRIPT_KEYS = ("answered_by", "lead_id", "lines", "partials", "transcribing")
 

@@ -5,7 +5,8 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from features._dialer import live_transcript, twilio
+from features import ai_voice_runtime
+from features._dialer import live_transcript, twilio, voice_session
 from shared.vocabulary import TRANSCRIPT_SOURCE_TWILIO
 
 def _live_twiml(state, call):
@@ -231,5 +232,9 @@ def _transcription_event(state, call, params):
         track=track,
         source=TRANSCRIPT_SOURCE_TWILIO,
     ):
+        if speaker == "Prospect" and voice_session.is_ai_voice(state):
+            session = ai_voice_runtime.get_session(state, storage.get("bridge_session_id") or "")
+            if not (session and session.get("stream_active")):
+                ai_voice_runtime.on_prospect_text(state, storage, text, source="twilio")
         state.record_activity(f"Transcript updated · {speaker}", "transcription")
     return 200, "text/plain", "OK"

@@ -2,6 +2,7 @@
 
 from features._dialer import calls, queue, slots, timing
 from features._dialer import rules
+from features import ai_voice_runtime
 from features._dialer import live_transcript
 from shared.vocabulary import TRANSCRIPT_SOURCE_TWILIO
 from features._dialer.rules import record_conversation
@@ -29,6 +30,9 @@ def _call_ended(state, call, params):
                 state.pending_outcome = None
             return
         call["end_processed"] = True
+        bridge_id = call.get("bridge_session_id")
+        if bridge_id:
+            ai_voice_runtime.end_session(state, bridge_id)
         if call.get("lead_id"):
             live_transcript.commit_partials(state, call, source=TRANSCRIPT_SOURCE_TWILIO)
         pending_already = state.pending_outcome == call.get("lead_id")
@@ -92,7 +96,7 @@ def _call_ended(state, call, params):
     if log_entry and call.get("lead_id"):
         try:
             state.crm.append_call_log(call["lead_id"], log_entry, call.get("token"))
-            if getattr(state, "ai_agent_mode", False):
+            if getattr(state, "ai_agent_mode", False) and not call.get("ai_disposition_done"):
                 from features import ai_agents
                 was_live = bool(call.get("picked_up")) and call.get("answered_by") != "voicemail"
                 ai_agents.finalize_agent_call(

@@ -42,6 +42,19 @@ export function applySavedSettings(settings) {
   byId("callingEndHourInput").value = settings.calling_end_hour;
   byId("breakNudgeInput").value = settings.break_nudge_minutes;
   byId("openingScriptInput").value = settings.opening_script || "";
+  byId("aiBridgeWssInput").value = settings.ai_bridge_wss_url || "";
+  byId("aiBridgeAppInput").value = settings.ai_bridge_app_url || "http://127.0.0.1:8000";
+  byId("aiBridgeSecretInput").value = "";
+  byId("aiBridgeSecretInput").placeholder = settings.has_ai_bridge_secret ? SAVED_SECRET_PLACEHOLDER : "";
+  byId("openaiKeyInput").value = "";
+  byId("openaiKeyInput").placeholder = settings.has_openai_api_key ? SAVED_SECRET_PLACEHOLDER : "";
+  byId("aiLlmModelInput").value = settings.ai_llm_model || "gpt-4o-mini";
+  byId("cartesiaKeyInput").value = "";
+  byId("cartesiaKeyInput").placeholder = settings.has_cartesia_api_key ? SAVED_SECRET_PLACEHOLDER : "";
+  byId("cartesiaVoiceInput").value = settings.cartesia_voice_id || "";
+  byId("aiBridgeEmbeddedInput").checked = Boolean(settings.ai_bridge_embedded);
+  byId("aiVoicemailDropInput").checked = Boolean(settings.ai_voicemail_drop);
+  byId("aiVoicemailMessageInput").value = settings.ai_voicemail_message || "";
   byId("soundsEnabledInput").checked = settings.sounds_enabled;
   byId("soundVolumeInput").value = settings.sound_volume;
   setText("soundVolumeValue", `${settings.sound_volume}%`);
@@ -90,6 +103,16 @@ function settingsPayload() {
     calling_end_hour: byId("callingEndHourInput").value,
     break_nudge_minutes: byId("breakNudgeInput").value,
     opening_script: byId("openingScriptInput").value,
+    ai_bridge_wss_url: byId("aiBridgeWssInput").value,
+    ai_bridge_app_url: byId("aiBridgeAppInput").value,
+    ai_bridge_secret: byId("aiBridgeSecretInput").value,
+    openai_api_key: byId("openaiKeyInput").value,
+    ai_llm_model: byId("aiLlmModelInput").value,
+    cartesia_api_key: byId("cartesiaKeyInput").value,
+    cartesia_voice_id: byId("cartesiaVoiceInput").value,
+    ai_bridge_embedded: byId("aiBridgeEmbeddedInput").checked,
+    ai_voicemail_drop: byId("aiVoicemailDropInput").checked,
+    ai_voicemail_message: byId("aiVoicemailMessageInput").value,
     sounds_enabled: byId("soundsEnabledInput").checked,
     sound_volume: byId("soundVolumeInput").value,
   };

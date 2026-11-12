@@ -2,11 +2,13 @@
 
 from datetime import datetime, timezone
 
-from features._dialer import calls
+from features import ai_voice_runtime
+from features._dialer import calls, voice_session
 from features._dialer import queue
 from features._dialer import rules
 from features._dialer import slots
 from features._dialer import twilio
+from features._dialer._call_events import transcript
 from features._dialer.rules import add_connect
 
 def _name(call):
@@ -86,6 +88,10 @@ def _amd_is_voicemail(answered_by, result_blob):
 
 def _connect_prospect(state, call):
     if not call.get("picked_up") and _pickup(state, call):
+        if voice_session.is_ai_voice(state):
+            ai_voice_runtime.start_call_session(state, call)
+            if not ai_voice_runtime.voice_configured(state.read_settings()):
+                transcript.schedule_live_transcription(state, call)
         twilio._redirect_call(state, call.get("call_uuid"), twilio._url(state, call, "answer"))
     kept = call.get("picked_up") and state.active is call
     return "Live voice is on the line" if kept else "Another line was already live"
@@ -118,8 +124,24 @@ def _machine_result(state, call, params):
     rules._flush_metrics(state)
     if voicemail:
         if not call.get("picked_up"):
-            _drop_line(state, call, "voicemail")
-        message = "Voicemail hung up"
+            settings = state.read_settings()
+            if (
+                voice_session.is_ai_voice(state)
+                and str(settings.get("AI_VOICEMAIL_DROP") or "").lower() == "true"
+                and call.get("call_uuid")
+            ):
+                message = (
+                    str(settings.get("AI_VOICEMAIL_MESSAGE") or "").strip()
+                    or "Hi. We tried to reach you. Please call back when you can."
+                )
+                call["voicemail_drop_text"] = message
+                twilio._redirect_call(state, call.get("call_uuid"), twilio._url(state, call, "voicemail-drop"))
+                message = "Voicemail drop playing"
+            else:
+                _drop_line(state, call, "voicemail")
+                message = "Voicemail hung up"
+        else:
+            message = "Voicemail hung up"
     elif connect and not call.get("picked_up"):
         if twilio._call_is_live(state, call.get("call_uuid")):
             message = _connect_prospect(state, call)

@@ -19,6 +19,9 @@ def serve():
 
     enable()
     runtime = AppRuntime().configure()
+    from features.ai_media_bridge import maybe_start_embedded
+
+    maybe_start_embedded()
     app_server = QuietThreadingHTTPServer(
         (APP_HOST, APP_PORT),
         make_app_handler(runtime),

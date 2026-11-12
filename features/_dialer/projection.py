@@ -2,7 +2,7 @@
 
 from features._dialer import calls, voice_session
 from features._dialer.rules import clear_stale_active, dialer_stage, new_session, recent_streak
-from features import ai_agents
+from features import ai_agents, ai_voice_runtime
 from shared.dial_policy import global_dialer_pool, leads_for_timezone_counts, resolve_pool_status, unique_business_types
 from shared.vocabulary import resolve_caller_id_group
 from shared.infra import utc_now
@@ -139,6 +139,7 @@ def public_state(state, include_leads=False):
     view["global_dialer_pool"] = catalog.get("global_dialer_pool") or []
     view["global_dialer_pool_count"] = len(view["global_dialer_pool"])
     view["ai_agents"] = ai_agents.agents_public_view(state)
+    view.update(ai_voice_runtime.public_status(state))
     view["ai_dial_starved"] = bool(getattr(state, "ai_dial_starved", False))
     if getattr(state, "ai_agent_mode", False) and getattr(state, "ai_agent_id", None):
         pool_stats = ai_agents.agent_pool_stats(state)

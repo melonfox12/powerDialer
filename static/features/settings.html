@@ -22,6 +22,22 @@
           <label class="sound-setting"><input id="soundsEnabledInput" type="checkbox"> Connect and booked sounds</label>
           <label class="form-field"><span>Sound volume <output id="soundVolumeValue">35%</output></span><input id="soundVolumeInput" type="range" min="0" max="100"></label>
         </section>
+        <details class="ai-voice-settings">
+          <summary>AI voice (bridge, LLM, Cartesia)</summary>
+          <div class="arcade-settings-content">
+            <label class="form-field"><span>Bridge WSS URL (public)</span><input id="aiBridgeWssInput" name="ai_bridge_wss_url" type="url" placeholder="wss://your-tunnel/stream" autocomplete="off"></label>
+            <label class="form-field"><span>Bridge app URL</span><input id="aiBridgeAppInput" name="ai_bridge_app_url" type="url" placeholder="http://127.0.0.1:8000" autocomplete="off"></label>
+            <label class="form-field"><span>Bridge secret</span><span class="secret-field"><input id="aiBridgeSecretInput" name="ai_bridge_secret" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="aiBridgeSecretInput" aria-pressed="false" aria-label="Show bridge secret">Show</button></span></label>
+            <label class="form-field"><span>OpenAI API key</span><span class="secret-field"><input id="openaiKeyInput" name="openai_api_key" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="openaiKeyInput" aria-pressed="false" aria-label="Show OpenAI key">Show</button></span></label>
+            <label class="form-field"><span>LLM model</span><input id="aiLlmModelInput" name="ai_llm_model" autocomplete="off" placeholder="gpt-4o-mini"></label>
+            <label class="form-field"><span>Cartesia API key</span><span class="secret-field"><input id="cartesiaKeyInput" name="cartesia_api_key" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="cartesiaKeyInput" aria-pressed="false" aria-label="Show Cartesia key">Show</button></span></label>
+            <label class="form-field"><span>Cartesia voice id</span><input id="cartesiaVoiceInput" name="cartesia_voice_id" autocomplete="off"></label>
+            <label class="sound-setting"><input id="aiBridgeEmbeddedInput" type="checkbox"> Run media bridge inside <code>server.py</code> (<code>AI_BRIDGE_EMBEDDED</code>)</label>
+            <label class="sound-setting"><input id="aiVoicemailDropInput" type="checkbox"> Leave a short Twilio message on voicemail (AMD)</label>
+            <label class="form-field"><span>Voicemail line</span><input id="aiVoicemailMessageInput" name="ai_voicemail_message" maxlength="240" autocomplete="off" placeholder="Optional custom line"></label>
+            <p class="form-footnote">Expose the bridge WSS (tunnel or embedded on port 8766). Same secret here and on the bridge process.</p>
+          </div>
+        </details>
         <details class="arcade-settings">
           <summary>UI Gamification Profiles</summary>
           <div class="arcade-settings-content">

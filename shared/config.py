@@ -15,7 +15,16 @@ APP_PORT = 8000
 HOOK_HOST = "127.0.0.1"
 HOOK_PORT = 8765
 MAX_BODY = 12 * 1024 * 1024
-PUBLIC_API_PATHS = {"/api/health", "/api/auth/config", "/api/debug"}
+PUBLIC_API_PATHS = {
+    "/api/health",
+    "/api/auth/config",
+    "/api/debug",
+    "/api/ai-voice/bootstrap",
+    "/api/ai-voice/stream-started",
+    "/api/ai-voice/stream-sync",
+    "/api/ai-voice/stream-stopped",
+    "/api/ai-voice/inbound",
+}
 QUIET_HTTP = {
     "/", "/index.html", "/static/", "/static/index.html",
     "/app.css", "/app.js", "/static/app.css", "/static/app.js",

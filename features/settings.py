@@ -117,6 +117,19 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
         "calling_start_hour": int(parsed["CALLING_START_HOUR"]),
         "calling_end_hour": int(parsed["CALLING_END_HOUR"]),
         "opening_script": parsed["OPENING_SCRIPT"],
+        "ai_bridge_wss_url": parsed.get("AI_BRIDGE_WSS_URL", ""),
+        "ai_bridge_app_url": parsed.get("AI_BRIDGE_APP_URL", ""),
+        "ai_bridge_secret": "",
+        "has_ai_bridge_secret": bool(parsed.get("AI_BRIDGE_SECRET")),
+        "cartesia_api_key": "",
+        "has_cartesia_api_key": bool(parsed.get("CARTESIA_API_KEY")),
+        "cartesia_voice_id": parsed.get("CARTESIA_VOICE_ID", ""),
+        "openai_api_key": "",
+        "has_openai_api_key": bool(parsed.get("OPENAI_API_KEY")),
+        "ai_llm_model": parsed.get("AI_LLM_MODEL", "gpt-4o-mini"),
+        "ai_bridge_embedded": parsed.get("AI_BRIDGE_EMBEDDED", "false").lower() == "true",
+        "ai_voicemail_drop": parsed.get("AI_VOICEMAIL_DROP", "false").lower() == "true",
+        "ai_voicemail_message": parsed.get("AI_VOICEMAIL_MESSAGE", ""),
         "daily_goal_minutes": int(parsed["DAILY_GOAL_MINUTES"]),
         "daily_conversation_goal": int(parsed["DAILY_CONVERSATION_GOAL"]),
         "daily_goal_weekly_step": int(parsed["DAILY_GOAL_WEEKLY_STEP_MINUTES"]),
@@ -188,6 +201,16 @@ def save_settings(env_path, account_values, account_user_id, data, save_remote=N
         "CALLING_START_HOUR": data.get("calling_start_hour", SETTING_DEFAULTS["CALLING_START_HOUR"]),
         "CALLING_END_HOUR": data.get("calling_end_hour", SETTING_DEFAULTS["CALLING_END_HOUR"]),
         "OPENING_SCRIPT": data.get("opening_script", ""),
+        "AI_BRIDGE_WSS_URL": str(data.get("ai_bridge_wss_url", existing.get("AI_BRIDGE_WSS_URL", ""))).strip(),
+        "AI_BRIDGE_APP_URL": str(data.get("ai_bridge_app_url", existing.get("AI_BRIDGE_APP_URL", "http://127.0.0.1:8000"))).strip(),
+        "AI_BRIDGE_SECRET": str(data.get("ai_bridge_secret", existing.get("AI_BRIDGE_SECRET", ""))).strip(),
+        "CARTESIA_API_KEY": str(data.get("cartesia_api_key", existing.get("CARTESIA_API_KEY", ""))).strip(),
+        "CARTESIA_VOICE_ID": str(data.get("cartesia_voice_id", existing.get("CARTESIA_VOICE_ID", ""))).strip(),
+        "OPENAI_API_KEY": str(data.get("openai_api_key", existing.get("OPENAI_API_KEY", ""))).strip(),
+        "AI_LLM_MODEL": str(data.get("ai_llm_model", existing.get("AI_LLM_MODEL", "gpt-4o-mini"))).strip(),
+        "AI_BRIDGE_EMBEDDED": "true" if data.get("ai_bridge_embedded") else "false",
+        "AI_VOICEMAIL_DROP": "true" if data.get("ai_voicemail_drop") else "false",
+        "AI_VOICEMAIL_MESSAGE": str(data.get("ai_voicemail_message", existing.get("AI_VOICEMAIL_MESSAGE", ""))).strip(),
     }
     if "pipeline_custom_steps" in data or "pipeline_custom_steps_json" in data:
         pj = _pipeline_json_from_post(data)
@@ -208,6 +231,12 @@ def save_settings(env_path, account_values, account_user_id, data, save_remote=N
         updates["TWILIO_AUTH_TOKEN"] = current.get("TWILIO_AUTH_TOKEN", "")
     if not updates["TWILIO_API_SECRET"]:
         updates["TWILIO_API_SECRET"] = current.get("TWILIO_API_SECRET", "")
+    if not updates.get("AI_BRIDGE_SECRET"):
+        updates["AI_BRIDGE_SECRET"] = current.get("AI_BRIDGE_SECRET", "")
+    if not updates.get("CARTESIA_API_KEY"):
+        updates["CARTESIA_API_KEY"] = current.get("CARTESIA_API_KEY", "")
+    if not updates.get("OPENAI_API_KEY"):
+        updates["OPENAI_API_KEY"] = current.get("OPENAI_API_KEY", "")
     if signed_in:
         account_values.update(updates)
         if save_remote:

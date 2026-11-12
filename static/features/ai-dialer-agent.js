@@ -51,6 +51,10 @@ function renderAiDialerWorkspace() {
 }
 
 async function listenInOnCall() {
+  if (state.requires_browser_voice === false) {
+    showToast("AI calls use server audio. Watch the live transcript.", true);
+    return;
+  }
   if (S.voiceCall || S.voiceConnectBusy) return;
   const agent = primaryAgent();
   if (S.aiDialerSelectedAgentId !== agent.id) {

@@ -31,9 +31,14 @@ export function renderAiLiveStatus() {
 
   const message = byId("aiDialerAgent-dialerMessage");
   if (message) {
-    message.hidden = !state.last_error;
-    message.textContent = state.last_error || "";
-    message.classList.toggle("error", Boolean(state.last_error));
+    const bridgeWarning =
+      state.running && state.ai_voice_configured === false
+        ? "AI voice bridge is not configured (WSS URL + secret in Settings)."
+        : "";
+    const text = state.last_error || bridgeWarning;
+    message.hidden = !text;
+    message.textContent = text;
+    message.classList.toggle("error", Boolean(state.last_error || bridgeWarning));
   }
 
   const transcriptPill = byId("aiDialerAgent-transcriptLiveStatus");
@@ -41,8 +46,9 @@ export function renderAiLiveStatus() {
   const liveTranscript = state.live_transcript || {};
   const onLine = Boolean(state.active_lead);
   const answeredBy = state.pickup_answered_by || liveTranscript.answered_by || "";
+  const aiStream = Boolean(state.ai_voice_stream_active);
   transcriptPill.textContent = onLine
-    ? (answeredBy === "voicemail" ? "Voicemail" : "On the line")
+    ? (answeredBy === "voicemail" ? "Voicemail" : aiStream ? "AI on the line" : "On the line")
     : state.running
       ? "Waiting for a pickup"
       : "Standby";

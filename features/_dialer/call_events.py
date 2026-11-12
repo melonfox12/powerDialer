@@ -3,6 +3,7 @@
 import threading
 
 from features._dialer._call_events import ended, pickup, transcript
+from features import ai_voice_runtime
 from features._dialer import queue, slots, voice_session
 from features._dialer import projection, rules, twilio
 from features._dialer.twilio import escape_xml
@@ -63,9 +64,25 @@ def handle_webhook(state, token, action, params):
         if lost:
             return 200, "application/xml", "<Response><Hangup/></Response>"
         if joined:
+            if voice_session.is_ai_voice(state):
+                if not call.get("bridge_session_id"):
+                    ai_voice_runtime.start_call_session(state, call)
+                if not ai_voice_runtime.voice_configured(state.read_settings()):
+                    transcript.schedule_live_transcription(state, call)
+                return 200, "application/xml", ai_voice_runtime.ai_stream_twiml(state, call)
             transcript.schedule_live_transcription(state, call)
             return 200, "application/xml", str(transcript._live_twiml(state, call))
         return 200, "application/xml", twilio.waiting_twiml()
+    if action == "voicemail-drop":
+        settings = state.read_settings()
+        text = (
+            call.get("voicemail_drop_text")
+            or str(settings.get("AI_VOICEMAIL_MESSAGE") or "").strip()
+            or "Hi. We tried to reach you. Please call back when you can."
+        )
+        return 200, "application/xml", (
+            f"<Response><Say>{escape_xml(text)}</Say><Hangup/></Response>"
+        )
     if action == "machine":
         return pickup._machine_result(state, call, params)
     if action == "transcript":
@@ -112,17 +129,20 @@ def hangup_active(state):
         )
         call_uuid = call.get("call_uuid") if call else None
         if call and state.running:
+            ai_mode = getattr(state, "ai_agent_mode", False)
             if call is state.active or call.get("picked_up"):
                 call["wrapping"] = True
-                state.pending_outcome = call["lead_id"]
-                state.last_event = "Call ended; choose a disposition"
+                if not ai_mode:
+                    state.pending_outcome = call["lead_id"]
+                state.last_event = "Call ended; choose a disposition" if not ai_mode else "Call ended"
             else:
                 call["handled"] = True
                 call["cancelled"] = True
                 call["state"] = "ended"
                 state.in_flight.pop(call["token"], None)
-                state.pending_outcome = call["lead_id"]
-                state.last_event = "Call ended; choose a disposition"
+                if not ai_mode:
+                    state.pending_outcome = call["lead_id"]
+                state.last_event = "Call ended; choose a disposition" if not ai_mode else "Call ended"
     if call_uuid:
         threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
     return projection.public_state(state)
@@ -143,13 +163,18 @@ def skip_active(state):
         call_uuid = call.get("call_uuid")
         call["wrapping"] = True
         call["handled"] = True
-        state.pending_outcome = lead_id if state.running else None
+        if not getattr(state, "ai_agent_mode", False):
+            state.pending_outcome = lead_id if state.running else None
         state.last_event = "Prospect skipped; choose a disposition" if state.running else "Prospect skipped"
     if not state.running and lead_id:
         queue.schedule_callback(state, lead_id)
         rules._bump(state, OUTCOME_METRIC["dialed"])
         rules._flush_metrics(state)
-    state.record_activity("Prospect skipped; choose a disposition", "call")
+    ai_mode = getattr(state, "ai_agent_mode", False)
+    state.record_activity(
+        "Prospect skipped" if ai_mode else "Prospect skipped; choose a disposition",
+        "call",
+    )
     if call_uuid:
         threading.Thread(target=twilio._hangup_call, args=(state, call_uuid), daemon=True).start()
     return projection.public_state(state)

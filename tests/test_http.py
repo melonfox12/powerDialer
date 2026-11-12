@@ -505,6 +505,18 @@ EXPECTED_ROUTES = {
     ("GET", "/api/performance"),
     ("POST", "/api/performance/goal"),
     ("POST", "/api/bookings"),
+    ("GET", "/api/ai-agents"),
+    ("POST", "/api/ai-agents/boot"),
+    ("GET", "/api/ai-agents/playbook"),
+    ("POST", "/api/ai-agents/playbook"),
+    ("POST", "/api/ai-agents/release-pool"),
+    ("POST", "/api/ai-agents/start"),
+    ("POST", "/api/ai-agents/stop"),
+    ("GET", "/api/ai-voice/bootstrap"),
+    ("POST", "/api/ai-voice/inbound"),
+    ("POST", "/api/ai-voice/stream-started"),
+    ("POST", "/api/ai-voice/stream-stopped"),
+    ("GET", "/api/ai-voice/stream-sync"),
 }
 
 

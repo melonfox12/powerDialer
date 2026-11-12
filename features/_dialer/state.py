@@ -69,6 +69,7 @@ class DialerState:
         self.ai_dial_starved = False
         self.voice_profile = VOICE_PROFILE_HUMAN_BROWSER
         self.ai_voice_armed = False
+        self.ai_voice_sessions = {}
 
 
     def record_activity(self, message, source="dialer"):

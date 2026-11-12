@@ -240,6 +240,10 @@ def start(state, priority_lead_id=None):
     eligible = calls._pool_leads(state)
     ai_agent_id = getattr(state, "ai_agent_id", None)
     ai_mode = getattr(state, "ai_agent_mode", False)
+    if ai_mode and ai_agent_id:
+        from features import ai_voice_runtime
+        if not ai_voice_runtime.voice_configured(values):
+            raise ValueError("Configure AI_BRIDGE_WSS_URL and AI_BRIDGE_SECRET in Settings before starting AI voice.")
     if not eligible and priority is None:
         if ai_mode and ai_agent_id:
             raise ValueError("This agent pool has no dialable prospects right now.")
@@ -565,6 +569,8 @@ def stop(state):
         state.ai_agent_id = None
         state.ai_agent_mode = False
         voice_session.reset_voice_session(state)
+        from features import ai_voice_runtime
+        ai_voice_runtime.purge_sessions(state)
         state.in_flight.clear()
         state.last_event = "Stopped"
         if state.advance_timer:

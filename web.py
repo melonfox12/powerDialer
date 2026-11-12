@@ -6,7 +6,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
 from _web.respond import HandlerMixin
-from features import dialer, metrics, prospects, settings
+from features import ai_voice_routes, dialer, metrics, prospects, settings
 from features.accounts import resolve_account
 from shared.config import read_env
 from shared.infra import debug_event
@@ -67,7 +67,7 @@ SYSTEM_ROUTES = [
 ]
 
 FEATURE_ROUTES = (
-    settings.ROUTES + metrics.ROUTES + prospects.ROUTES + dialer.ROUTES
+    settings.ROUTES + metrics.ROUTES + prospects.ROUTES + dialer.ROUTES + ai_voice_routes.ROUTES
 )
 
 
@@ -187,7 +187,7 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
                 self._trace_error = str(exc)
                 self.send_json(400, {"error": str(exc)})
             return
-        if profile == "GET reads":
+        if profile in ("GET reads", "bridge"):
             try:
                 handler(self)
             except OSError as exc:
@@ -224,6 +224,12 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
                 handler(self, self.read_json(body))
             elif handler in (prospects.post_import, dialer.post_dials_import):
                 handler(self, body)
+            elif handler in (
+                ai_voice_routes.post_ai_voice_stream_started,
+                ai_voice_routes.post_ai_voice_stream_stopped,
+                ai_voice_routes.post_ai_voice_inbound,
+            ):
+                handler(self, self.read_json(body))
             else:
                 handler(self)
         except (ValueError, KeyError, UnicodeDecodeError) as exc:
