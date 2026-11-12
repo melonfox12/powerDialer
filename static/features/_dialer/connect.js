@@ -174,6 +174,7 @@ export async function maybeRejoinVoice() {
     || S.voiceConnectBusy
     || S.expectVoiceDisconnect
     || !state.running
+    || state.requires_browser_voice === false
     || state.agent_ready
     || S.voiceCall
     || state.pending_outcome

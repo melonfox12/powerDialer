@@ -3,7 +3,7 @@
 import threading
 
 from features._dialer._call_events import ended, pickup, transcript
-from features._dialer import queue, slots
+from features._dialer import queue, slots, voice_session
 from features._dialer import projection, rules, twilio
 from features._dialer.twilio import escape_xml
 from shared.vocabulary import OUTCOME_METRIC
@@ -43,6 +43,8 @@ def handle_webhook(state, token, action, params):
             twilio._hangup_call(state, call_uuid)
         return 200, "text/plain", "OK"
     if action == "answer" and call["kind"] == "agent":
+        if not voice_session.uses_browser_agent_leg(state):
+            return 200, "application/xml", "<Response><Hangup/></Response>"
         with state.lock:
             state.agent_ready = True
             state.last_event = "Computer audio connected"
@@ -77,6 +79,8 @@ def handle_webhook(state, token, action, params):
     return 404, "text/plain", "Unknown callback"
 
 def handle_client_voice(state, params):
+    if not voice_session.uses_browser_agent_leg(state):
+        return 200, "application/xml", "<Response><Hangup/></Response>"
     token = params.get("DeskToken") or params.get("CallToken") or ""
     with state.lock:
         call = state.calls.get(token)

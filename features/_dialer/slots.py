@@ -2,7 +2,7 @@
 
 import threading
 
-from features._dialer import calls, rules
+from features._dialer import calls, rules, voice_session
 
 AGENT_LINE_CAP = 3
 
@@ -40,7 +40,7 @@ def _place_prospect_call(state):
     none_ready = False
     with state.lock:
         rules.clear_stale_active(state)
-        if not state.running or state.paused or not state.agent_ready or state.active or state.pending_outcome:
+        if not voice_session.slots_may_dial(state) or state.active or state.pending_outcome:
             return
         prospect_lines = [
             call for call in state.in_flight.values() if call.get("kind") == "prospect"
@@ -129,7 +129,7 @@ def _check_calling_window(state):
             call for call in state.in_flight.values() if call.get("kind") == "prospect"
         ]
         should_fill = (
-            state.running and not state.paused and state.agent_ready
+            voice_session.slots_may_dial(state)
             and not state.active and not state.pending_outcome
             and len(prospect_lines) < len(state.callers)
         )

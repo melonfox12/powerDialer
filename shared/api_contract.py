@@ -43,6 +43,8 @@ DIALER_STATE_KEYS = (
     "stage",
     "tag_call",
     "timezone_groups",
+    "voice_profile",
+    "requires_browser_voice",
 )
 
 LIVE_STATE_KEYS = tuple(key for key in DIALER_STATE_KEYS if key != "pool")

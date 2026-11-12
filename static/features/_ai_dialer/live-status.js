@@ -53,5 +53,5 @@ export function renderAiLiveStatus() {
     stop.hidden = stage === "idle" && !state.running;
     stop.disabled = !state.running || S.voiceConnectBusy;
   }
-  if (start) start.hidden = stage !== "idle";
+  if (start) start.hidden = false;
 }

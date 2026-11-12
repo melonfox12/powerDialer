@@ -208,7 +208,8 @@ def try_resume_agent_dial(state):
     with state.lock:
         if state.active or state.pending_outcome or not state.running or state.paused:
             return
-        if not state.agent_ready:
+        from features._dialer import voice_session
+        if not voice_session.slots_may_dial(state):
             return
     dialable = dialable_pool_for_agent(state)
     if len(dialable) < 1:

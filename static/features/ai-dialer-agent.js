@@ -23,6 +23,8 @@ import { primaryAgent } from "./_ai_dialer/agents.js";
 import { postJson } from "../_core/api.js";
 import { render } from "../core.js";
 import { tearDownVoice } from "./_dialer/connect.js";
+import { bindPlaybookEditor, renderPlaybookPreview } from "./_ai_dialer/playbook-editor.js";
+import { bindWorkspaceTabs, paintWorkspaceTabs, resetWorkspaceTabs } from "./_ai_dialer/workspace-tabs.js";
 
 function renderAiDialerWorkspace() {
   if (S.dashboardTab !== "aiDialerAgent") return;
@@ -30,6 +32,8 @@ function renderAiDialerWorkspace() {
   renderAiDialerFleet();
   const agentId = S.aiDialerSelectedAgentId;
   if (!agentId) return;
+  paintWorkspaceTabs();
+  renderPlaybookPreview();
   renderAiAgentDetailStats(agentId);
   renderAiLiveStatus();
   renderAiActivityLog();
@@ -114,6 +118,7 @@ export function bindAiDialer() {
   const back = byId("aiDialerAgent-backToFleet");
   back?.addEventListener("click", () => {
     S.aiDialerSelectedAgentId = null;
+    resetWorkspaceTabs();
     syncAiDialerViews();
     render();
   });
@@ -157,6 +162,8 @@ export function bindAiDialer() {
       showToast(errorText(error, "Could not release pool."), true);
     }
   });
+  bindWorkspaceTabs();
+  bindPlaybookEditor();
   registerRenderer(renderAiDialerWorkspace, "end", "aiDialerAgent");
   syncAiDialerViews();
 }

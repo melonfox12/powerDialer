@@ -1,6 +1,8 @@
 import { S, state } from "../../_core/state.js";
 import { AI_AGENTS, agentById, primaryAgent } from "./agents.js";
 import { byId, setText } from "../../_core/format.js";
+import { resetWorkspaceTabs, paintWorkspaceTabs } from "./workspace-tabs.js";
+import { ensurePlaybookLoaded } from "./playbook-editor.js";
 
 function agentStatus(agent) {
   if (!agent.primary) return { label: "Standby", tone: "idle" };
@@ -89,6 +91,9 @@ function renderFleetTiles() {
     }
     tile.addEventListener("click", () => {
       S.aiDialerSelectedAgentId = agent.id;
+      resetWorkspaceTabs();
+      paintWorkspaceTabs();
+      ensurePlaybookLoaded(agent.id).catch(() => {});
       syncAiDialerViews();
     });
     grid.append(tile);

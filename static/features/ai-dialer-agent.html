@@ -3,7 +3,7 @@
     <header class="ai-call-center-fleet-head">
       <div>
         <h2 class="ai-call-center-title">AI call center</h2>
-        <p class="ai-call-center-lede">Each tile is a dialer agent seat. Open one to monitor queue, live conversation, and today&apos;s CRM board.</p>
+        <p class="ai-call-center-lede">Each tile is a dialer agent seat. Open one to run the desk, live conversation, and agent prompt.</p>
       </div>
     </header>
     <div id="aiDialerAgent-fleetGrid" class="ai-agent-fleet-grid" role="list" aria-label="AI dialer agents"></div>
@@ -19,77 +19,132 @@
       <p id="aiDialerAgent-slotNotice" class="ai-slot-notice" hidden>This seat is a preview slot — only the live-line agent runs your Twilio session today.</p>
     </header>
 
-    <div class="ai-agent-detail-layout">
-      <section class="ai-dialer-menu dialer-document" aria-label="Dialer menu">
-        <div class="ai-dialer-menu-head issue-meta">
-          <span class="live-indicator"><i></i><span id="aiDialerAgent-liveLabel">Standby</span></span>
-          <span id="aiDialerAgent-lineCount" class="line-count">0 of 0 dialed</span>
-          <div id="aiDialerAgent-callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
-        </div>
+    <div class="ai-workspace" id="aiDialerAgent-workspace">
+      <div class="ai-workspace-tabbar" role="tablist" aria-label="Agent workspace" id="aiDialerAgent-workspaceTablist"></div>
+      <div class="ai-workspace-panels" id="aiDialerAgent-workspacePanels">
 
-        <h3 class="ai-panel-label">Agent dialer</h3>
-        <p id="aiDialerAgent-dialerStatusHeadline" class="ai-dialer-status-line">Ready to start</p>
-        <p class="ai-global-pool-note">Global dialer pool: <strong id="aiDialerAgent-globalPoolCount">0</strong> eligible now</p>
-        <p class="ai-agent-pool-note">Agent pool: <strong id="aiDialerAgent-agentPoolCount">0</strong> assigned</p>
+        <section
+          class="ai-workspace-panel"
+          id="aiDialerAgent-panel-desk"
+          role="tabpanel"
+          aria-labelledby="aiDialerAgent-tab-desk"
+          data-workspace-tab="desk"
+        >
+          <div class="ai-agent-detail-layout">
+            <aside class="ai-desk-frame dialer-document" aria-label="Agent desk">
+              <section class="ai-desk-compact ai-dialer-menu" aria-label="Dialer controls">
+                <div class="ai-desk-compact-head">
+                  <span class="live-indicator"><i></i><span id="aiDialerAgent-liveLabel">Standby</span></span>
+                  <span id="aiDialerAgent-dialerStatusHeadline" class="ai-desk-status">Ready to start</span>
+                </div>
+                <div id="aiDialerAgent-dialerMessage" class="dialer-message ai-desk-message" role="status" hidden></div>
+                <div class="ai-desk-compact-controls dialer-controls" data-controls="idle">
+                  <button id="aiDialerAgent-startButton" class="button button-primary" type="button" disabled>Start</button>
+                  <button id="aiDialerAgent-stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
+                </div>
+                <details class="ai-desk-more">
+                  <summary>Pool &amp; lines</summary>
+                  <p class="ai-agent-pool-note">Agent pool: <strong id="aiDialerAgent-agentPoolCount">0</strong></p>
+                  <p class="ai-global-pool-note">Global pool: <strong id="aiDialerAgent-globalPoolCount">0</strong></p>
+                  <span id="aiDialerAgent-lineCount" class="line-count ai-desk-line-count">0 of 0 dialed</span>
+                  <div class="ai-desk-pool-actions">
+                    <button type="button" id="aiDialerAgent-claimPoolButton" class="button button-quiet">Claim pool</button>
+                    <button type="button" id="aiDialerAgent-releasePoolButton" class="button button-quiet">Release</button>
+                  </div>
+                  <section class="queue-strip ai-queue-strip" aria-label="Power lines">
+                    <div id="aiDialerAgent-activeCall" class="power-lines ai-power-lines"></div>
+                  </section>
+                  <ol id="aiDialerAgent-agentQueueList" class="ai-agent-queue-list" aria-label="Agent dialer pool queue"></ol>
+                </details>
+              </section>
 
-        <section class="queue-strip ai-queue-strip" aria-label="Prospect number queue">
-          <div id="aiDialerAgent-activeCall" class="power-lines ai-power-lines"></div>
+              <section class="ai-playbook-widget" aria-labelledby="aiDialerAgent-playbookWidgetTitle">
+                <header class="ai-playbook-widget-head">
+                  <h3 id="aiDialerAgent-playbookWidgetTitle" class="ai-panel-label">Prompt</h3>
+                  <button
+                    type="button"
+                    id="aiDialerAgent-expandPlaybookTab"
+                    class="ai-playbook-expand-link"
+                    title="Open prompt in a workspace tab"
+                  >
+                    Open tab ↗
+                  </button>
+                </header>
+                <textarea
+                  id="aiDialerAgent-playbookPromptWidget"
+                  class="ai-prompt-surface ai-prompt-surface--compact"
+                  spellcheck="true"
+                  aria-label="Agent call prompt"
+                  placeholder="Write instructions, dialogue, and actions for this agent…"
+                ></textarea>
+              </section>
+            </aside>
+
+            <section class="ai-live-console" aria-label="Live conversation">
+              <div class="ai-live-console-head">
+                <h3 class="ai-panel-label">Live conversation</h3>
+                <div class="ai-live-console-actions">
+                  <span id="aiDialerAgent-transcriptLiveStatus" class="ai-live-pill">Waiting for a pickup</span>
+                  <button type="button" id="aiDialerAgent-listenInButton" class="button button-quiet ai-listen-in" disabled>Listen in</button>
+                </div>
+              </div>
+
+              <div class="ai-live-viewport">
+                <div id="aiDialerAgent-chatTranscript" class="ai-chat-thread" role="log" aria-live="polite" aria-label="Live call transcript">
+                  <p class="transcript-empty">Conversation appears here as agent and prospect speak.</p>
+                </div>
+                <div class="ai-waveform-rail" aria-hidden="true">
+                  <canvas id="aiDialerAgent-prospectWaveform" height="48" width="640" role="img" aria-label="Live audio activity"></canvas>
+                  <output id="aiDialerAgent-prospectAudioLevel" class="visually-hidden">0%</output>
+                </div>
+              </div>
+
+              <details class="activity-log-disclosure ai-activity-log">
+                <summary class="monitor-subheading"><span>Recent activity</span><span id="aiDialerAgent-activityCount">0 events</span></summary>
+                <ol id="aiDialerAgent-activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
+              </details>
+            </section>
+          </div>
+
+          <section class="ai-today-board" aria-labelledby="aiDialerAgent-todayDialsCaption">
+            <h3 id="aiDialerAgent-todayDialsCaption" class="ai-panel-label">Prospects dialed today</h3>
+            <div class="ai-today-table-wrap">
+              <table class="crm-table ai-today-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Business</th>
+                    <th scope="col">CRM status</th>
+                    <th scope="col">Transcript</th>
+                    <th scope="col">Location</th>
+                  </tr>
+                </thead>
+                <tbody id="aiDialerAgent-todayDialsBody"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
-        <ol id="aiDialerAgent-agentQueueList" class="ai-agent-queue-list" aria-label="Agent dialer pool queue"></ol>
-        <div id="aiDialerAgent-dialerMessage" class="dialer-message" role="status" hidden></div>
 
-        <div class="dialer-controls ai-dialer-controls" data-controls="idle">
-          <button type="button" id="aiDialerAgent-claimPoolButton" class="button button-quiet">Claim pool</button>
-          <button id="aiDialerAgent-startButton" class="button button-primary" type="button" disabled>Start agent</button>
-          <button id="aiDialerAgent-stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
-          <button type="button" id="aiDialerAgent-releasePoolButton" class="button button-quiet">Release pool</button>
-        </div>
-
-      </section>
-
-      <section class="ai-live-console" aria-label="Live conversation">
-        <div class="ai-live-console-head">
-          <h3 class="ai-panel-label">Live conversation</h3>
-          <div class="ai-live-console-actions">
-            <span id="aiDialerAgent-transcriptLiveStatus" class="ai-live-pill">Waiting for a pickup</span>
-            <button type="button" id="aiDialerAgent-listenInButton" class="button button-quiet ai-listen-in" disabled>Listen in</button>
-          </div>
-        </div>
-
-        <div class="ai-live-viewport">
-          <div id="aiDialerAgent-chatTranscript" class="ai-chat-thread" role="log" aria-live="polite" aria-label="Live call transcript">
-            <p class="transcript-empty">Conversation appears here as agent and prospect speak.</p>
-          </div>
-          <div class="ai-waveform-rail" aria-hidden="true">
-            <canvas id="aiDialerAgent-prospectWaveform" height="48" width="640" role="img" aria-label="Live audio activity"></canvas>
-            <output id="aiDialerAgent-prospectAudioLevel" class="visually-hidden">0%</output>
-          </div>
-        </div>
-
-        <details class="activity-log-disclosure ai-activity-log">
-          <summary class="monitor-subheading"><span>Recent activity</span><span id="aiDialerAgent-activityCount">0 events</span></summary>
-          <ol id="aiDialerAgent-activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
-        </details>
-
-      </section>
-    </div>
-
-    <section class="ai-today-board" aria-labelledby="aiDialerAgent-todayDialsCaption">
-      <h3 id="aiDialerAgent-todayDialsCaption" class="ai-panel-label">Prospects dialed today</h3>
-      <div class="ai-today-table-wrap">
-        <table class="crm-table ai-today-table">
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Business</th>
-              <th scope="col">CRM status</th>
-              <th scope="col">Transcript</th>
-              <th scope="col">Location</th>
-            </tr>
-          </thead>
-          <tbody id="aiDialerAgent-todayDialsBody"></tbody>
-        </table>
+        <section
+          class="ai-workspace-panel"
+          id="aiDialerAgent-panel-playbook"
+          role="tabpanel"
+          aria-labelledby="aiDialerAgent-tab-playbook"
+          data-workspace-tab="playbook"
+          hidden
+        >
+          <form id="aiDialerAgent-playbookForm" class="ai-playbook-editor ai-prompt-editor" autocomplete="off">
+            <p id="aiDialerAgent-playbookSaveStatus" class="ai-playbook-save-status" role="status" aria-live="polite"></p>
+            <textarea
+              id="aiDialerAgent-playbookPrompt"
+              class="ai-prompt-surface ai-prompt-surface--full"
+              spellcheck="true"
+              aria-label="Agent call prompt"
+              placeholder="Write everything the agent should know: persona, steps, dialogue, actions, guardrails…"
+            ></textarea>
+          </form>
+        </section>
       </div>
-    </section>
+    </div>
   </div>
 </section>

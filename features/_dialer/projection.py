@@ -1,6 +1,6 @@
 """Public and live snapshots."""
 
-from features._dialer import calls
+from features._dialer import calls, voice_session
 from features._dialer.rules import clear_stale_active, dialer_stage, new_session, recent_streak
 from features import ai_agents
 from shared.dial_policy import global_dialer_pool, leads_for_timezone_counts, resolve_pool_status, unique_business_types
@@ -93,6 +93,8 @@ def public_state(state, include_leads=False):
             "running": state.running,
             "paused": state.paused,
             "agent_ready": state.agent_ready,
+            "voice_profile": voice_session.voice_profile(state),
+            "requires_browser_voice": voice_session.requires_browser_voice(state),
             "active_lead_id": active_id,
             "pending_outcome_id": pending_id,
             "in_flight": records,

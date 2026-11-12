@@ -5,7 +5,8 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from features._dialer import twilio
+from features._dialer import live_transcript, twilio
+from shared.vocabulary import TRANSCRIPT_SOURCE_TWILIO
 
 def _live_twiml(state, call):
     """Bridge the prospect into the agent conference. Transcription starts after media is up."""
@@ -128,43 +129,6 @@ def _call_still_connected(state, media_call):
         )
 
 
-def _remember_line(state, storage_call, segment_id, timestamp, speaker, text, track):
-    try:
-        state.crm.append_transcript(storage_call["lead_id"], {
-            "id": segment_id,
-            "timestamp": timestamp,
-            "speaker": speaker,
-            "text": text,
-        })
-    except (KeyError, ValueError, OSError) as exc:
-        state.record_activity(f"Could not save transcript segment: {exc}", "error")
-        return False
-    line = {"id": segment_id, "timestamp": timestamp, "speaker": speaker, "text": text, "final": True}
-    with state.lock:
-        storage_call["transcript_partials"].pop(track or speaker, None)
-        lines = storage_call.setdefault("transcript_lines", [])
-        if any(item.get("id") == segment_id for item in lines):
-            return True
-        lines.append(line)
-    return True
-
-
-def _commit_partials(state, storage_call, call_kind):
-    """Keep in-progress sentences when Twilio closes a transcript session."""
-    with state.lock:
-        partials = list(storage_call.get("transcript_partials", {}).items())
-        storage_call["transcript_partials"].clear()
-        leg_id = storage_call.get("call_uuid") or storage_call["token"]
-    for track, partial in partials:
-        text = str((partial or {}).get("text") or "").strip()
-        speaker = (partial or {}).get("speaker") or _speaker_for(track, call_kind)
-        if not text or speaker not in ("Agent", "Prospect"):
-            continue
-        timestamp = (partial or {}).get("timestamp") or datetime.now(timezone.utc).isoformat()
-        segment_id = f"{leg_id}:{track}:partial:{timestamp}"
-        _remember_line(state, storage_call, segment_id, timestamp, speaker, text, track)
-
-
 def _resume_transcription(state, media_call, name_prefix):
     """Twilio ends a transcript session on its own. Open another while the call is up."""
     with state.lock:
@@ -205,7 +169,7 @@ def _transcription_event(state, call, params):
         return 200, "text/plain", "OK"
     if event == "transcription-stopped":
         if storage:
-            _commit_partials(state, storage, call_kind)
+            live_transcript.commit_partials(state, storage, source=TRANSCRIPT_SOURCE_TWILIO)
         with state.lock:
             call["transcribing"] = False
             if storage:
@@ -242,15 +206,30 @@ def _transcription_event(state, call, params):
         return 200, "text/plain", "OK"
     timestamp = params.get("Timestamp") or datetime.now(timezone.utc).isoformat()
     final = str(params.get("Final", "false")).lower() == "true"
-    partial = {"timestamp": timestamp, "speaker": speaker, "text": text, "final": final}
     if not final:
-        with state.lock:
-            storage["transcript_partials"][track or speaker] = partial
+        live_transcript.append_partial(
+            state,
+            storage,
+            speaker=speaker,
+            text=text,
+            timestamp=timestamp,
+            track=track,
+            source=TRANSCRIPT_SOURCE_TWILIO,
+        )
         return 200, "text/plain", "OK"
 
     session_id = params.get("TranscriptionSid", "")
     leg_id = call.get("call_uuid") or call["token"]
     segment_id = f"{leg_id}:{session_id}:{track}:{params.get('SequenceId', timestamp)}"
-    if _remember_line(state, storage, segment_id, timestamp, speaker, text, track):
+    if live_transcript.append_final(
+        state,
+        storage,
+        speaker=speaker,
+        text=text,
+        timestamp=timestamp,
+        segment_id=segment_id,
+        track=track,
+        source=TRANSCRIPT_SOURCE_TWILIO,
+    ):
         state.record_activity(f"Transcript updated · {speaker}", "transcription")
     return 200, "text/plain", "OK"

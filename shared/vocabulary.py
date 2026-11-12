@@ -34,6 +34,16 @@ AGENT_RESERVED_NAME_FIELD = "agent_reserved_name"
 AGENT_RESERVED_ID_FIELD = "agent_reserved_id"
 AGENT_POOL_SIZE = 50
 AI_AGENT_POOLS_JSON_KEY = "AI_AGENT_POOLS_JSON"
+AI_AGENT_PLAYBOOKS_JSON_KEY = "AI_AGENT_PLAYBOOKS_JSON"
+
+PLAYBOOK_TARGET_ROLES = ("receptionist", "decision_maker", "either")
+
+VOICE_PROFILE_HUMAN_BROWSER = "human_browser"
+VOICE_PROFILE_AI_CARTESIA = "cartesia_line"
+VOICE_PROFILES = (VOICE_PROFILE_HUMAN_BROWSER, VOICE_PROFILE_AI_CARTESIA)
+
+TRANSCRIPT_SOURCE_TWILIO = "twilio"
+TRANSCRIPT_SOURCE_CARTESIA = "cartesia"
 # Shown in CRM menus; agent_use is display-only for humans.
 USER_SELECTABLE_CRM_STATUS_KEYS = tuple(
     key for key in STATUS_KEYS if key != AGENT_USE_STATUS
@@ -263,6 +273,7 @@ SETTING_DEFAULTS = {
     "CALLING_END_HOUR": "21",
     "OPENING_SCRIPT": "",
     "AI_AGENT_POOLS_JSON": "{}",
+    "AI_AGENT_PLAYBOOKS_JSON": "{}",
     "DAILY_GOAL_MINUTES": "60",
     "DAILY_CONVERSATION_GOAL": "30",
     # 0 turns the weekly increase off. The anchor is the local date the goal was last set.

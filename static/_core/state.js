@@ -40,6 +40,10 @@ export const S = {
   dashboardTab: "dialer",
   /** `null` = AI call-center fleet grid; otherwise selected agent id. */
   aiDialerSelectedAgentId: null,
+  aiWorkspaceTabs: [{ id: "desk", label: "Desk", closable: false }],
+  aiWorkspaceActiveTab: "desk",
+  aiWorkspacePlaybookOpen: false,
+  aiPlaybookByAgent: {},
   performanceMode: "summary",
   performanceRange: "",
   performanceFetchedAt: 0,

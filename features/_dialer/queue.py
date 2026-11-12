@@ -6,7 +6,7 @@ import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
-from features._dialer import calls, slots, timing
+from features._dialer import calls, slots, timing, voice_session
 from features._dialer import projection, rules, twilio
 from features._dialer.rules import new_session, session_summary
 from shared.infra import utc_now
@@ -199,7 +199,10 @@ def set_pool_filters(state, timezone=None, pool_status=None, business_type=None)
         elif not type_label:
             parts.append("all timezones")
         state.last_event = f"Dialing pool: {' · '.join(parts)}"
-        should_fill = state.running and state.agent_ready and not state.paused and not state.pending_outcome and not state.active
+        should_fill = (
+            voice_session.slots_may_dial(state)
+            and not state.pending_outcome and not state.active
+        )
     if should_fill:
         slots.fill_slots(state)
     return projection.public_state(state)
@@ -274,9 +277,15 @@ def start(state, priority_lead_id=None):
         state.advance_remaining = None
         rules._save_session(state)
         state.last_error = ""
-        state.last_event = "Connecting computer audio"
-        agent_call = calls._new_call(state, "agent", None)
-        state.agent_call_token = agent_call["token"]
+        agent_call = None
+        if ai_mode and ai_agent_id:
+            voice_session.begin_ai_voice_session(state)
+            state.agent_call_token = None
+        else:
+            voice_session.begin_human_voice_session(state)
+            state.last_event = "Connecting computer audio"
+            agent_call = calls._new_call(state, "agent", None)
+            state.agent_call_token = agent_call["token"]
         slots._schedule_calling_window_check(state)
     backfilled = repair_total_dials_callbacks(state)
     if backfilled:
@@ -287,12 +296,17 @@ def start(state, priority_lead_id=None):
         )
     rules._flush_metrics(state)
     view = projection.public_state(state)
-    view["client_call_token"] = agent_call["token"]
+    if agent_call:
+        view["client_call_token"] = agent_call["token"]
+    elif ai_mode and ai_agent_id:
+        threading.Thread(target=slots.fill_slots, args=(state,), daemon=True).start()
     return view
 
 
 def rejoin_browser_voice(state):
     """Issue a desk token so the browser can re-enter the conference mid-session."""
+    if not voice_session.uses_browser_agent_leg(state):
+        raise ValueError("This session does not use browser audio.")
     with state.lock:
         if not state.running:
             raise ValueError("Dialer is not running.")
@@ -377,7 +391,7 @@ def drop_prospect_call(state, lead_id):
                     break
         rules.clear_stale_active(state)
         idle = (
-            state.running and not state.paused and state.agent_ready
+            voice_session.slots_may_dial(state)
             and not state.active and not state.pending_outcome
         )
         should_fill = idle and not talked and not state.in_flight
@@ -496,7 +510,7 @@ def _pin_manual_dial(state, lead, name):
             idle = not state.active and not state.pending_outcome and not state.in_flight
             if state.paused and idle:
                 state.paused = False
-            status = "now" if state.agent_ready and not state.paused and idle else "next"
+            status = "now" if voice_session.slots_may_dial(state) and idle else "next"
             if status == "next":
                 state.last_event = f"Next dial: {name}"
     if status == "now":
@@ -515,7 +529,7 @@ def pause(state):
             return projection.public_state(state)
         state.paused = not state.paused
         state.last_event = "Paused" if state.paused else "Resumed"
-        should_fill = not state.paused and state.agent_ready and not state.pending_outcome
+        should_fill = not state.paused and voice_session.slots_may_dial(state) and not state.pending_outcome
         if state.paused and state.advance_timer:
             state.advance_remaining = max(0, state.advance_at - time.time()) if state.advance_at else 0
             state.advance_timer.cancel()
@@ -550,6 +564,7 @@ def stop(state):
         state.queue_anchor_id = None
         state.ai_agent_id = None
         state.ai_agent_mode = False
+        voice_session.reset_voice_session(state)
         state.in_flight.clear()
         state.last_event = "Stopped"
         if state.advance_timer:

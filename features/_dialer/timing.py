@@ -3,7 +3,7 @@
 import threading
 import time
 
-from features._dialer import rules, slots
+from features._dialer import rules, slots, voice_session
 from features._dialer import projection
 
 
@@ -32,7 +32,7 @@ def _advance_queue(state):
             call for call in state.in_flight.values() if call.get("kind") == "prospect"
         ]
         should_fill = (
-            state.running and not state.paused and state.agent_ready
+            voice_session.slots_may_dial(state)
             and not state.pending_outcome and not state.active
             and len(prospect_lines) < len(state.callers)
         )

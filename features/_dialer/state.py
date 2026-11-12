@@ -13,7 +13,7 @@ import threading
 from datetime import datetime, timezone
 
 from shared.infra import debug_event
-from shared.vocabulary import DEFAULT_CALLER_ID_GROUP, caller_ids_for_group
+from shared.vocabulary import DEFAULT_CALLER_ID_GROUP, VOICE_PROFILE_HUMAN_BROWSER, caller_ids_for_group
 
 
 class DialerState:
@@ -67,6 +67,8 @@ class DialerState:
         self.ai_agent_id = None
         self.ai_agent_mode = False
         self.ai_dial_starved = False
+        self.voice_profile = VOICE_PROFILE_HUMAN_BROWSER
+        self.ai_voice_armed = False
 
 
     def record_activity(self, message, source="dialer"):

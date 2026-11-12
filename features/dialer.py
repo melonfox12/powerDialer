@@ -8,7 +8,7 @@ slots imports calls and rules. timing imports slots and projection. queue import
 import urllib.parse
 from datetime import date
 
-from features import ai_agents, settings as settings_feature
+from features import ai_agents, ai_agent_playbook, settings as settings_feature
 from features._dialer import call_events, outcomes, projection, queue, twilio
 from features._dialer._call_events import ended, pickup, transcript
 from features._dialer import calls, rules, slots, timing
@@ -76,6 +76,14 @@ class Dialer(DialerState):
 
     def release_ai_agent_pool(self, agent_id):
         return ai_agents.release_agent_pool(self, agent_id)
+
+    def ai_agent_playbook(self, agent_id):
+        name = ai_agents._agent_name(agent_id)
+        return ai_agent_playbook.get_playbook(self, agent_id, name)
+
+    def save_ai_agent_playbook(self, agent_id, payload):
+        name = ai_agents._agent_name(agent_id)
+        return ai_agent_playbook.save_playbook(self, agent_id, payload, name)
 
     def rejoin_browser_voice(self):
         return queue.rejoin_browser_voice(self)
@@ -422,6 +430,21 @@ def post_ai_agent_release(request, data):
     request.send_json(200, {**result, "state": dialer.public_state(include_leads=False)})
 
 
+def get_ai_agent_playbook(request):
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.path).query)
+    agent_id = (query.get("agent_id") or query.get("agentId") or [""])[-1]
+    dialer = request.account.dialer
+    playbook = dialer.ai_agent_playbook(agent_id)
+    request.send_json(200, {"agent_id": str(agent_id).strip(), "playbook": playbook})
+
+
+def post_ai_agent_playbook(request, data):
+    agent_id = data.get("agent_id") or ""
+    dialer = request.account.dialer
+    playbook = dialer.save_ai_agent_playbook(agent_id, data.get("playbook") or data)
+    request.send_json(200, {"agent_id": str(agent_id).strip(), "playbook": playbook})
+
+
 ROUTES = [
     ("GET", "/api/state", get_state, "GET reads"),
     ("GET", "/api/leads", get_leads, "GET reads"),
@@ -452,4 +475,6 @@ ROUTES = [
     ("POST", "/api/ai-agents/start", post_ai_agent_start, "POST"),
     ("POST", "/api/ai-agents/stop", post_ai_agent_stop, "POST"),
     ("POST", "/api/ai-agents/release-pool", post_ai_agent_release, "POST"),
+    ("GET", "/api/ai-agents/playbook", get_ai_agent_playbook, "GET reads"),
+    ("POST", "/api/ai-agents/playbook", post_ai_agent_playbook, "POST"),
 ]

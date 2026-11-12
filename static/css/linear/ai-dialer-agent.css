@@ -181,11 +181,366 @@
   border: 1px solid #2e3239;
 }
 
+.ai-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+.ai-workspace-tabbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 4px;
+  border-bottom: 1px solid #2a2d33;
+  margin-bottom: 12px;
+  min-height: 36px;
+}
+
+.ai-workspace-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px 9px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: #121418;
+  color: #9aa3b5;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  transform: translateY(1px);
+}
+
+.ai-workspace-tab:hover {
+  color: #e2e8f2;
+  background: #171a1f;
+}
+
+.ai-workspace-tab.is-active {
+  color: #f4f6fb;
+  background: #16181c;
+  border-color: #2a2d33;
+  border-bottom: 1px solid #16181c;
+  z-index: 1;
+}
+
+.ai-workspace-tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  color: #8b93a7;
+  cursor: pointer;
+}
+
+.ai-workspace-tab-close:hover {
+  color: #fff;
+  background: #2a2e36;
+}
+
+.ai-workspace-panel {
+  min-height: 0;
+}
+
+.ai-workspace-panel[hidden] {
+  display: none !important;
+}
+
 .ai-agent-detail-layout {
   display: grid;
-  grid-template-columns: minmax(260px, 34%) minmax(0, 1fr);
+  grid-template-columns: minmax(248px, 32%) minmax(0, 1fr);
   gap: 14px;
-  min-height: 380px;
+  min-height: 320px;
+}
+
+.ai-desk-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  border: 1px solid #2a2d33;
+  border-radius: 10px;
+  background: #16181c;
+  padding: 10px;
+}
+
+.ai-desk-compact {
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.ai-desk-compact-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-desk-status {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 510;
+  color: #d8dee8;
+  line-height: 1.35;
+}
+
+.ai-desk-message {
+  font-size: 11px;
+  margin: 0;
+}
+
+.ai-desk-compact-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-desk-compact-controls .button-primary {
+  flex: 1 1 auto;
+}
+
+.ai-desk-more {
+  font-size: 11px;
+  color: #8b93a7;
+}
+
+.ai-desk-more summary {
+  cursor: pointer;
+  color: #b0b8c8;
+  font-weight: 550;
+  margin-bottom: 6px;
+}
+
+.ai-desk-pool-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+
+.ai-desk-line-count {
+  display: block;
+  margin: 4px 0 6px;
+  font-size: 11px;
+}
+
+.ai-playbook-widget {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 0 0;
+  border: 0;
+  background: transparent;
+}
+
+.ai-playbook-widget-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ai-playbook-expand-link {
+  border: 0;
+  padding: 2px 6px;
+  background: none;
+  color: #9eb0ff;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.ai-playbook-expand-link:hover {
+  color: #c8d4ff;
+  background: rgba(94, 106, 210, 0.12);
+}
+
+.ai-playbook-widget-lede {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #9aa3b5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ai-playbook-step-preview {
+  margin: 0;
+  padding: 0 0 0 16px;
+  font-size: 11px;
+  color: #c5ccd8;
+  line-height: 1.45;
+  max-height: 88px;
+  overflow: auto;
+}
+
+.ai-playbook-step-preview-more,
+.ai-playbook-step-preview-empty {
+  list-style: none;
+  margin-left: -16px;
+  color: #8b93a7;
+  font-style: italic;
+}
+
+.ai-prompt-surface {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  resize: none;
+  font: 13px/1.5 ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+  color: #e8ecf4;
+  background: #050608;
+  caret-color: #c8d0ff;
+}
+
+.ai-prompt-surface::placeholder {
+  color: #4a5260;
+}
+
+.ai-prompt-surface:focus {
+  outline: 1px solid #3a3f4a;
+  outline-offset: 0;
+}
+
+.ai-prompt-surface--compact {
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: 220px;
+}
+
+.ai-prompt-surface--full {
+  flex: 1 1 auto;
+  min-height: min(72vh, 640px);
+}
+
+.ai-prompt-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: min(78vh, 700px);
+  padding: 0 0 16px;
+}
+
+#aiDialerAgent-panel-playbook.is-active {
+  display: flex;
+  flex-direction: column;
+  min-height: min(80vh, 720px);
+}
+
+.ai-playbook-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px 24px;
+  max-width: none;
+}
+
+.ai-playbook-editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-playbook-save-status {
+  margin: 0;
+  font-size: 12px;
+  color: #8b93a7;
+}
+
+.ai-playbook-grid {
+  display: grid;
+  grid-template-columns: 1fr 220px;
+  gap: 12px;
+}
+
+.ai-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #8b93a7;
+}
+
+.ai-field input,
+.ai-field select,
+.ai-field textarea {
+  font: inherit;
+  font-size: 13px;
+  color: #eef2f8;
+  background: #12141a;
+  border: 1px solid #2a2d33;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.ai-field textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
+.ai-playbook-guardrails {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ai-playbook-steps-editor h4 {
+  margin: 0;
+  font-size: 13px;
+  color: #e2e8f2;
+}
+
+.ai-playbook-steps-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ai-playbook-steps-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-playbook-step-card {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #2a2d33;
+  background: #14161a;
+  display: grid;
+  gap: 8px;
+}
+
+.ai-playbook-step-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #b8c0d0;
 }
 
 .ai-dialer-menu,

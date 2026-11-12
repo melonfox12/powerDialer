@@ -2,7 +2,8 @@
 
 from features._dialer import calls, queue, slots, timing
 from features._dialer import rules
-from features._dialer._call_events import transcript
+from features._dialer import live_transcript
+from shared.vocabulary import TRANSCRIPT_SOURCE_TWILIO
 from features._dialer.rules import record_conversation
 
 
@@ -29,7 +30,7 @@ def _call_ended(state, call, params):
             return
         call["end_processed"] = True
         if call.get("lead_id"):
-            transcript._commit_partials(state, call, call.get("kind") or "prospect")
+            live_transcript.commit_partials(state, call, source=TRANSCRIPT_SOURCE_TWILIO)
         pending_already = state.pending_outcome == call.get("lead_id")
         if call["cancelled"] and not call.get("picked_up"):
             state.in_flight.pop(call["token"], None)

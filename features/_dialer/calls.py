@@ -4,7 +4,7 @@ import secrets
 import threading
 from datetime import datetime, timedelta, timezone
 
-from features._dialer import rules, twilio
+from features._dialer import rules, twilio, voice_session
 from shared.dial_policy import (
     CALLBACK_HOLD,
     CANCELLED,
@@ -244,7 +244,10 @@ def _new_call(state, kind, lead, slot_index=None):
         "connect_counted": False,
         "transcript_lines": [],
         "end_processed": False,
+        "bridge_session_id": "",
+        "transcript_source": "",
     }
+    voice_session.attach_call_voice_defaults(state, call)
     if slot_index is not None:
         call["slot_index"] = int(slot_index)
     state.calls[token] = call
