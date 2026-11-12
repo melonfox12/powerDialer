@@ -1,7 +1,7 @@
 import { S, state } from "../../_core/state.js";
 import { byId, dialerEl, dialerEls, setDialerText } from "../../_core/format.js";
 
-function paintWaveformCanvas(canvas, level, samples) {
+export function paintWaveformCanvas(canvas, level, samples) {
   const bounds = canvas.getBoundingClientRect();
   if (!bounds.width || !bounds.height) return;
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -41,6 +41,17 @@ function paintWaveformCanvas(canvas, level, samples) {
   const shown = samples && samples.length
     ? Math.round(Math.max(...Array.from(samples, (sample) => Math.abs(sample - 128) / 128)) * 100)
     : Math.round(normalized * 100);
+  return shown;
+}
+
+export function drawSandboxWaveform(level = 0, samples = null) {
+  const canvas = byId("aiDialerAgent-sandboxWaveform");
+  if (!canvas) return 0;
+  const shown = paintWaveformCanvas(canvas, level, samples) ?? 0;
+  const levelNode = byId("aiDialerAgent-sandboxAudioLevel");
+  if (levelNode) levelNode.textContent = `${Math.max(0, Math.min(100, shown))}%`;
+  const meter = byId("aiDialerAgent-sandboxMicMeter");
+  if (meter && S.sandboxVoice?.agentId) meter.textContent = `Input level ${Math.max(0, Math.min(100, shown))}%`;
   return shown;
 }
 

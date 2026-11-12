@@ -1,12 +1,9 @@
-import { S, state } from "../../_core/state.js";
+import { state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
-import { isSandboxActive } from "./sandbox.js";
-
 function liveLabelText() {
   const pending = state.pending_outcome;
   const active = state.active_lead;
   const connected = state.running && state.agent_ready;
-  if (isSandboxActive()) return "Sandbox";
   if (pending) return "Outcome needed";
   if (active) return "Live";
   if (state.paused) return "Paused";
@@ -49,17 +46,11 @@ export function renderAiLiveStatus() {
   const onLine = Boolean(state.active_lead);
   const answeredBy = state.pickup_answered_by || liveTranscript.answered_by || "";
   const aiStream = Boolean(state.ai_voice_stream_active);
-  if (isSandboxActive()) {
-    transcriptPill.textContent = S.aiSandboxByAgent[S.aiDialerSelectedAgentId]?.ended
-      ? "Sandbox ended"
-      : "Sandbox — you are the prospect";
-  } else {
-    transcriptPill.textContent = onLine
-      ? (answeredBy === "voicemail" ? "Voicemail" : aiStream ? "AI on the line" : "On the line")
-      : state.running
-        ? "Waiting for a pickup"
-        : "Standby";
-  }
+  transcriptPill.textContent = onLine
+    ? (answeredBy === "voicemail" ? "Voicemail" : aiStream ? "AI on the line" : "On the line")
+    : state.running
+      ? "Waiting for a pickup"
+      : "Standby";
 
   const start = byId("aiDialerAgent-startButton");
   const stop = byId("aiDialerAgent-stopButton");

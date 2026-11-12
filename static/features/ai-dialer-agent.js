@@ -15,7 +15,7 @@ import {
   syncAiDialerViews,
 } from "./_ai_dialer/fleet.js";
 import { renderTodayDialTable } from "./_ai_dialer/today-table.js";
-import { renderChatTranscript } from "./_ai_dialer/chat-transcript.js";
+import { renderChatTranscript, renderSandboxChatTranscript } from "./_ai_dialer/chat-transcript.js";
 import { renderAgentQueueList } from "./_ai_dialer/queue-panel.js";
 import { renderAgentPowerSlots } from "./_ai_dialer/agent-slots.js";
 import { renderAiListenState } from "./_ai_dialer/transcript-split.js";
@@ -23,9 +23,15 @@ import { primaryAgent } from "./_ai_dialer/agents.js";
 import { postJson } from "../_core/api.js";
 import { render } from "../core.js";
 import { tearDownVoice } from "./_dialer/connect.js";
-import { bindPlaybookEditor, renderPlaybookPreview } from "./_ai_dialer/playbook-editor.js";
+import {
+  bindPlaybookEditor,
+  playbookExecutionReady,
+  renderPlaybookPreview,
+} from "./_ai_dialer/playbook-editor.js";
 import { bindWorkspaceTabs, paintWorkspaceTabs, resetWorkspaceTabs } from "./_ai_dialer/workspace-tabs.js";
 import { bindSandbox, isSandboxActive, paintSandboxChrome, resetSandbox } from "./_ai_dialer/sandbox.js";
+import { bindSandboxAudioTest } from "./_ai_dialer/sandbox-audio-test.js";
+import { drawSandboxWaveform } from "./_dialer/card.js";
 
 function renderAiDialerWorkspace() {
   if (S.dashboardTab !== "aiDialerAgent") return;
@@ -38,8 +44,13 @@ function renderAiDialerWorkspace() {
   renderAiAgentDetailStats(agentId);
   renderAiLiveStatus();
   renderAiActivityLog();
-  drawProspectWaveform();
+  if (S.aiWorkspaceActiveTab === "sandbox") {
+    if (!isSandboxActive()) drawSandboxWaveform(0);
+  } else {
+    drawProspectWaveform();
+  }
   renderChatTranscript();
+  renderSandboxChatTranscript();
   renderAiListenState();
   renderAgentQueueList(agentId);
   renderAgentPowerSlots();
@@ -89,6 +100,10 @@ async function listenInOnCall() {
 async function startAgentSeat(agentId) {
   if (isSandboxActive()) {
     showToast("Turn off sandbox mode before live dialing.", true);
+    return;
+  }
+  if (!playbookExecutionReady(agentId)) {
+    showToast("Save the prompt first so instructions are compiled for this seat.", true);
     return;
   }
   const agent = primaryAgent();
@@ -176,6 +191,7 @@ export function bindAiDialer() {
   bindWorkspaceTabs();
   bindPlaybookEditor();
   bindSandbox();
+  bindSandboxAudioTest();
   registerRenderer(renderAiDialerWorkspace, "end", "aiDialerAgent");
   syncAiDialerViews();
 }

@@ -469,6 +469,39 @@
   color: #8b93a7;
 }
 
+.ai-playbook-ready-status {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #8b93a7;
+}
+
+.ai-playbook-ready-status.is-ready {
+  color: #6fcf97;
+}
+
+.ai-playbook-ready-status.is-draft {
+  color: #e6b35a;
+}
+
+.ai-playbook-baked-details {
+  margin: 0;
+  font-size: 12px;
+  color: #9aa3b5;
+}
+
+.ai-playbook-baked-details summary {
+  cursor: pointer;
+  color: #9eb0ff;
+  margin-bottom: 6px;
+}
+
+.ai-playbook-baked-details .ai-playbook-step-preview {
+  max-height: 200px;
+  white-space: pre-wrap;
+  font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+}
+
 .ai-playbook-grid {
   display: grid;
   grid-template-columns: 1fr 220px;
@@ -653,13 +686,67 @@
   border-radius: 8px;
 }
 
-.ai-sandbox-composer {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #262a31;
+.ai-sandbox-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: min(78vh, 700px);
+}
+
+.ai-sandbox-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-sandbox-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.ai-sandbox-audio-test {
+  padding: 10px 12px;
+  border: 1px solid #262a31;
+  border-radius: 8px;
+  background: #12141a;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.ai-sandbox-audio-title {
+  margin: 0;
+  font-size: 12px;
+  color: #c5ccd8;
+}
+
+.ai-sandbox-audio-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-sandbox-viewport {
+  flex: 1 1 auto;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-sandbox-test-playback {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.ai-sandbox-mic-pill {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 99px;
+  background: rgba(62, 207, 142, 0.12);
+  color: #6fcf97;
+  border: 1px solid rgba(62, 207, 142, 0.28);
 }
 
 .ai-sandbox-hint {
@@ -844,6 +931,11 @@
   background: #2a2e36;
   color: #eef1f6;
   border-bottom-left-radius: 4px;
+}
+
+.ai-chat-bubble.is-partial {
+  opacity: 0.72;
+  border-style: dashed;
 }
 
 .ai-chat-bubble--agent {

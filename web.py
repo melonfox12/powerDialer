@@ -228,6 +228,15 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
                 ai_voice_routes.post_ai_voice_stream_started,
                 ai_voice_routes.post_ai_voice_stream_stopped,
                 ai_voice_routes.post_ai_voice_inbound,
+                dialer.post_ai_agent_boot,
+                dialer.post_ai_agent_start,
+                dialer.post_ai_agent_stop,
+                dialer.post_ai_agent_release,
+                dialer.post_ai_agent_playbook,
+                dialer.post_ai_sandbox_start,
+                dialer.post_ai_sandbox_turn,
+                dialer.post_ai_sandbox_reset,
+                dialer.post_ai_sandbox_audio,
             ):
                 handler(self, self.read_json(body))
             else:

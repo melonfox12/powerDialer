@@ -38,10 +38,6 @@
                   <span id="aiDialerAgent-dialerStatusHeadline" class="ai-desk-status">Ready to start</span>
                 </div>
                 <div id="aiDialerAgent-dialerMessage" class="dialer-message ai-desk-message" role="status" hidden></div>
-                <label class="ai-sandbox-toggle sound-setting" title="Practice as the prospect — no phone calls">
-                  <input id="aiDialerAgent-sandboxMode" type="checkbox">
-                  Sandbox mode
-                </label>
                 <div class="ai-desk-compact-controls dialer-controls" data-controls="idle">
                   <button id="aiDialerAgent-startButton" class="button button-primary" type="button" disabled>Start</button>
                   <button id="aiDialerAgent-stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
@@ -61,27 +57,6 @@
                   <ol id="aiDialerAgent-agentQueueList" class="ai-agent-queue-list" aria-label="Agent dialer pool queue"></ol>
                 </details>
               </section>
-
-              <section class="ai-playbook-widget" aria-labelledby="aiDialerAgent-playbookWidgetTitle">
-                <header class="ai-playbook-widget-head">
-                  <h3 id="aiDialerAgent-playbookWidgetTitle" class="ai-panel-label">Prompt</h3>
-                  <button
-                    type="button"
-                    id="aiDialerAgent-expandPlaybookTab"
-                    class="ai-playbook-expand-link"
-                    title="Open prompt in a workspace tab"
-                  >
-                    Open tab ↗
-                  </button>
-                </header>
-                <textarea
-                  id="aiDialerAgent-playbookPromptWidget"
-                  class="ai-prompt-surface ai-prompt-surface--compact"
-                  spellcheck="true"
-                  aria-label="Agent call prompt"
-                  placeholder="Write instructions, dialogue, and actions for this agent…"
-                ></textarea>
-              </section>
             </aside>
 
             <section class="ai-live-console" aria-label="Live conversation">
@@ -97,20 +72,6 @@
                 <div id="aiDialerAgent-chatTranscript" class="ai-chat-thread" role="log" aria-live="polite" aria-label="Live call transcript">
                   <p class="transcript-empty">Conversation appears here as agent and prospect speak.</p>
                 </div>
-                <form id="aiDialerAgent-sandboxComposer" class="ai-sandbox-composer" hidden>
-                  <p class="ai-sandbox-hint">You are the prospect. Reply as they would on a real call.</p>
-                  <div class="ai-sandbox-prospect-fields">
-                    <label class="form-field form-field--inline"><span>Name</span><input id="aiDialerAgent-sandboxProspectName" type="text" maxlength="80" autocomplete="off"></label>
-                    <label class="form-field form-field--inline"><span>Business</span><input id="aiDialerAgent-sandboxProspectBusiness" type="text" maxlength="120" autocomplete="off"></label>
-                  </div>
-                  <div class="ai-sandbox-compose-row">
-                    <textarea id="aiDialerAgent-sandboxInput" rows="2" maxlength="2000" placeholder="Type what the prospect says…" aria-label="Prospect line"></textarea>
-                    <div class="ai-sandbox-compose-actions">
-                      <button type="button" id="aiDialerAgent-sandboxRestart" class="button button-quiet">Restart</button>
-                      <button type="submit" id="aiDialerAgent-sandboxSend" class="button button-primary">Send</button>
-                    </div>
-                  </div>
-                </form>
                 <div class="ai-waveform-rail" aria-hidden="true">
                   <canvas id="aiDialerAgent-prospectWaveform" height="48" width="640" role="img" aria-label="Live audio activity"></canvas>
                   <output id="aiDialerAgent-prospectAudioLevel" class="visually-hidden">0%</output>
@@ -153,6 +114,10 @@
         >
           <form id="aiDialerAgent-playbookForm" class="ai-playbook-editor ai-prompt-editor" autocomplete="off">
             <p id="aiDialerAgent-playbookSaveStatus" class="ai-playbook-save-status" role="status" aria-live="polite"></p>
+            <details id="aiDialerAgent-playbookBakedDetails" class="ai-playbook-baked-details" hidden>
+              <summary>Prepared instructions (what runs on calls)</summary>
+              <pre id="aiDialerAgent-playbookCompiledPreview" class="ai-playbook-step-preview"></pre>
+            </details>
             <textarea
               id="aiDialerAgent-playbookPrompt"
               class="ai-prompt-surface ai-prompt-surface--full"
@@ -161,6 +126,48 @@
               placeholder="Write everything the agent should know: persona, steps, dialogue, actions, guardrails…"
             ></textarea>
           </form>
+        </section>
+
+        <section
+          class="ai-workspace-panel ai-sandbox-panel"
+          id="aiDialerAgent-panel-sandbox"
+          role="tabpanel"
+          aria-labelledby="aiDialerAgent-tab-sandbox"
+          data-workspace-tab="sandbox"
+          hidden
+        >
+          <header class="ai-sandbox-head">
+            <div>
+              <h3 class="ai-panel-label">Voice sandbox</h3>
+              <p id="aiDialerAgent-sandboxVoiceStatus" class="ai-sandbox-hint">Speak as the prospect with your mic — same AI voice stack as live calls.</p>
+            </div>
+            <div class="ai-sandbox-controls dialer-controls">
+              <button type="button" id="aiDialerAgent-sandboxStartButton" class="button button-primary">Start</button>
+              <button type="button" id="aiDialerAgent-sandboxStopButton" class="button button-quiet" disabled hidden>Stop</button>
+            </div>
+          </header>
+
+          <section class="ai-sandbox-audio-test" aria-label="Mic level and headphone check only">
+            <h4 class="ai-sandbox-audio-title">Mic level check (not the sandbox call)</h4>
+            <p class="ai-sandbox-hint">Use this before Start to confirm input volume and headphones. It does not talk to the agent.</p>
+            <div class="ai-sandbox-audio-actions">
+              <button type="button" id="aiDialerAgent-sandboxTestMic" class="button button-quiet">Check mic level</button>
+              <button type="button" id="aiDialerAgent-sandboxTestHeadphones" class="button button-quiet">Test headphones</button>
+            </div>
+            <p id="aiDialerAgent-sandboxAudioTestStatus" class="ai-sandbox-hint" role="status"></p>
+            <span id="aiDialerAgent-sandboxMicMeter" class="ai-sandbox-mic-pill">Input level 0%</span>
+            <audio id="aiDialerAgent-sandboxTestPlayback" class="ai-sandbox-test-playback" hidden controls></audio>
+          </section>
+
+          <div class="ai-live-viewport ai-sandbox-viewport">
+            <div id="aiDialerAgent-sandboxTranscript" class="ai-chat-thread" role="log" aria-live="polite" aria-label="Sandbox transcript">
+              <p class="transcript-empty">Start the sandbox to rehearse with the agent.</p>
+            </div>
+            <div class="ai-waveform-rail" aria-hidden="true">
+              <canvas id="aiDialerAgent-sandboxWaveform" height="48" width="640" role="img" aria-label="Sandbox mic activity"></canvas>
+              <output id="aiDialerAgent-sandboxAudioLevel" class="visually-hidden">0%</output>
+            </div>
+          </div>
         </section>
       </div>
     </div>

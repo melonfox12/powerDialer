@@ -319,6 +319,12 @@ class HttpContractTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assert_keys(payload, STATE_KEYS)
 
+    def test_ai_agent_sandbox_routes_read_json_body(self):
+        status, payload, _type = self.json_request("POST", "/api/ai-agents/sandbox/reset", {"agent_id": "ava"})
+        self.assertEqual(status, 200)
+        self.assertFalse(payload["active"])
+        self.assertEqual(payload["agent_id"], "ava")
+
     def test_settings_keep_the_api_key_and_hide_the_auth_token(self):
         credentials = {
             "account_sid": "ACstored",
@@ -515,6 +521,8 @@ EXPECTED_ROUTES = {
     ("POST", "/api/ai-agents/sandbox/reset"),
     ("POST", "/api/ai-agents/sandbox/start"),
     ("POST", "/api/ai-agents/sandbox/turn"),
+    ("GET", "/api/ai-agents/sandbox/sync"),
+    ("POST", "/api/ai-agents/sandbox/audio"),
     ("GET", "/api/ai-voice/bootstrap"),
     ("POST", "/api/ai-voice/inbound"),
     ("POST", "/api/ai-voice/stream-started"),

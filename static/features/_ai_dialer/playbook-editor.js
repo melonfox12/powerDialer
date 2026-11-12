@@ -3,7 +3,6 @@ import { byId } from "../../_core/format.js";
 import { postJson, request } from "../../_core/api.js";
 import { errorText } from "../../_core/notify.js";
 import { agentById } from "./agents.js";
-import { openPlaybookTab, paintWorkspaceTabs } from "./workspace-tabs.js";
 
 const saveTimers = new Map();
 
@@ -15,25 +14,50 @@ export function playbookForAgent(agentId) {
   return S.aiPlaybookByAgent?.[playbookCacheKey(agentId)] || null;
 }
 
+export function playbookExecutionReady(agentId) {
+  const book = playbookForAgent(agentId);
+  if (!book) return false;
+  if (book.execution_ready === false) return false;
+  return Boolean(book.compiled?.system_prompt?.trim());
+}
+
 function setPlaybookCache(agentId, playbook) {
   if (!S.aiPlaybookByAgent) S.aiPlaybookByAgent = {};
   S.aiPlaybookByAgent[playbookCacheKey(agentId)] = playbook;
 }
 
-function promptFields() {
-  return [byId("aiDialerAgent-playbookPrompt"), byId("aiDialerAgent-playbookPromptWidget")].filter(Boolean);
-}
-
 export function readPlaybookPrompt() {
-  const field = byId("aiDialerAgent-playbookPrompt") || byId("aiDialerAgent-playbookPromptWidget");
-  return field?.value ?? "";
+  return byId("aiDialerAgent-playbookPrompt")?.value ?? "";
 }
 
-function syncPromptFields(text, source) {
-  for (const field of promptFields()) {
-    if (field === source) continue;
-    if (field.value !== text) field.value = text;
+function formatCompiledAt(iso) {
+  if (!iso) return "";
+  try {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return "";
   }
+}
+
+export function paintPlaybookCompileState(agentId = S.aiDialerSelectedAgentId) {
+  const id = String(agentId || "").trim();
+  if (!id) return;
+  const book = playbookForAgent(id);
+  const ready = playbookExecutionReady(id);
+  const saveStatus = byId("aiDialerAgent-playbookSaveStatus");
+  const bakedDetails = byId("aiDialerAgent-playbookBakedDetails");
+  const preview = byId("aiDialerAgent-playbookCompiledPreview");
+  const compiledAt = formatCompiledAt(book?.compiled?.compiled_at);
+  if (saveStatus && saveStatus.textContent !== "Saving…" && saveStatus.textContent !== "Saved") {
+    if (ready && compiledAt) saveStatus.textContent = `Compiled ${compiledAt} · ready to run`;
+    else if (book && !ready) saveStatus.textContent = "Save to compile instructions for this seat";
+    else if (!saveStatus.textContent) saveStatus.textContent = "";
+  }
+  const baked = book?.compiled?.system_prompt?.trim() || "";
+  if (preview) preview.textContent = baked;
+  if (bakedDetails) bakedDetails.hidden = !baked;
 }
 
 export async function loadPlaybook(agentId) {
@@ -51,16 +75,16 @@ export async function loadPlaybook(agentId) {
 }
 
 export function fillPlaybookForm(playbook) {
-  const text = playbook?.prompt ?? "";
-  syncPromptFields(text, null);
+  const field = byId("aiDialerAgent-playbookPrompt");
+  if (field && field.value !== (playbook?.prompt ?? "")) {
+    field.value = playbook?.prompt ?? "";
+  }
+  paintPlaybookCompileState();
 }
 
 export function renderPlaybookPreview() {
-  const text = readPlaybookPrompt() || playbookForAgent(S.aiDialerSelectedAgentId)?.prompt || "";
-  const widget = byId("aiDialerAgent-playbookPromptWidget");
-  if (widget && document.activeElement !== widget) {
-    if (widget.value !== text) widget.value = text;
-  }
+  if (S.dashboardTab !== "aiDialerAgent" || !S.aiDialerSelectedAgentId) return;
+  paintPlaybookCompileState();
 }
 
 export function schedulePlaybookSave(agentId) {
@@ -85,8 +109,13 @@ async function persistPlaybook(agentId) {
     setPlaybookCache(agentId, payload.playbook);
     fillPlaybookForm(payload.playbook);
     if (status) status.textContent = "Saved";
+    paintPlaybookCompileState(agentId);
+    setTimeout(() => {
+      paintPlaybookCompileState(agentId);
+    }, 100);
     setTimeout(() => {
       if (status?.textContent === "Saved") status.textContent = "";
+      paintPlaybookCompileState(agentId);
     }, 1800);
   } catch (error) {
     if (status) status.textContent = errorText(error, "Could not save.");
@@ -98,7 +127,7 @@ export async function ensurePlaybookLoaded(agentId) {
   let playbook = playbookForAgent(agentId);
   if (!playbook) playbook = await loadPlaybook(agentId);
   if (!playbook && agent) {
-    playbook = { prompt: "" };
+    playbook = { prompt: "", execution_ready: false };
   }
   if (playbook) {
     setPlaybookCache(agentId, playbook);
@@ -106,22 +135,19 @@ export async function ensurePlaybookLoaded(agentId) {
   }
 }
 
-function onPromptInput(event) {
+function onPromptInput() {
   const agentId = S.aiDialerSelectedAgentId;
   if (!agentId) return;
-  const text = event.target.value;
-  syncPromptFields(text, event.target);
-  setPlaybookCache(agentId, { ...(playbookForAgent(agentId) || {}), prompt: text });
+  const text = readPlaybookPrompt();
+  setPlaybookCache(agentId, {
+    ...(playbookForAgent(agentId) || {}),
+    prompt: text,
+    execution_ready: false,
+  });
+  paintPlaybookCompileState(agentId);
   schedulePlaybookSave(agentId);
 }
 
 export function bindPlaybookEditor() {
-  for (const field of promptFields()) {
-    field.addEventListener("input", onPromptInput);
-  }
-  byId("aiDialerAgent-expandPlaybookTab")?.addEventListener("click", () => {
-    openPlaybookTab();
-    paintWorkspaceTabs();
-    byId("aiDialerAgent-playbookPrompt")?.focus();
-  });
+  byId("aiDialerAgent-playbookPrompt")?.addEventListener("input", onPromptInput);
 }

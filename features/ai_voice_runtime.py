@@ -5,7 +5,7 @@ import threading
 import time
 import urllib.parse
 
-from features import ai_agent_playbook, ai_voice_cartesia, ai_voice_disposition, ai_voice_llm
+from features import ai_agent_playbook, ai_agents, ai_voice_cartesia, ai_voice_disposition, ai_voice_llm
 from features._dialer import live_transcript, twilio, voice_session
 from shared.dial_policy import agent_reservation_blocks_other_apps
 from shared.vocabulary import TRANSCRIPT_SOURCE_CARTESIA, TRANSCRIPT_SOURCE_TWILIO
@@ -83,8 +83,8 @@ def start_call_session(state, call):
         return existing
     settings = state.read_settings()
     agent_id = getattr(state, "ai_agent_id", None) or "ava"
-    name = call.get("lead", {}).get("name") or agent_id
-    playbook = ai_agent_playbook.get_playbook(state, agent_id, name)
+    agent_name = ai_agents._agent_name(agent_id)
+    playbook = ai_agent_playbook.get_playbook(state, agent_id, agent_name, require_ready=True)
     session_id = "avs-" + secrets.token_hex(10)
     lead_ctx = _lead_context(call.get("lead"))
     system = playbook["compiled"]["system_prompt"]

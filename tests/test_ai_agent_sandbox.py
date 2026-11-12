@@ -1,7 +1,8 @@
+import base64
 import unittest
 from unittest.mock import patch
 
-from features import ai_agent_sandbox
+from features import ai_agent_playbook, ai_agent_sandbox
 from features._dialer.state import DialerState
 
 
@@ -16,6 +17,7 @@ class SandboxTests(unittest.TestCase):
         state.settings = {"OPENAI_API_KEY": "test", "AI_LLM_MODEL": "gpt-4o-mini"}
         state.read_settings = lambda: dict(state.settings)
         state.record_activity = lambda *args, **kwargs: None
+        ai_agent_playbook.save_playbook(state, "ava", {"prompt": "Sandbox test prompt."}, "Ava")
         return state
 
     @patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", side_effect=["Hello from Ava", "Sure, tell me more."])
@@ -43,6 +45,20 @@ class SandboxTests(unittest.TestCase):
         state.running = True
         with self.assertRaises(ValueError):
             ai_agent_sandbox.start(state, "ava", None)
+
+    @patch("features.ai_agent_sandbox.ai_voice_stt.transcribe_mulaw", return_value="hello there")
+    def test_ingest_flushes_after_speech(self, _stt):
+        state = self._state()
+        ai_agent_sandbox.start(state, "ava", None)
+        loud = bytes([0x00, 0x80] * 200)
+        silence = bytes([0xFF] * 160)
+        payload = loud + silence * 25
+        ai_agent_sandbox.ingest_mulaw(state, "ava", base64.b64encode(payload).decode())
+        import time
+        time.sleep(0.05)
+        session = state.ai_sandbox_sessions["ava"]
+        speakers = [line["speaker"] for line in session["transcript"]]
+        self.assertIn("Prospect", speakers)
 
 
 if __name__ == "__main__":

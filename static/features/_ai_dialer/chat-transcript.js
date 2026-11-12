@@ -3,8 +3,7 @@ import { transcriptTimestamp } from "../../_core/transcript.js";
 import { S, state } from "../../_core/state.js";
 import { isSandboxActive, sandboxTranscript } from "./sandbox.js";
 
-function mergedTranscriptEntries() {
-  if (isSandboxActive()) return sandboxTranscript();
+function mergedLiveTranscriptEntries() {
   const liveTranscript = state.live_transcript || {};
   const lead = state.active_lead || state.pending_outcome
     || state.leads.find((item) => item.id === liveTranscript.lead_id) || null;
@@ -30,6 +29,7 @@ function bubbleFor(entry, animate) {
   const side = speakerSide(entry.speaker);
   const bubble = document.createElement("article");
   bubble.className = `ai-chat-bubble ai-chat-bubble--${side}`;
+  if (entry.partial) bubble.classList.add("is-partial");
   if (animate) bubble.classList.add("is-entering");
   const text = document.createElement("p");
   text.textContent = entry.text || "";
@@ -45,12 +45,12 @@ function bubbleFor(entry, animate) {
   return bubble;
 }
 
-let renderedKeys = [];
+let deskRenderedKeys = [];
+let sandboxRenderedKeys = [];
 
-export function renderChatTranscript() {
-  const thread = byId("aiDialerAgent-chatTranscript");
-  if (!thread) return;
-  const entries = mergedTranscriptEntries();
+function paintTranscriptThread(thread, entries, renderedKeysRef) {
+  if (!thread) return renderedKeysRef;
+  let renderedKeys = renderedKeysRef;
   if (!entries.length) {
     if (renderedKeys.length) {
       renderedKeys = [];
@@ -59,10 +59,12 @@ export function renderChatTranscript() {
     if (!thread.querySelector(".transcript-empty")) {
       const empty = document.createElement("p");
       empty.className = "transcript-empty";
-      empty.textContent = "Conversation appears here as agent and prospect speak.";
+      empty.textContent = thread.id === "aiDialerAgent-sandboxTranscript"
+        ? "Start the sandbox to rehearse with the agent."
+        : "Conversation appears here as agent and prospect speak.";
       thread.replaceChildren(empty);
     }
-    return;
+    return renderedKeys;
   }
   thread.querySelector(".transcript-empty")?.remove();
   const nextKeys = entries.map((entry) => entry.id || `${entry.timestamp}|${entry.speaker}|${entry.text}`);
@@ -81,4 +83,18 @@ export function renderChatTranscript() {
   if (shouldFollow) {
     thread.scrollTo({ top: thread.scrollHeight, behavior: grewBy > 0 ? "smooth" : "auto" });
   }
+  return renderedKeys;
+}
+
+export function renderChatTranscript() {
+  if (S.dashboardTab !== "aiDialerAgent") return;
+  const thread = byId("aiDialerAgent-chatTranscript");
+  deskRenderedKeys = paintTranscriptThread(thread, mergedLiveTranscriptEntries(), deskRenderedKeys);
+}
+
+export function renderSandboxChatTranscript() {
+  if (S.dashboardTab !== "aiDialerAgent") return;
+  const thread = byId("aiDialerAgent-sandboxTranscript");
+  const entries = isSandboxActive() ? sandboxTranscript() : [];
+  sandboxRenderedKeys = paintTranscriptThread(thread, entries, sandboxRenderedKeys);
 }

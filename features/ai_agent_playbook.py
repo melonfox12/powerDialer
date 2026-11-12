@@ -1,6 +1,9 @@
 """Per-seat AI call playbooks — single freeform prompt per agent."""
 
+import hashlib
 import json
+import re
+from datetime import datetime, timezone
 
 from shared.vocabulary import AI_AGENT_PLAYBOOKS_JSON_KEY
 
@@ -29,6 +32,13 @@ Steps (improvise wording; keep intent):
 3. Qualify — 2–3 short fit/timing questions.
 4. Next step — book or send info if qualified.
 5. Close — confirm next step and end warmly.
+"""
+
+_RUNTIME_FOOTER = """
+[Live call behavior]
+- Speak in short, natural phone sentences; do not read markdown or bullet symbols aloud.
+- Follow the playbook above; adapt wording but keep each step's intent.
+- When the conversation is finished, include [END_CALL] in your final reply.
 """
 
 
@@ -114,29 +124,117 @@ def _extract_prompt(raw, agent_name="Agent"):
     return legacy or default_prompt_text(agent_name)
 
 
+def _prompt_digest(prompt):
+    return hashlib.sha256(str(prompt or "").encode("utf-8")).hexdigest()[:16]
+
+
+def _resolve_placeholders(prompt, agent_name):
+    text = str(prompt or "")
+    return text.replace("{agent_name}", agent_name)
+
+
+def _step_ids_from_prompt(prompt):
+    ids = []
+    for line in str(prompt or "").splitlines():
+        stripped = line.strip()
+        match = re.match(r"^(\d+)[.)]\s*(.+)", stripped)
+        if match:
+            ids.append(f"step-{match.group(1)}")
+    return ids
+
+
+def compile_playbook(playbook, agent_name="Agent"):
+    prompt = _resolve_placeholders(str((playbook or {}).get("prompt") or "").strip(), agent_name)
+    if not prompt:
+        prompt = default_prompt_text(agent_name).strip()
+    system_prompt = f"[Agent seat: {agent_name}]\n\n{prompt}{_RUNTIME_FOOTER}".strip()
+    digest = _prompt_digest(prompt)
+    return {
+        "system_prompt": system_prompt,
+        "step_ids": _step_ids_from_prompt(prompt),
+        "compiled_at": datetime.now(timezone.utc).isoformat(),
+        "prompt_digest": digest,
+    }
+
+
 def normalize_playbook(raw, agent_name="Agent"):
     prompt = _extract_prompt(raw, agent_name)
     playbook = {"prompt": prompt}
-    playbook["compiled"] = compile_playbook(playbook)
+    playbook["compiled"] = compile_playbook(playbook, agent_name)
+    playbook["execution_ready"] = True
     return playbook
 
 
-def compile_playbook(playbook):
-    prompt = str((playbook or {}).get("prompt") or "").strip()
-    return {"system_prompt": prompt, "step_ids": []}
+def _stored_record(playbook):
+    return {
+        "prompt": playbook["prompt"],
+        "compiled": dict(playbook["compiled"]),
+    }
+
+
+def _playbook_view(raw, agent_name):
+    prompt = _extract_prompt(raw, agent_name)
+    stored_compiled = raw.get("compiled") if isinstance(raw, dict) else None
+    digest = _prompt_digest(prompt)
+    ready = (
+        isinstance(stored_compiled, dict)
+        and str(stored_compiled.get("system_prompt") or "").strip()
+        and stored_compiled.get("prompt_digest") == digest
+    )
+    if ready:
+        compiled = {
+            "system_prompt": str(stored_compiled["system_prompt"]),
+            "step_ids": list(stored_compiled.get("step_ids") or []),
+            "compiled_at": stored_compiled.get("compiled_at") or "",
+            "prompt_digest": stored_compiled.get("prompt_digest") or digest,
+        }
+    else:
+        compiled = compile_playbook({"prompt": prompt}, agent_name)
+    return {
+        "prompt": prompt,
+        "compiled": compiled,
+        "execution_ready": ready,
+    }
+
+
+def _persist_playbook(state, agent_id, playbook):
+    blob = _load_blob(state)
+    blob.setdefault("playbooks", {})[agent_id] = _stored_record(playbook)
+    _save_blob(state, blob)
+
+
+def _legacy_missing_compiled(raw):
+    if not isinstance(raw, dict):
+        return False
+    if not str(raw.get("prompt") or "").strip():
+        return False
+    compiled = raw.get("compiled")
+    return not isinstance(compiled, dict) or not str(compiled.get("system_prompt") or "").strip()
 
 
 def default_playbook(agent_name="Agent"):
     return normalize_playbook({"prompt": default_prompt_text(agent_name)}, agent_name)
 
 
-def get_playbook(state, agent_id, agent_name="Agent"):
+def get_playbook(state, agent_id, agent_name="Agent", *, require_ready=False):
     agent_id = str(agent_id or "").strip()
     blob = _load_blob(state)
     raw = blob.get("playbooks", {}).get(agent_id)
     if not raw:
-        return default_playbook(agent_name)
-    return normalize_playbook(raw, agent_name)
+        playbook = default_playbook(agent_name)
+        _persist_playbook(state, agent_id, playbook)
+        return playbook
+    if _legacy_missing_compiled(raw):
+        playbook = normalize_playbook(raw, agent_name)
+        _persist_playbook(state, agent_id, playbook)
+        playbook["execution_ready"] = True
+        if require_ready:
+            return playbook
+        return playbook
+    playbook = _playbook_view(raw, agent_name)
+    if require_ready and not playbook["execution_ready"]:
+        raise ValueError("Save the agent prompt to compile call instructions before dialing.")
+    return playbook
 
 
 def save_playbook(state, agent_id, payload, agent_name="Agent"):
@@ -150,7 +248,5 @@ def save_playbook(state, agent_id, payload, agent_name="Agent"):
     elif isinstance(payload, dict) and "prompt" not in payload and isinstance(payload.get("playbook"), dict):
         payload = payload["playbook"]
     playbook = normalize_playbook(payload if isinstance(payload, dict) else {"prompt": payload}, agent_name)
-    blob = _load_blob(state)
-    blob.setdefault("playbooks", {})[agent_id] = {"prompt": playbook["prompt"]}
-    _save_blob(state, blob)
+    _persist_playbook(state, agent_id, playbook)
     return playbook

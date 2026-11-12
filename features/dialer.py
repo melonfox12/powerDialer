@@ -94,6 +94,12 @@ class Dialer(DialerState):
     def ai_sandbox_reset(self, agent_id):
         return ai_agent_sandbox.reset(self, agent_id)
 
+    def ai_sandbox_ingest(self, agent_id, payload_b64):
+        ai_agent_sandbox.ingest_mulaw(self, agent_id, payload_b64)
+
+    def ai_sandbox_sync(self, agent_id):
+        return ai_agent_sandbox.stream_sync(self, agent_id)
+
     def rejoin_browser_voice(self):
         return queue.rejoin_browser_voice(self)
 
@@ -476,6 +482,25 @@ def post_ai_sandbox_reset(request, data):
     request.send_json(200, payload)
 
 
+def get_ai_sandbox_sync(request):
+    query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.path).query)
+    agent_id = (query.get("agent_id") or query.get("agentId") or [""])[-1]
+    dialer = request.account.dialer
+    request.send_json(200, dialer.ai_sandbox_sync(agent_id))
+
+
+def post_ai_sandbox_audio(request, data):
+    agent_id = str(data.get("agent_id") or "").strip()
+    dialer = request.account.dialer
+    payloads = list(data.get("payloads") or [])
+    if data.get("payload"):
+        payloads.insert(0, data.get("payload"))
+    for item in payloads:
+        if item:
+            dialer.ai_sandbox_ingest(agent_id, item)
+    request.send_json(200, dialer.ai_sandbox_sync(agent_id))
+
+
 ROUTES = [
     ("GET", "/api/state", get_state, "GET reads"),
     ("GET", "/api/leads", get_leads, "GET reads"),
@@ -511,4 +536,6 @@ ROUTES = [
     ("POST", "/api/ai-agents/sandbox/start", post_ai_sandbox_start, "POST"),
     ("POST", "/api/ai-agents/sandbox/turn", post_ai_sandbox_turn, "POST"),
     ("POST", "/api/ai-agents/sandbox/reset", post_ai_sandbox_reset, "POST"),
+    ("GET", "/api/ai-agents/sandbox/sync", get_ai_sandbox_sync, "GET reads"),
+    ("POST", "/api/ai-agents/sandbox/audio", post_ai_sandbox_audio, "POST"),
 ]
