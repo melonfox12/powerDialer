@@ -22,11 +22,19 @@ class SandboxTests(unittest.TestCase):
 
     @patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", side_effect=["Hello from Ava", "Sure, tell me more."])
     def test_start_and_turn(self, _llm):
+        import time
+
         state = self._state()
         opened = ai_agent_sandbox.start(state, "ava", {"name": "Pat"})
         self.assertTrue(opened["active"])
-        self.assertEqual(len(opened["transcript"]), 1)
-        self.assertEqual(opened["transcript"][0]["speaker"], "Agent")
+        snapshot = opened
+        for _ in range(40):
+            snapshot = ai_agent_sandbox.stream_sync(state, "ava")
+            if len(snapshot.get("transcript") or []) >= 1:
+                break
+            time.sleep(0.02)
+        self.assertEqual(len(snapshot["transcript"]), 1)
+        self.assertEqual(snapshot["transcript"][0]["speaker"], "Agent")
 
         reply = ai_agent_sandbox.turn(state, "ava", "Not a great time.")
         self.assertEqual(len(reply["transcript"]), 3)
@@ -46,10 +54,17 @@ class SandboxTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ai_agent_sandbox.start(state, "ava", None)
 
+    @patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", return_value="Hi")
     @patch("features.ai_agent_sandbox.ai_voice_stt.transcribe_mulaw", return_value="hello there")
-    def test_ingest_flushes_after_speech(self, _stt):
+    def test_ingest_flushes_after_speech(self, _stt, _llm):
+        import time
+
         state = self._state()
         ai_agent_sandbox.start(state, "ava", None)
+        for _ in range(40):
+            if state.ai_sandbox_sessions.get("ava", {}).get("booting") is False:
+                break
+            time.sleep(0.02)
         loud = bytes([0x00, 0x80] * 200)
         silence = bytes([0xFF] * 160)
         payload = loud + silence * 25

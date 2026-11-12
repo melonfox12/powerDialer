@@ -58,14 +58,21 @@ def _queue_speech(state, agent_id, text):
     text = str(text or "").strip()
     if not text:
         return
-    chunks = ai_voice_cartesia.tts_mulaw_chunks(state.read_settings(), text)
-    with state.lock:
-        session = state.ai_sandbox_sessions.get(agent_id)
-        if not session:
-            return
-        session.setdefault("outbound_chunks", []).extend(chunks)
-        if not chunks:
-            state.record_activity("Sandbox agent spoke (text only — add CARTESIA_API_KEY for audio)", "dialer")
+
+    def _synthesize():
+        chunks = ai_voice_cartesia.tts_mulaw_chunks(state.read_settings(), text)
+        with state.lock:
+            session = state.ai_sandbox_sessions.get(agent_id)
+            if not session:
+                return
+            session.setdefault("outbound_chunks", []).extend(chunks)
+            if not chunks:
+                state.record_activity(
+                    "Sandbox agent spoke (text only — add CARTESIA_API_KEY for audio)",
+                    "dialer",
+                )
+
+    threading.Thread(target=_synthesize, daemon=True).start()
 
 
 def _opening_reply(state, system_prompt):
@@ -146,6 +153,19 @@ def _prospect_turn(state, agent_id, text, *, from_stt=False):
     return _public(state, agent_id)
 
 
+def _boot_session(state, agent_id, system, prospect):
+    opening = _opening_reply(state, system)
+    with state.lock:
+        session = state.ai_sandbox_sessions.get(agent_id)
+        if not session:
+            return
+        session["messages"] = [{"role": "assistant", "content": opening}]
+        session["transcript"] = [_transcript_line("Agent", opening)]
+        session["transcript_seq"] = 1
+        session["booting"] = False
+    _queue_speech(state, agent_id, opening)
+
+
 def start(state, agent_id, prospect=None):
     agent_id = str(agent_id or "").strip()
     if not agent_id:
@@ -153,10 +173,26 @@ def start(state, agent_id, prospect=None):
     if state.running:
         raise ValueError("Stop the live dialer before using sandbox mode.")
     system = _system_prompt(state, agent_id, prospect)
-    opening = _opening_reply(state, system)
+    prospect_merged = {**_DEFAULT_PROSPECT, **(prospect or {})}
     with state.lock:
-        state.ai_sandbox_sessions[agent_id] = _session_template(agent_id, system, prospect, opening)
-    _queue_speech(state, agent_id, opening)
+        state.ai_sandbox_sessions[agent_id] = {
+            "agent_id": agent_id,
+            "system_prompt": system,
+            "messages": [],
+            "transcript": [],
+            "transcript_seq": 0,
+            "prospect": prospect_merged,
+            "outbound_chunks": [],
+            "outbound_cursor": 0,
+            "inbound_mulaw": bytearray(),
+            "silence_frames": 0,
+            "heard_voice": False,
+            "last_prospect_key": "",
+            "reply_busy": False,
+            "booting": True,
+            "ended": False,
+        }
+    threading.Thread(target=_boot_session, args=(state, agent_id, system, prospect), daemon=True).start()
     state.record_activity(f"Sandbox voice started for {_agent_name(state, agent_id)}", "dialer")
     return _public(state, agent_id)
 
@@ -256,7 +292,8 @@ def stream_sync(state, agent_id):
             "ended": bool(session.get("ended")),
             "transcript": list(session.get("transcript") or []),
             "transcript_seq": int(session.get("transcript_seq") or 0),
-            "reply_busy": bool(session.get("reply_busy")),
+            "reply_busy": bool(session.get("reply_busy") or session.get("booting")),
+            "booting": bool(session.get("booting")),
         }
 
 
@@ -280,7 +317,8 @@ def _public(state, agent_id):
         "transcript_seq": int(session.get("transcript_seq") or 0),
         "messages": list(session.get("messages") or []),
         "prospect": dict(session.get("prospect") or {}),
-        "reply_busy": bool(session.get("reply_busy")),
+        "reply_busy": bool(session.get("reply_busy") or session.get("booting")),
+        "booting": bool(session.get("booting")),
     }
 
 

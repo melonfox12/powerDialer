@@ -53,6 +53,7 @@ export function mergeSandboxPayload(payload) {
   box.ended = Boolean(payload.ended);
   box.transcript_seq = payload.transcript_seq || 0;
   box.reply_busy = Boolean(payload.reply_busy);
+  box.booting = Boolean(payload.booting);
   box.partialProspect = "";
 }
 
@@ -67,12 +68,12 @@ export function paintSandboxChrome() {
   const listen = byId("aiDialerAgent-listenInButton");
 
   if (sandboxStart) {
-    sandboxStart.disabled = Boolean(box?.busy) || state.running || (active && !box?.ended);
+    sandboxStart.disabled = state.running || (active && !box?.ended);
     sandboxStart.hidden = Boolean(active && !box?.ended);
   }
   if (sandboxStop) {
     sandboxStop.hidden = !active;
-    sandboxStop.disabled = Boolean(box?.busy) || !active;
+    sandboxStop.disabled = !active;
   }
   if (active) {
     if (deskStart) deskStart.disabled = true;
@@ -96,19 +97,21 @@ async function startSandbox() {
     return;
   }
   const box = session();
-  box.busy = true;
+  if (box.active && !box.ended) return;
+  stopSandboxVoice();
+  box.active = true;
+  box.ended = false;
+  box.transcript = [];
+  box.partialProspect = "";
   paintSandboxChrome();
+  render();
   try {
-    stopSandboxVoice();
-    const payload = await postJson("/api/ai-agents/sandbox/start", {
-      agent_id: id,
-      prospect: DEFAULT_PROSPECT,
-    });
+    const [payload] = await Promise.all([
+      postJson("/api/ai-agents/sandbox/start", { agent_id: id, prospect: DEFAULT_PROSPECT }),
+      startSandboxVoice(id),
+    ]);
     mergeSandboxPayload(payload);
     box.active = true;
-    box.ended = false;
-    render();
-    await startSandboxVoice(id);
     render();
     showToast("Sandbox live — speak as the prospect.");
   } catch (error) {
@@ -116,7 +119,6 @@ async function startSandbox() {
     box.active = false;
     stopSandboxVoice();
   } finally {
-    box.busy = false;
     paintSandboxChrome();
     render();
   }
@@ -126,19 +128,20 @@ export async function resetSandbox() {
   const id = agentId();
   if (!id) return;
   const box = session();
-  box.busy = true;
   stopSandboxVoice();
+  box.active = false;
+  box.ended = false;
+  box.transcript = [];
+  box.transcript_seq = 0;
+  box.partialProspect = "";
+  box.reply_busy = false;
   paintSandboxChrome();
+  render();
   try {
     await postJson("/api/ai-agents/sandbox/reset", { agent_id: id });
-    box.active = false;
-    box.transcript = [];
-    box.ended = false;
-    box.transcript_seq = 0;
   } catch (error) {
     showToast(errorText(error, "Could not stop sandbox."), true);
   } finally {
-    box.busy = false;
     paintSandboxChrome();
     render();
   }

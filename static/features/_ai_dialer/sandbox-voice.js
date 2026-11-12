@@ -5,6 +5,7 @@ import { render } from "../../core.js";
 import { showToast } from "../../_core/notify.js";
 import { errorText } from "../../_core/notify.js";
 import { drawSandboxWaveform } from "../_dialer/card.js";
+import { routeTestAudio } from "../_dialer/_voice/devices.js";
 
 const TARGET_RATE = 8000;
 const MULAW_BIAS = 0x84;
@@ -37,6 +38,10 @@ function voiceState() {
       capturePaused: false,
       audioSendWarned: false,
       recognitionWanted: false,
+      playbackEl: null,
+      playbackNode: null,
+      agentGain: null,
+      pollActive: false,
     };
   }
   return S.sandboxVoice;
@@ -53,6 +58,7 @@ function mergeSyncPayload(agentId, payload) {
   box.transcript = payload.transcript || [];
   box.ended = Boolean(payload.ended);
   box.reply_busy = Boolean(payload.reply_busy);
+  box.booting = Boolean(payload.booting);
   if (!box.partialProspect) box.partialProspect = "";
 }
 
@@ -126,6 +132,25 @@ function startWaveformPaint() {
   paint();
 }
 
+async function ensureAgentPlaybackRoute() {
+  const voice = voiceState();
+  if (!voice.audioContext || voice.playbackNode) return;
+  voice.playbackNode = voice.audioContext.createMediaStreamDestination();
+  voice.agentGain = voice.audioContext.createGain();
+  voice.agentGain.gain.value = Number(byId("testVolumeInput")?.value || 100) / 100;
+  voice.agentGain.connect(voice.playbackNode);
+  voice.playbackEl = byId("aiDialerAgent-sandboxAgentPlayback");
+  if (voice.playbackEl) {
+    voice.playbackEl.srcObject = voice.playbackNode.stream;
+    await routeTestAudio(voice.playbackEl);
+    try {
+      await voice.playbackEl.play();
+    } catch {
+      /* gesture already happened on Start */
+    }
+  }
+}
+
 async function ensureAudioContext() {
   const AudioContextType = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextType) throw new Error("This browser cannot play sandbox audio.");
@@ -134,11 +159,27 @@ async function ensureAudioContext() {
     voice.audioContext = new AudioContextType();
   }
   await voice.audioContext.resume();
+  await ensureAgentPlaybackRoute();
   return voice.audioContext;
+}
+
+function mergeMulawChunksBase64(chunks) {
+  if (!chunks?.length) return "";
+  if (chunks.length === 1) return chunks[0];
+  const parts = chunks.map((chunk) => Uint8Array.from(atob(chunk), (char) => char.charCodeAt(0)));
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    merged.set(part, offset);
+    offset += part.length;
+  }
+  return bytesToBase64(merged);
 }
 
 async function playMulawBase64(payload) {
   const context = await ensureAudioContext();
+  const voice = voiceState();
   const raw = Uint8Array.from(atob(payload), (char) => char.charCodeAt(0));
   const pcm = new Float32Array(raw.length);
   for (let index = 0; index < raw.length; index += 1) {
@@ -148,7 +189,8 @@ async function playMulawBase64(payload) {
   buffer.copyToChannel(pcm, 0);
   const source = context.createBufferSource();
   source.buffer = buffer;
-  source.connect(context.destination);
+  const sink = voice.agentGain || context.destination;
+  source.connect(sink);
   await new Promise((resolve) => {
     source.onended = () => resolve();
     source.start();
@@ -288,7 +330,7 @@ async function drainPlayQueue() {
 
 function enqueuePlayback(chunks) {
   if (!chunks?.length) return;
-  voiceState().playQueue.push(...chunks);
+  voiceState().playQueue.push(mergeMulawChunksBase64(chunks));
   drainPlayQueue().catch(() => {});
 }
 
@@ -345,7 +387,8 @@ function stopSandboxVoiceKeepServer() {
   const voice = voiceState();
   pauseRecognition();
   voice.recognition = null;
-  if (voice.pollTimer) window.clearInterval(voice.pollTimer);
+  voice.pollActive = false;
+  if (voice.pollTimer) window.clearTimeout(voice.pollTimer);
   if (voice.sendTimer) window.clearInterval(voice.sendTimer);
   voice.pollTimer = 0;
   voice.sendTimer = 0;
@@ -363,6 +406,11 @@ function stopSandboxVoiceKeepServer() {
   voice.playing = false;
   voice.agentSpeaking = false;
   voice.capturePaused = false;
+  voice.playbackEl?.pause();
+  if (voice.playbackEl) voice.playbackEl.srcObject = null;
+  voice.playbackNode = null;
+  voice.agentGain = null;
+  voice.playbackEl = null;
   const box = sandboxBox(S.aiDialerSelectedAgentId);
   if (box) box.partialProspect = "";
   stopWaveformPaint();
@@ -382,6 +430,8 @@ export function paintSandboxVoiceChrome() {
       status.textContent = "Call ended — press Start to rehearse again or Stop to exit.";
     } else if (voice.agentSpeaking) {
       status.textContent = "Agent speaking…";
+    } else if (box?.booting) {
+      status.textContent = "Agent connecting…";
     } else if (box?.reply_busy) {
       status.textContent = "Agent thinking…";
     } else if (voice.useMulawFallback) {
@@ -428,9 +478,19 @@ export async function startSandboxVoice(agentId) {
   voice.sendTimer = window.setInterval(() => {
     flushMicBatch(agentId).catch(() => {});
   }, SEND_BATCH_MS);
-  voice.pollTimer = window.setInterval(() => {
-    pollSandboxSync(agentId).catch(() => {});
-  }, 150);
+  voice.pollActive = true;
+  const pollMs = () => (sandboxBox(agentId)?.booting ? 60 : 120);
+  const schedulePoll = () => {
+    if (!voice.pollActive || voice.agentId !== agentId) return;
+    pollSandboxSync(agentId)
+      .catch(() => {})
+      .finally(() => {
+        if (voice.pollActive && voice.agentId === agentId) {
+          voice.pollTimer = window.setTimeout(schedulePoll, pollMs());
+        }
+      });
+  };
+  schedulePoll();
   startWaveformPaint();
   paintSandboxVoiceChrome();
   await pollSandboxSync(agentId);

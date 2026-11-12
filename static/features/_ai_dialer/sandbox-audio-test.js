@@ -22,6 +22,13 @@ function guardsRunningSandbox() {
   return false;
 }
 
+function setMicTestButtonLabel(active) {
+  const micButton = byId("aiDialerAgent-sandboxTestMic");
+  if (!micButton) return;
+  micButton.textContent = active ? "Stop mic check" : "Check mic level";
+  micButton.setAttribute("aria-pressed", active ? "true" : "false");
+}
+
 export async function startSandboxMicTest() {
   if (guardsRunningSandbox()) return;
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -29,6 +36,8 @@ export async function startSandboxMicTest() {
     return;
   }
   try {
+    S.sandboxMicTestActive = true;
+    setMicTestButtonLabel(true);
     S.sandboxMicTestStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     S.sandboxMicTestContext = new (window.AudioContext || window.webkitAudioContext)();
     await S.sandboxMicTestContext.resume();
@@ -38,6 +47,7 @@ export async function startSandboxMicTest() {
     source.connect(analyser);
     const samples = new Float32Array(analyser.fftSize);
     const measure = () => {
+      if (!S.sandboxMicTestActive) return;
       analyser.getFloatTimeDomainData(samples);
       let sum = 0;
       for (const sample of samples) sum += sample * sample;
@@ -54,15 +64,18 @@ export async function startSandboxMicTest() {
       if (event.data.size) S.sandboxMicTestChunks.push(event.data);
     });
     S.sandboxMicTestRecorder.start();
-    setStatus("Speak now — watching mic level and recording a short sample.");
+    setStatus("Speak now — meter is live. Click Stop mic check when done.");
   } catch (error) {
+    S.sandboxMicTestActive = false;
+    setMicTestButtonLabel(false);
     await stopSandboxMicTest();
     showToast(error.message || "Could not access the microphone.", true);
   }
 }
 
 export async function stopSandboxMicTest() {
-  byId("aiDialerAgent-sandboxTestMic")?.removeAttribute("disabled");
+  S.sandboxMicTestActive = false;
+  setMicTestButtonLabel(false);
   cancelAnimationFrame(S.sandboxMicTestFrame || 0);
   S.sandboxMicTestFrame = 0;
   S.sandboxMicTestStream?.getTracks().forEach((track) => track.stop());
@@ -86,10 +99,12 @@ export async function stopSandboxMicTest() {
         playback.hidden = false;
         await routeTestAudio(playback);
       }
-      setStatus("Sample captured — play it back to check clarity, or run Test headphones.");
+      setStatus("Mic check stopped — play the sample or run Test headphones.");
     } else {
       setStatus("No audio captured. Check permissions and try again.");
     }
+  } else {
+    setStatus("Mic check stopped.");
   }
   setMeter(0);
 }
@@ -140,17 +155,13 @@ export async function testSandboxHeadphones() {
   }
 }
 
-let micTestTimer = 0;
-
 export function bindSandboxAudioTest() {
   byId("aiDialerAgent-sandboxTestMic")?.addEventListener("click", () => {
-    window.clearTimeout(micTestTimer);
-    const micButton = byId("aiDialerAgent-sandboxTestMic");
-    if (micButton) micButton.disabled = true;
-    startSandboxMicTest().catch(() => {});
-    micTestTimer = window.setTimeout(() => {
+    if (S.sandboxMicTestActive) {
       stopSandboxMicTest().catch(() => {});
-    }, 4000);
+      return;
+    }
+    startSandboxMicTest().catch(() => {});
   });
   byId("aiDialerAgent-sandboxTestHeadphones")?.addEventListener("click", () => {
     testSandboxHeadphones().catch(() => {});
