@@ -121,7 +121,7 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
         "ai_bridge_app_url": parsed.get("AI_BRIDGE_APP_URL", ""),
         "ai_bridge_secret": "",
         "has_ai_bridge_secret": bool(parsed.get("AI_BRIDGE_SECRET")),
-        "cartesia_api_key": "",
+        "cartesia_api_key": parsed.get("CARTESIA_API_KEY", ""),
         "has_cartesia_api_key": bool(parsed.get("CARTESIA_API_KEY")),
         "cartesia_voice_id": parsed.get("CARTESIA_VOICE_ID", ""),
         "openai_api_key": "",

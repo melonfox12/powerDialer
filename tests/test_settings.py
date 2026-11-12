@@ -35,7 +35,7 @@ class SettingsTests(unittest.TestCase):
                 "cartesia_voice_id": "voice-uuid-1",
             })
             shown = dialer.settings_state()
-            self.assertEqual(shown["cartesia_api_key"], "")
+            self.assertEqual(shown["cartesia_api_key"], "cartesia-test-key")
             self.assertTrue(shown["has_cartesia_api_key"])
             self.assertEqual(shown["cartesia_voice_id"], "voice-uuid-1")
             live = dialer.read_settings()

@@ -49,8 +49,10 @@ export function applySavedSettings(settings) {
   byId("openaiKeyInput").value = "";
   byId("openaiKeyInput").placeholder = settings.has_openai_api_key ? SAVED_SECRET_PLACEHOLDER : "";
   byId("aiLlmModelInput").value = settings.ai_llm_model || "gpt-4o-mini";
-  byId("cartesiaKeyInput").value = "";
-  byId("cartesiaKeyInput").placeholder = settings.has_cartesia_api_key ? SAVED_SECRET_PLACEHOLDER : "";
+  byId("cartesiaKeyInput").value = settings.cartesia_api_key || "";
+  byId("cartesiaKeyInput").placeholder = settings.cartesia_api_key
+    ? ""
+    : (settings.has_cartesia_api_key ? SAVED_SECRET_PLACEHOLDER : "");
   byId("cartesiaVoiceInput").value = settings.cartesia_voice_id || "";
   byId("aiBridgeEmbeddedInput").checked = Boolean(settings.ai_bridge_embedded);
   byId("aiVoicemailDropInput").checked = Boolean(settings.ai_voicemail_drop);
