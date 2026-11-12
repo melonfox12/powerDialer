@@ -19,6 +19,40 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(parsed["SOUNDS_ENABLED"], "true")
         self.assertEqual(parsed["OPENING_SCRIPT"], "")
 
+    def test_cartesia_api_key_persists_and_feeds_read_settings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_path = Path(directory) / ".env"
+            crm = ProspectStore(Path(directory) / "crm.json")
+            dialer = Dialer(crm, str(env_path))
+            dialer.save_settings({
+                "account_sid": "ACexample",
+                "auth_token": "token",
+                "api_key": "SKexample",
+                "api_secret": "secret",
+                "twiml_app_sid": "APexample",
+                "public_base_url": "https://example.ngrok.dev",
+                "cartesia_api_key": "cartesia-test-key",
+                "cartesia_voice_id": "voice-uuid-1",
+            })
+            shown = dialer.settings_state()
+            self.assertEqual(shown["cartesia_api_key"], "")
+            self.assertTrue(shown["has_cartesia_api_key"])
+            self.assertEqual(shown["cartesia_voice_id"], "voice-uuid-1")
+            live = dialer.read_settings()
+            self.assertEqual(live["CARTESIA_API_KEY"], "cartesia-test-key")
+            self.assertEqual(live["CARTESIA_VOICE_ID"], "voice-uuid-1")
+            dialer.save_settings({
+                "account_sid": "ACexample",
+                "auth_token": "token",
+                "api_key": "SKexample",
+                "api_secret": "secret",
+                "twiml_app_sid": "APexample",
+                "public_base_url": "https://example.ngrok.dev",
+                "cartesia_api_key": "",
+                "cartesia_voice_id": "voice-uuid-1",
+            })
+            self.assertEqual(dialer.read_settings()["CARTESIA_API_KEY"], "cartesia-test-key")
+
     def test_call_flow_settings_persist_and_validate(self):
         with tempfile.TemporaryDirectory() as directory:
             env_path = Path(directory) / ".env"

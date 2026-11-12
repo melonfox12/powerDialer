@@ -316,6 +316,9 @@ SETTINGS_ROW_ID = "app"
 SECRET_INPUTS = (
     {"id": "authTokenInput", "label": "auth token"},
     {"id": "apiSecretInput", "label": "API key secret"},
+    {"id": "aiBridgeSecretInput", "label": "bridge secret"},
+    {"id": "openaiKeyInput", "label": "OpenAI key"},
+    {"id": "cartesiaKeyInput", "label": "Cartesia key"},
 )
 
 

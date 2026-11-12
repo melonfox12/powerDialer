@@ -178,7 +178,7 @@ class Dialer(DialerState):
             self.env_path, self.account_values, self.account_user_id, data, save_remote,
         )
         with self.lock:
-            self.settings.update(parsed)
+            self.settings = self.read_settings()
         return self.settings_state()
 
     def save_goal(self, data):

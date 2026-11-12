@@ -162,7 +162,11 @@ export function bindSettings() {
       maskSecrets();
       byId("settingsDialog").close();
       render();
-      showToast(settings.account_email ? `Settings saved for ${settings.account_email}` : "Dialer settings saved");
+      const cartesiaSaved = settings.has_cartesia_api_key;
+      const detail = cartesiaSaved ? " Cartesia key is on file for AI speech." : "";
+      showToast(
+        (settings.account_email ? `Settings saved for ${settings.account_email}` : "Dialer settings saved") + detail,
+      );
     } catch (error) {
       showToast(error.message, true);
     } finally {
