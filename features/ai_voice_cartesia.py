@@ -1,6 +1,7 @@
 """Cartesia TTS → mulaw chunks for Twilio media streams."""
 
 import base64
+import http.client
 import json
 import re
 import urllib.error
@@ -128,3 +129,136 @@ SANDBOX_AUDIO_META = {
     "audio_encoding": "pcm_s16le",
     "audio_sample_rate": CARTESIA_SANDBOX_SAMPLE_RATE,
 }
+
+SANDBOX_STREAM_CHUNK_BYTES = 2880  # ~60 ms PCM at 24 kHz mono s16le
+
+
+def _emit_pcm_chunks(pcm_buf, chunk_size, emit):
+    while len(pcm_buf) >= chunk_size:
+        piece = bytes(pcm_buf[:chunk_size])
+        del pcm_buf[:chunk_size]
+        emit(base64.b64encode(piece).decode("ascii"))
+
+
+def _cartesia_sse_request(settings, text, *, encoding, sample_rate, on_pcm):
+    key = str((settings or {}).get("CARTESIA_API_KEY") or "").strip()
+    if not key:
+        return "Cartesia API key is missing — add CARTESIA_API_KEY in Settings."
+    model_id = str((settings or {}).get("CARTESIA_TTS_MODEL") or CARTESIA_TTS_MODEL).strip() or CARTESIA_TTS_MODEL
+    voice_id = _voice_id(settings)
+    payload = {
+        "model_id": model_id,
+        "transcript": text,
+        "voice": voice_id,
+        "output_format": {
+            "container": "raw",
+            "encoding": encoding,
+            "sample_rate": sample_rate,
+        },
+    }
+    body = json.dumps(payload).encode("utf-8")
+    conn = http.client.HTTPSConnection("api.cartesia.ai", timeout=90)
+    try:
+        conn.request(
+            "POST",
+            "/tts/sse",
+            body=body,
+            headers={
+                "X-API-Key": key,
+                "Cartesia-Version": "2026-08-14",
+                "Content-Type": "application/json",
+                "Accept": "text/event-stream",
+            },
+        )
+        response = conn.getresponse()
+        if response.status >= 400:
+            detail = response.read(4096).decode("utf-8", errors="replace")
+            return f"Cartesia TTS HTTP {response.status}: {_parse_error_detail(detail)}"
+        data_line = b""
+        while True:
+            raw = response.readline()
+            if not raw:
+                break
+            line = raw.strip()
+            if not line:
+                if not data_line:
+                    continue
+                try:
+                    event = json.loads(data_line.decode("utf-8"))
+                except json.JSONDecodeError:
+                    data_line = b""
+                    continue
+                data_line = b""
+                kind = event.get("type")
+                if kind == "chunk":
+                    chunk = base64.b64decode(event.get("data") or "")
+                    if chunk:
+                        on_pcm(chunk)
+                elif kind == "error":
+                    return str(event.get("message") or event.get("title") or "Cartesia TTS error.")
+                elif kind == "done":
+                    break
+                continue
+            if line.startswith(b"data:"):
+                data_line = line[5:].strip()
+    except OSError as exc:
+        return f"Cartesia TTS unreachable: {exc}"
+    finally:
+        conn.close()
+    return ""
+
+
+def tts_sandbox_stream(settings, text, emit_chunk, *, chunk_size=SANDBOX_STREAM_CHUNK_BYTES):
+    """Stream sandbox PCM via Cartesia SSE; emit_chunk(b64) as bytes arrive."""
+    text = str(text or "").strip()
+    if not text:
+        return "empty transcript"
+    pending = bytearray()
+
+    def on_pcm(pcm):
+        pending.extend(pcm)
+        _emit_pcm_chunks(pending, chunk_size, emit_chunk)
+
+    err = _cartesia_sse_request(
+        settings,
+        text,
+        encoding="pcm_s16le",
+        sample_rate=CARTESIA_SANDBOX_SAMPLE_RATE,
+        on_pcm=on_pcm,
+    )
+    if err:
+        chunks, fallback_err = tts_sandbox_chunks(settings, text, chunk_size=chunk_size)
+        if fallback_err:
+            return err if "HTTP" in err else fallback_err
+        for chunk in chunks:
+            emit_chunk(chunk)
+        return ""
+    if pending:
+        emit_chunk(base64.b64encode(bytes(pending)).decode("ascii"))
+    return ""
+
+
+def tts_mulaw_stream(settings, text, emit_chunk, *, chunk_size=160):
+    pending = bytearray()
+
+    def on_pcm(pcm):
+        pending.extend(pcm)
+        _emit_pcm_chunks(pending, chunk_size, emit_chunk)
+
+    err = _cartesia_sse_request(
+        settings,
+        text,
+        encoding="pcm_mulaw",
+        sample_rate=8000,
+        on_pcm=on_pcm,
+    )
+    if err:
+        chunks, fallback_err = tts_mulaw_chunks(settings, text, chunk_size=chunk_size)
+        if fallback_err:
+            return err if "HTTP" in err else fallback_err
+        for chunk in chunks:
+            emit_chunk(chunk)
+        return ""
+    if pending:
+        emit_chunk(base64.b64encode(bytes(pending)).decode("ascii"))
+    return ""

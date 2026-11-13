@@ -83,7 +83,7 @@ def start_call_session(state, call):
         return existing
     settings = state.read_settings()
     agent_id = getattr(state, "ai_agent_id", None) or "ava"
-    agent_name = ai_agents._agent_name(agent_id)
+    agent_name = ai_agents._agent_name(agent_id, state)
     playbook = ai_agent_playbook.get_playbook(state, agent_id, agent_name, require_ready=True)
     session_id = "avs-" + secrets.token_hex(10)
     lead_ctx = _lead_context(call.get("lead"))
@@ -149,16 +149,22 @@ def _queue_speech(state, session_id, text, *, speaker="Agent"):
         live_transcript.append_final(
             state, storage, speaker=speaker, text=text, source=TRANSCRIPT_SOURCE_CARTESIA,
         )
-    chunks, err = ai_voice_cartesia.tts_mulaw_chunks(state.read_settings(), text)
-    with state.lock:
-        session = state.ai_voice_sessions.get(session_id)
-        if not session:
-            return
-        session["outbound_chunks"].extend(chunks)
-        if err:
-            state.record_activity(err, "error")
-        elif not chunks:
-            state.record_activity("AI spoke (text only — add CARTESIA_API_KEY for audio)", "call")
+    settings = state.read_settings()
+
+    def emit(chunk_b64):
+        with state.lock:
+            live = state.ai_voice_sessions.get(session_id)
+            if live:
+                live["outbound_chunks"].append(chunk_b64)
+
+    err = ai_voice_cartesia.tts_mulaw_stream(settings, text, emit)
+    if err:
+        state.record_activity(err, "error")
+    else:
+        with state.lock:
+            live = state.ai_voice_sessions.get(session_id)
+            if live and not live.get("outbound_chunks"):
+                state.record_activity("AI spoke (text only — add CARTESIA_API_KEY for audio)", "call")
 
 
 def kickoff_conversation(state, session_id):

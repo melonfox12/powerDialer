@@ -91,6 +91,7 @@ export function mergeSandboxPayload(payload) {
   box.transcript_seq = payload.transcript_seq || 0;
   box.reply_busy = Boolean(payload.reply_busy);
   box.booting = Boolean(payload.booting);
+  box.tts_busy = Boolean(payload.tts_busy);
   if (payload.audio_encoding) box.audio_encoding = payload.audio_encoding;
   if (payload.audio_sample_rate) box.audio_sample_rate = payload.audio_sample_rate;
   box.partialProspect = "";
@@ -111,12 +112,7 @@ export async function sendSandboxProspectMessage(text) {
     mergeSandboxPayload(payload);
     syncSandboxVoiceTranscriptSeq(payload.transcript_seq);
     if (payload.chunks?.length) {
-      try {
-        await ensureSandboxPlayback();
-        playSandboxOutboundChunks(payload.chunks);
-      } catch (playbackError) {
-        showToast(errorText(playbackError, "Agent replied, but speaker audio could not play."), true);
-      }
+      playSandboxOutboundChunks(payload.chunks);
     }
     if (payload.ended) showToast("Agent ended the call ([END_CALL]).");
     render();

@@ -237,6 +237,17 @@ def get_playbook(state, agent_id, agent_name="Agent", *, require_ready=False):
     return playbook
 
 
+def remove_playbook(state, agent_id):
+    agent_id = str(agent_id or "").strip()
+    if not agent_id:
+        return
+    blob = _load_blob(state)
+    playbooks = blob.get("playbooks")
+    if isinstance(playbooks, dict) and agent_id in playbooks:
+        del playbooks[agent_id]
+        _save_blob(state, blob)
+
+
 def save_playbook(state, agent_id, payload, agent_name="Agent"):
     agent_id = str(agent_id or "").strip()
     if not agent_id:

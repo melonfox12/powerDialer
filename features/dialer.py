@@ -77,12 +77,21 @@ class Dialer(DialerState):
     def release_ai_agent_pool(self, agent_id):
         return ai_agents.release_agent_pool(self, agent_id)
 
+    def create_ai_agent(self, name, title=None):
+        return ai_agents.create_agent(self, name, title)
+
+    def duplicate_ai_agent(self, source_agent_id, name=None):
+        return ai_agents.duplicate_agent(self, source_agent_id, name)
+
+    def delete_ai_agent(self, agent_id):
+        return ai_agents.delete_agent(self, agent_id)
+
     def ai_agent_playbook(self, agent_id):
-        name = ai_agents._agent_name(agent_id)
+        name = ai_agents._agent_name(agent_id, self)
         return ai_agent_playbook.get_playbook(self, agent_id, name)
 
     def save_ai_agent_playbook(self, agent_id, payload):
-        name = ai_agents._agent_name(agent_id)
+        name = ai_agents._agent_name(agent_id, self)
         return ai_agent_playbook.save_playbook(self, agent_id, payload, name)
 
     def ai_sandbox_start(self, agent_id, prospect=None):
@@ -412,6 +421,26 @@ def get_ai_agents(request):
     request.send_json(200, ai_agents.agents_public_view(request.account.dialer))
 
 
+def post_ai_agent_create(request, data):
+    dialer = request.account.dialer
+    result = dialer.create_ai_agent(data.get("name"), data.get("title"))
+    request.send_json(200, result)
+
+
+def post_ai_agent_duplicate(request, data):
+    dialer = request.account.dialer
+    source_id = data.get("source_agent_id") or data.get("agent_id") or ""
+    result = dialer.duplicate_ai_agent(source_id, data.get("name"))
+    request.send_json(200, result)
+
+
+def post_ai_agent_delete(request, data):
+    dialer = request.account.dialer
+    agent_id = str(data.get("agent_id") or "").strip()
+    result = dialer.delete_ai_agent(agent_id)
+    request.send_json(200, result)
+
+
 def post_ai_agent_boot(request, data):
     agent_id = data.get("agent_id") or urllib.parse.unquote(
         request._trace_path.removeprefix("/api/ai-agents/").removesuffix("/boot").strip("/"),
@@ -536,6 +565,9 @@ ROUTES = [
     ("POST", "/api/leads/{id}/status", post_status, "POST"),
     ("POST", "/api/leads/{id}/call-outcome", post_call_outcome, "POST"),
     ("GET", "/api/ai-agents", get_ai_agents, "GET reads"),
+    ("POST", "/api/ai-agents/create", post_ai_agent_create, "POST"),
+    ("POST", "/api/ai-agents/duplicate", post_ai_agent_duplicate, "POST"),
+    ("POST", "/api/ai-agents/delete", post_ai_agent_delete, "POST"),
     ("POST", "/api/ai-agents/boot", post_ai_agent_boot, "POST"),
     ("POST", "/api/ai-agents/start", post_ai_agent_start, "POST"),
     ("POST", "/api/ai-agents/stop", post_ai_agent_stop, "POST"),

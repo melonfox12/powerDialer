@@ -26,7 +26,7 @@ _MIN_UTTERANCE = 3200
 
 
 def _agent_name(state, agent_id):
-    return ai_agents._agent_name(agent_id)
+    return ai_agents._agent_name(agent_id, state)
 
 
 def _system_prompt(state, agent_id, prospect):
@@ -59,26 +59,51 @@ def _mark_outbound_delivered(session):
     session["outbound_cursor"] = len(session.get("outbound_chunks") or [])
 
 
-def _synthesize_agent_speech(state, agent_id, text):
-    """Cartesia TTS for sandbox; chunks are queued until sync or an HTTP payload delivers them."""
-    text = str(text or "").strip()
-    if not text:
-        return []
-    chunks, err = ai_voice_cartesia.tts_sandbox_chunks(state.read_settings(), text)
+def _append_sandbox_chunk(state, agent_id, chunk_b64):
     with state.lock:
         session = state.ai_sandbox_sessions.get(agent_id)
         if not session:
-            return []
-        session.setdefault("outbound_chunks", []).extend(chunks)
+            return
+        session.setdefault("outbound_chunks", []).append(chunk_b64)
         session["outbound_audio"] = dict(ai_voice_cartesia.SANDBOX_AUDIO_META)
-    if err:
-        state.record_activity(f"Sandbox: {err}", "error")
-    elif not chunks:
-        state.record_activity(
-            "Sandbox: Cartesia returned no audio (check CARTESIA_API_KEY / voice id in Settings).",
-            "error",
-        )
-    return chunks
+
+
+def _run_sandbox_tts(state, agent_id, text):
+    settings = state.read_settings()
+
+    def emit(chunk_b64):
+        _append_sandbox_chunk(state, agent_id, chunk_b64)
+
+    try:
+        err = ai_voice_cartesia.tts_sandbox_stream(settings, text, emit)
+        if err:
+            state.record_activity(f"Sandbox: {err}", "error")
+        else:
+            with state.lock:
+                session = state.ai_sandbox_sessions.get(agent_id)
+                empty = bool(session) and not session.get("outbound_chunks")
+            if empty:
+                state.record_activity(
+                    "Sandbox: Cartesia returned no audio (check CARTESIA_API_KEY / voice id in Settings).",
+                    "error",
+                )
+    finally:
+        with state.lock:
+            session = state.ai_sandbox_sessions.get(agent_id)
+            if session:
+                session["tts_busy"] = False
+
+
+def _start_sandbox_tts(state, agent_id, text):
+    text = str(text or "").strip()
+    if not text:
+        return
+    with state.lock:
+        session = state.ai_sandbox_sessions.get(agent_id)
+        if not session:
+            return
+        session["tts_busy"] = True
+    threading.Thread(target=_run_sandbox_tts, args=(state, agent_id, text), daemon=True).start()
 
 
 def _opening_reply(state, system_prompt):
@@ -122,8 +147,8 @@ def _apply_agent_reply(state, agent_id, reply):
         session["messages"].append({"role": "assistant", "content": reply})
         _bump_transcript(session, _transcript_line("Agent", reply))
         session["ended"] = "[end_call]" in lowered
-    audio_chunks = _synthesize_agent_speech(state, agent_id, reply)
-    return True, reply, audio_chunks
+    _start_sandbox_tts(state, agent_id, reply)
+    return True, reply, []
 
 
 def _prospect_turn(state, agent_id, text, *, from_stt=False):
@@ -183,7 +208,7 @@ def _boot_session(state, agent_id, system, prospect):
         session["transcript_seq"] = 1
     if not _wait_playback_ready(state, agent_id):
         state.record_activity("Sandbox: browser speaker path not ready in time", "error")
-    _synthesize_agent_speech(state, agent_id, opening)
+    _start_sandbox_tts(state, agent_id, opening)
     with state.lock:
         session = state.ai_sandbox_sessions.get(agent_id)
         if session:
@@ -222,6 +247,7 @@ def start(state, agent_id, prospect=None):
             "heard_voice": False,
             "last_prospect_key": "",
             "reply_busy": False,
+            "tts_busy": False,
             "booting": True,
             "playback_ready": False,
             "ended": False,
@@ -338,8 +364,9 @@ def stream_sync(state, agent_id):
             "ended": bool(session.get("ended")),
             "transcript": list(session.get("transcript") or []),
             "transcript_seq": int(session.get("transcript_seq") or 0),
-            "reply_busy": bool(session.get("reply_busy") or session.get("booting")),
+            "reply_busy": bool(session.get("reply_busy") or session.get("booting") or session.get("tts_busy")),
             "booting": bool(session.get("booting")),
+            "tts_busy": bool(session.get("tts_busy")),
             **_audio_meta(session),
         }
 
@@ -364,8 +391,9 @@ def _public(state, agent_id, audio_chunks=None):
         "transcript_seq": int(session.get("transcript_seq") or 0),
         "messages": list(session.get("messages") or []),
         "prospect": dict(session.get("prospect") or {}),
-        "reply_busy": bool(session.get("reply_busy") or session.get("booting")),
+        "reply_busy": bool(session.get("reply_busy") or session.get("booting") or session.get("tts_busy")),
         "booting": bool(session.get("booting")),
+        "tts_busy": bool(session.get("tts_busy")),
     }
     if audio_chunks:
         payload["chunks"] = list(audio_chunks)

@@ -37,6 +37,7 @@ import {
   resetSandbox,
 } from "./_ai_dialer/sandbox.js";
 import { bindSandboxAudioTest } from "./_ai_dialer/sandbox-audio-test.js";
+import { bindAgentFleetActions } from "./_ai_dialer/agent-fleet-actions.js";
 import { drawSandboxWaveform } from "./_dialer/card.js";
 
 function renderAiDialerWorkspace() {
@@ -198,6 +199,7 @@ export function bindAiDialer() {
   bindPlaybookEditor();
   bindSandbox();
   bindSandboxAudioTest();
+  bindAgentFleetActions();
   registerRenderer(renderAiDialerWorkspace, "end", "aiDialerAgent");
   syncAiDialerViews();
 }

@@ -5,6 +5,7 @@
         <h2 class="ai-call-center-title">AI call center</h2>
         <p class="ai-call-center-lede">Each tile is a dialer agent seat. Open one to run the desk, live conversation, and agent prompt.</p>
       </div>
+      <button type="button" id="aiDialerAgent-newAgentButton" class="button button-primary">New agent</button>
     </header>
     <div id="aiDialerAgent-fleetGrid" class="ai-agent-fleet-grid" role="list" aria-label="AI dialer agents"></div>
   </div>
@@ -15,6 +16,10 @@
       <div class="ai-agent-detail-titles">
         <h2 id="aiDialerAgent-detailAgentName" class="ai-call-center-title">Agent</h2>
         <p id="aiDialerAgent-detailAgentTitle" class="ai-call-center-lede">AI dialer</p>
+      </div>
+      <div class="ai-agent-detail-actions">
+        <button type="button" id="aiDialerAgent-detailDuplicate" class="button button-quiet">Duplicate</button>
+        <button type="button" id="aiDialerAgent-detailDelete" class="button button-quiet">Delete</button>
       </div>
       <p id="aiDialerAgent-slotNotice" class="ai-slot-notice" hidden>This seat is a preview slot — only the live-line agent runs your Twilio session today.</p>
     </header>
@@ -194,4 +199,16 @@
       </div>
     </div>
   </div>
+
+  <dialog id="aiDialerAgent-createDialog" class="ai-agent-create-dialog">
+    <form id="aiDialerAgent-createForm" class="ai-agent-create-form" method="dialog">
+      <h3 class="ai-agent-create-title">New agent seat</h3>
+      <label class="form-field"><span>Name</span><input id="aiDialerAgent-createName" name="name" autocomplete="off" required maxlength="80" placeholder="e.g. Sam"></label>
+      <label class="form-field"><span>Role</span><input id="aiDialerAgent-createTitle" name="title" autocomplete="off" maxlength="120" placeholder="Appointment setter"></label>
+      <div class="ai-agent-create-actions">
+        <button type="button" id="aiDialerAgent-createCancel" class="button button-quiet">Cancel</button>
+        <button type="submit" class="button button-primary">Create</button>
+      </div>
+    </form>
+  </dialog>
 </section>

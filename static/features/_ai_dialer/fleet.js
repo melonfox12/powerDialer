@@ -1,5 +1,6 @@
 import { S, state } from "../../_core/state.js";
-import { AI_AGENTS, agentById, primaryAgent } from "./agents.js";
+import { agentsList, agentById, primaryAgent } from "./agents.js";
+import { duplicateAgentFromFleet, deleteAgentFromFleet } from "./agent-fleet-actions.js";
 import { byId, setText } from "../../_core/format.js";
 import { resetWorkspaceTabs, paintWorkspaceTabs } from "./workspace-tabs.js";
 import { ensurePlaybookLoaded } from "./playbook-editor.js";
@@ -32,18 +33,22 @@ function todayMetrics(agent) {
 
 let fleetSignature = "";
 
+export function invalidateFleetGrid() {
+  fleetSignature = "";
+}
+
 function renderFleetTiles() {
   const grid = byId("aiDialerAgent-fleetGrid");
   if (!grid) return;
-  const signature = AI_AGENTS.map((agent) => {
+  const signature = agentsList().map((agent) => {
     const status = agentStatus(agent);
     const metrics = todayMetrics(agent);
-    return [agent.id, status.label, metrics.dials, metrics.connects, state.running, state.active_lead?.id || ""].join("|");
+    return [agent.id, agent.name, status.label, metrics.dials, metrics.connects, state.running, state.active_lead?.id || ""].join("|");
   }).join("\x1e");
   if (signature === fleetSignature) return;
   fleetSignature = signature;
   grid.replaceChildren();
-  for (const agent of AI_AGENTS) {
+  for (const agent of agentsList()) {
     const status = agentStatus(agent);
     const metrics = todayMetrics(agent);
     const tile = document.createElement("button");
@@ -82,7 +87,20 @@ function renderFleetTiles() {
     addStat("Dials today", metrics.dials);
     addStat("Connects", metrics.connects);
     addStat("Booked", metrics.booked);
-    tile.append(head, statusRow, stats);
+    const actions = document.createElement("div");
+    actions.className = "ai-agent-tile-actions";
+    const dup = document.createElement("button");
+    dup.type = "button";
+    dup.className = "button button-quiet ai-agent-tile-action";
+    dup.textContent = "Duplicate";
+    dup.addEventListener("click", (event) => duplicateAgentFromFleet(agent.id, event));
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "button button-quiet ai-agent-tile-action";
+    del.textContent = "Delete";
+    del.addEventListener("click", (event) => deleteAgentFromFleet(agent.id, event));
+    actions.append(dup, del);
+    tile.append(head, statusRow, stats, actions);
     if (agent.primary) {
       const badge = document.createElement("span");
       badge.className = "ai-agent-tile-badge";

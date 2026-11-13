@@ -20,7 +20,7 @@ class SandboxTests(unittest.TestCase):
         ai_agent_playbook.save_playbook(state, "ava", {"prompt": "Sandbox test prompt."}, "Ava")
         return state
 
-    @patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_chunks", return_value=(["qq==", "qw=="], ""))
+    @patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_stream", return_value="")
     @patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", side_effect=["Hello from Ava", "Sure, tell me more."])
     def test_start_and_turn(self, _llm, _tts):
         import time
@@ -38,16 +38,30 @@ class SandboxTests(unittest.TestCase):
         self.assertEqual(len(snapshot["transcript"]), 1)
         self.assertEqual(snapshot["transcript"][0]["speaker"], "Agent")
 
-        reply = ai_agent_sandbox.turn(state, "ava", "Not a great time.")
+        def _stream(_settings, _text, emit, **_kw):
+            emit("qq==")
+            emit("qw==")
+            return ""
+
+        with patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_stream", side_effect=_stream):
+            reply = ai_agent_sandbox.turn(state, "ava", "Not a great time.")
         self.assertEqual(len(reply["transcript"]), 3)
         self.assertEqual(reply["transcript"][-1]["speaker"], "Agent")
-        self.assertEqual(reply.get("chunks"), ["qq==", "qw=="])
+        for _ in range(30):
+            if state.ai_sandbox_sessions.get("ava", {}).get("outbound_chunks"):
+                break
+            time.sleep(0.02)
+        self.assertTrue(state.ai_sandbox_sessions["ava"]["outbound_chunks"])
 
     def test_undelivered_opening_reaches_sync(self):
         import time
 
         state = self._state()
-        with patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_chunks", return_value=(["qq=="], "")):
+        def _stream(_s, _t, emit):
+            emit("qq==")
+            return ""
+
+        with patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_stream", side_effect=_stream):
             with patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", return_value="Hi there"):
                 ai_agent_sandbox.start(state, "ava", None)
                 ai_agent_sandbox.mark_playback_ready(state, "ava")
@@ -73,7 +87,7 @@ class SandboxTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ai_agent_sandbox.start(state, "ava", None)
 
-    @patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_chunks", return_value=(["qq=="], ""))
+    @patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_stream", return_value="")
     @patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", return_value="Hi")
     @patch("features.ai_agent_sandbox.ai_voice_stt.transcribe_mulaw", return_value="hello there")
     def test_ingest_flushes_after_speech(self, _stt, _llm, _tts):
