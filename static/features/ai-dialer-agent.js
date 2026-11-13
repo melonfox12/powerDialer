@@ -29,7 +29,13 @@ import {
   renderPlaybookPreview,
 } from "./_ai_dialer/playbook-editor.js";
 import { bindWorkspaceTabs, paintWorkspaceTabs, resetWorkspaceTabs } from "./_ai_dialer/workspace-tabs.js";
-import { bindSandbox, isSandboxActive, paintSandboxChrome, resetSandbox } from "./_ai_dialer/sandbox.js";
+import {
+  bindSandbox,
+  isSandboxActive,
+  isSandboxVoiceMode,
+  paintSandboxChrome,
+  resetSandbox,
+} from "./_ai_dialer/sandbox.js";
 import { bindSandboxAudioTest } from "./_ai_dialer/sandbox-audio-test.js";
 import { drawSandboxWaveform } from "./_dialer/card.js";
 
@@ -45,7 +51,7 @@ function renderAiDialerWorkspace() {
   renderAiLiveStatus();
   renderAiActivityLog();
   if (S.aiWorkspaceActiveTab === "sandbox") {
-    if (!isSandboxActive()) drawSandboxWaveform(0);
+    if (!isSandboxActive() || !isSandboxVoiceMode()) drawSandboxWaveform(0);
   } else {
     drawProspectWaveform();
   }

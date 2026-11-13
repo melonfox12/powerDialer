@@ -5,9 +5,21 @@ import { showToast } from "../../_core/notify.js";
 import { errorText } from "../../_core/notify.js";
 import { render } from "../../core.js";
 import { playbookExecutionReady } from "./playbook-editor.js";
-import { paintSandboxVoiceChrome, startSandboxVoice, stopSandboxVoice } from "./sandbox-voice.js";
+import {
+  paintSandboxVoiceChrome,
+  isSandboxAgentSpeaking,
+  pauseSandboxCapture,
+  resumeSandboxCapture,
+  ensureSandboxPlayback,
+  playSandboxOutboundChunks,
+  startSandboxTextPoll,
+  startSandboxVoice,
+  stopSandboxVoice,
+  syncSandboxVoiceTranscriptSeq,
+} from "./sandbox-voice.js";
 
 const DEFAULT_PROSPECT = { name: "Jordan", business: "Sample Services LLC" };
+const SANDBOX_MODE_KEY = "ai-sandbox-interaction-mode";
 
 function agentId() {
   return S.aiDialerSelectedAgentId;
@@ -22,15 +34,37 @@ function session() {
   return S.aiSandboxByAgent[id];
 }
 
+function readSandboxModeFromUi() {
+  const checked = document.querySelector('input[name="aiDialerAgent-sandboxMode"]:checked');
+  const mode = checked?.value === "text" ? "text" : "voice";
+  return mode;
+}
+
+function syncSandboxModeToUi(mode) {
+  const voice = byId("aiDialerAgent-sandboxModeVoice");
+  const text = byId("aiDialerAgent-sandboxModeText");
+  if (mode === "text" && text) text.checked = true;
+  else if (voice) voice.checked = true;
+}
+
 export function isSandboxActive() {
   const id = agentId();
   return Boolean(id && S.aiSandboxByAgent[id]?.active);
+}
+
+export function isSandboxVoiceMode() {
+  const box = session();
+  if (box?.active) return box.interactionMode !== "text";
+  const saved = localStorage.getItem(SANDBOX_MODE_KEY);
+  if (saved === "text" || saved === "voice") return saved === "voice";
+  return readSandboxModeFromUi() === "voice";
 }
 
 export function sandboxTranscript() {
   const box = session();
   if (!box) return [];
   const lines = box.transcript || [];
+  if (!isSandboxVoiceMode()) return lines;
   const partial = String(box.partialProspect || "").trim();
   if (!partial) return lines;
   return [
@@ -54,7 +88,75 @@ export function mergeSandboxPayload(payload) {
   box.transcript_seq = payload.transcript_seq || 0;
   box.reply_busy = Boolean(payload.reply_busy);
   box.booting = Boolean(payload.booting);
+  if (payload.audio_encoding) box.audio_encoding = payload.audio_encoding;
+  if (payload.audio_sample_rate) box.audio_sample_rate = payload.audio_sample_rate;
   box.partialProspect = "";
+}
+
+/** @returns {Promise<object|null>} sandbox payload when the agent replied */
+export async function sendSandboxProspectMessage(text) {
+  const id = agentId();
+  const line = String(text || "").trim();
+  if (!id || !line || !isSandboxActive()) return null;
+  const box = session();
+  if (box.ended || box.reply_busy) return null;
+  box.reply_busy = true;
+  box.partialProspect = "";
+  render();
+  try {
+    const payload = await postJson("/api/ai-agents/sandbox/turn", { agent_id: id, text: line });
+    mergeSandboxPayload(payload);
+    syncSandboxVoiceTranscriptSeq(payload.transcript_seq);
+    if (payload.chunks?.length) {
+      await ensureSandboxPlayback();
+      playSandboxOutboundChunks(payload.chunks);
+    }
+    if (payload.ended) showToast("Agent ended the call ([END_CALL]).");
+    render();
+    return payload;
+  } catch (error) {
+    showToast(errorText(error, "Agent could not reply."), true);
+    box.reply_busy = false;
+    render();
+    return null;
+  }
+}
+
+function paintSandboxComposer() {
+  const box = session();
+  const active = isSandboxActive();
+  const canType = active && !box?.ended;
+  const composer = byId("aiDialerAgent-sandboxComposer");
+  const input = byId("aiDialerAgent-sandboxInput");
+  const send = byId("aiDialerAgent-sandboxSend");
+  const hint = byId("aiDialerAgent-sandboxComposerHint");
+  if (composer) composer.hidden = !canType;
+  const disabled = !canType || Boolean(box?.reply_busy);
+  if (input) input.disabled = disabled;
+  if (send) send.disabled = disabled;
+  if (hint) {
+    hint.textContent = isSandboxVoiceMode()
+      ? "You are the prospect — type a line or use your mic."
+      : "You are the prospect — message only (no mic). You still hear the agent in your headphones.";
+  }
+}
+
+function paintSandboxModeChrome() {
+  const active = isSandboxActive();
+  const box = session();
+  const modeLocked = active && !box?.ended;
+  const fieldset = byId("aiDialerAgent-sandboxModeFieldset");
+  if (fieldset) {
+    fieldset.disabled = modeLocked;
+    fieldset.setAttribute("aria-disabled", modeLocked ? "true" : "false");
+  }
+  if (!modeLocked && box?.interactionMode) syncSandboxModeToUi(box.interactionMode);
+
+  const voiceUi = isSandboxVoiceMode();
+  const audioTest = byId("aiDialerAgent-sandboxAudioTest");
+  const waveRail = byId("aiDialerAgent-sandboxWaveformRail");
+  if (audioTest) audioTest.hidden = !voiceUi;
+  if (waveRail) waveRail.hidden = !voiceUi;
 }
 
 export function paintSandboxChrome() {
@@ -80,7 +182,30 @@ export function paintSandboxChrome() {
     if (deskStop) deskStop.hidden = true;
     if (listen) listen.disabled = true;
   }
+  paintSandboxModeChrome();
+  paintSandboxComposer();
   paintSandboxVoiceChrome();
+}
+
+async function submitSandboxCompose() {
+  const input = byId("aiDialerAgent-sandboxInput");
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  if (isSandboxVoiceMode()) pauseSandboxCapture();
+  const payload = await sendSandboxProspectMessage(text);
+  if (payload) input.value = "";
+  const box = session();
+  if (
+    isSandboxVoiceMode()
+    && box
+    && !box.ended
+    && !box.reply_busy
+    && !isSandboxAgentSpeaking()
+  ) {
+    resumeSandboxCapture();
+  }
+  paintSandboxComposer();
 }
 
 async function startSandbox() {
@@ -98,6 +223,9 @@ async function startSandbox() {
   }
   const box = session();
   if (box.active && !box.ended) return;
+  const interactionMode = readSandboxModeFromUi();
+  localStorage.setItem(SANDBOX_MODE_KEY, interactionMode);
+  box.interactionMode = interactionMode;
   stopSandboxVoice();
   box.active = true;
   box.ended = false;
@@ -106,14 +234,22 @@ async function startSandbox() {
   paintSandboxChrome();
   render();
   try {
+    const sessionWork =
+      interactionMode === "text"
+        ? startSandboxTextPoll(id)
+        : startSandboxVoice(id);
     const [payload] = await Promise.all([
       postJson("/api/ai-agents/sandbox/start", { agent_id: id, prospect: DEFAULT_PROSPECT }),
-      startSandboxVoice(id),
+      sessionWork,
     ]);
     mergeSandboxPayload(payload);
     box.active = true;
     render();
-    showToast("Sandbox live — speak as the prospect.");
+    showToast(
+      interactionMode === "text"
+        ? "Text sandbox live — send messages as the prospect."
+        : "Voice sandbox live — speak or type as the prospect.",
+    );
   } catch (error) {
     showToast(errorText(error, "Could not start sandbox."), true);
     box.active = false;
@@ -135,6 +271,8 @@ export async function resetSandbox() {
   box.transcript_seq = 0;
   box.partialProspect = "";
   box.reply_busy = false;
+  const input = byId("aiDialerAgent-sandboxInput");
+  if (input) input.value = "";
   paintSandboxChrome();
   render();
   try {
@@ -150,10 +288,33 @@ export async function resetSandbox() {
 export function bindSandbox() {
   if (!S.aiSandboxByAgent) S.aiSandboxByAgent = {};
 
+  const saved = localStorage.getItem(SANDBOX_MODE_KEY);
+  if (saved === "text" || saved === "voice") syncSandboxModeToUi(saved);
+
+  for (const input of document.querySelectorAll('input[name="aiDialerAgent-sandboxMode"]')) {
+    input.addEventListener("change", () => {
+      if (isSandboxActive()) return;
+      localStorage.setItem(SANDBOX_MODE_KEY, readSandboxModeFromUi());
+      paintSandboxChrome();
+    });
+  }
+
   byId("aiDialerAgent-sandboxStartButton")?.addEventListener("click", () => {
     startSandbox().catch(() => {});
   });
   byId("aiDialerAgent-sandboxStopButton")?.addEventListener("click", () => {
     resetSandbox().catch(() => {});
   });
+  byId("aiDialerAgent-sandboxComposer")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitSandboxCompose().catch(() => {});
+  });
+  byId("aiDialerAgent-sandboxInput")?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      submitSandboxCompose().catch(() => {});
+    }
+  });
+
+  paintSandboxChrome();
 }

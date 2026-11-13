@@ -20,8 +20,9 @@ class SandboxTests(unittest.TestCase):
         ai_agent_playbook.save_playbook(state, "ava", {"prompt": "Sandbox test prompt."}, "Ava")
         return state
 
+    @patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_chunks", return_value=(["qq==", "qw=="], ""))
     @patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", side_effect=["Hello from Ava", "Sure, tell me more."])
-    def test_start_and_turn(self, _llm):
+    def test_start_and_turn(self, _llm, _tts):
         import time
 
         state = self._state()
@@ -39,6 +40,7 @@ class SandboxTests(unittest.TestCase):
         reply = ai_agent_sandbox.turn(state, "ava", "Not a great time.")
         self.assertEqual(len(reply["transcript"]), 3)
         self.assertEqual(reply["transcript"][-1]["speaker"], "Agent")
+        self.assertEqual(reply.get("chunks"), ["qq==", "qw=="])
 
     def test_reset(self):
         state = self._state()
@@ -54,9 +56,10 @@ class SandboxTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             ai_agent_sandbox.start(state, "ava", None)
 
+    @patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_chunks", return_value=(["qq=="], ""))
     @patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", return_value="Hi")
     @patch("features.ai_agent_sandbox.ai_voice_stt.transcribe_mulaw", return_value="hello there")
-    def test_ingest_flushes_after_speech(self, _stt, _llm):
+    def test_ingest_flushes_after_speech(self, _stt, _llm, _tts):
         import time
 
         state = self._state()

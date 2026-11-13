@@ -149,13 +149,15 @@ def _queue_speech(state, session_id, text, *, speaker="Agent"):
         live_transcript.append_final(
             state, storage, speaker=speaker, text=text, source=TRANSCRIPT_SOURCE_CARTESIA,
         )
-    chunks = ai_voice_cartesia.tts_mulaw_chunks(state.read_settings(), text)
+    chunks, err = ai_voice_cartesia.tts_mulaw_chunks(state.read_settings(), text)
     with state.lock:
         session = state.ai_voice_sessions.get(session_id)
         if not session:
             return
         session["outbound_chunks"].extend(chunks)
-        if not chunks:
+        if err:
+            state.record_activity(err, "error")
+        elif not chunks:
             state.record_activity("AI spoke (text only — add CARTESIA_API_KEY for audio)", "call")
 
 

@@ -110,7 +110,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .6); backdrop-filter: blur(3px); }
 .form-footnote { margin: 13px 0 20px; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .dialog-actions { display: flex; justify-content: end; gap: 8px; padding-top: 15px; border-top: 1px solid var(--line); }
 .audio-settings { margin-top: 19px; padding-top: 17px; border-top: 1px solid var(--line); }
-.call-flow-settings { margin-top: 19px; padding: 17px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.audio-settings-first { margin-top: 14px; padding-top: 0; border-top: none; }
+.call-flow-settings { margin-top: 19px; padding: 17px 0; border-top: 1px solid var(--line); }
+.settings-api-stack { margin-top: 19px; padding: 17px 0 4px; border-top: 1px solid var(--line); }
+.settings-api-hint { margin: 0 0 10px; }
+.settings-collapsible { color: var(--ink-secondary); font-size: 11px; }
+.settings-collapsible + .settings-collapsible { margin-top: 0; border-top: 1px solid var(--line); }
+.settings-collapsible > summary { padding: 14px 0 3px; color: var(--ink); cursor: pointer; font-weight: 590; list-style: none; }
+.settings-collapsible > summary::-webkit-details-marker { display: none; }
+.settings-api-stack .arcade-settings { margin-top: 0; border-top: none; }
 .call-flow-settings textarea { width: 100%; resize: vertical; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--canvas); color: var(--ink); font: inherit; font-size: 12px; line-height: 1.5; }
 .call-flow-settings textarea:focus { border-color: var(--primary); outline: none; box-shadow: var(--focus-ring); }
 .sound-setting { display: flex; align-items: center; gap: 8px; margin: 13px 0; color: var(--ink-secondary); font-size: 11px; }

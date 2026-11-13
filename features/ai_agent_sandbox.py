@@ -54,25 +54,27 @@ def _bump_transcript(session, line):
     session["transcript_seq"] = int(session.get("transcript_seq") or 0) + 1
 
 
-def _queue_speech(state, agent_id, text):
+def _synthesize_agent_speech(state, agent_id, text):
+    """Cartesia TTS for sandbox; chunks are returned to the client and marked consumed in the session."""
     text = str(text or "").strip()
     if not text:
-        return
-
-    def _synthesize():
-        chunks = ai_voice_cartesia.tts_mulaw_chunks(state.read_settings(), text)
-        with state.lock:
-            session = state.ai_sandbox_sessions.get(agent_id)
-            if not session:
-                return
-            session.setdefault("outbound_chunks", []).extend(chunks)
-            if not chunks:
-                state.record_activity(
-                    "Sandbox agent spoke (text only — add CARTESIA_API_KEY for audio)",
-                    "dialer",
-                )
-
-    threading.Thread(target=_synthesize, daemon=True).start()
+        return []
+    chunks, err = ai_voice_cartesia.tts_sandbox_chunks(state.read_settings(), text)
+    with state.lock:
+        session = state.ai_sandbox_sessions.get(agent_id)
+        if not session:
+            return []
+        session.setdefault("outbound_chunks", []).extend(chunks)
+        session["outbound_cursor"] = len(session.get("outbound_chunks") or [])
+        session["outbound_audio"] = dict(ai_voice_cartesia.SANDBOX_AUDIO_META)
+    if err:
+        state.record_activity(f"Sandbox: {err}", "error")
+    elif not chunks:
+        state.record_activity(
+            "Sandbox: Cartesia returned no audio (check CARTESIA_API_KEY / voice id in Settings).",
+            "error",
+        )
+    return chunks
 
 
 def _opening_reply(state, system_prompt):
@@ -112,12 +114,12 @@ def _apply_agent_reply(state, agent_id, reply):
     with state.lock:
         session = state.ai_sandbox_sessions.get(agent_id)
         if not session:
-            return False, ""
+            return False, "", []
         session["messages"].append({"role": "assistant", "content": reply})
         _bump_transcript(session, _transcript_line("Agent", reply))
         session["ended"] = "[end_call]" in lowered
-    _queue_speech(state, agent_id, reply)
-    return True, reply
+    audio_chunks = _synthesize_agent_speech(state, agent_id, reply)
+    return True, reply, audio_chunks
 
 
 def _prospect_turn(state, agent_id, text, *, from_stt=False):
@@ -149,8 +151,8 @@ def _prospect_turn(state, agent_id, text, *, from_stt=False):
             state.record_activity(f"Sandbox AI reply failed: {exc}", "error")
             return _public(state, agent_id)
         raise ValueError(str(exc)) from exc
-    _apply_agent_reply(state, agent_id, reply)
-    return _public(state, agent_id)
+    _ok, _reply, audio_chunks = _apply_agent_reply(state, agent_id, reply)
+    return _public(state, agent_id, audio_chunks=audio_chunks)
 
 
 def _boot_session(state, agent_id, system, prospect):
@@ -163,7 +165,7 @@ def _boot_session(state, agent_id, system, prospect):
         session["transcript"] = [_transcript_line("Agent", opening)]
         session["transcript_seq"] = 1
         session["booting"] = False
-    _queue_speech(state, agent_id, opening)
+    _synthesize_agent_speech(state, agent_id, opening)
 
 
 def start(state, agent_id, prospect=None):
@@ -270,6 +272,14 @@ def _transcribe_and_turn(state, agent_id, utterance):
                 session["reply_busy"] = False
 
 
+def _audio_meta(session):
+    meta = dict(session.get("outbound_audio") or ai_voice_cartesia.SANDBOX_AUDIO_META)
+    return {
+        "audio_encoding": str(meta.get("audio_encoding") or "pcm_s16le"),
+        "audio_sample_rate": int(meta.get("audio_sample_rate") or ai_voice_cartesia.SANDBOX_AUDIO_META["audio_sample_rate"]),
+    }
+
+
 def stream_sync(state, agent_id):
     agent_id = str(agent_id or "").strip()
     with state.lock:
@@ -294,6 +304,7 @@ def stream_sync(state, agent_id):
             "transcript_seq": int(session.get("transcript_seq") or 0),
             "reply_busy": bool(session.get("reply_busy") or session.get("booting")),
             "booting": bool(session.get("booting")),
+            **_audio_meta(session),
         }
 
 
@@ -304,12 +315,12 @@ def reset(state, agent_id):
     return {"agent_id": agent_id, "active": False, "transcript": [], "messages": []}
 
 
-def _public(state, agent_id):
+def _public(state, agent_id, audio_chunks=None):
     with state.lock:
         session = state.ai_sandbox_sessions.get(agent_id)
     if not session:
         return {"agent_id": agent_id, "active": False, "transcript": [], "messages": []}
-    return {
+    payload = {
         "agent_id": agent_id,
         "active": True,
         "ended": bool(session.get("ended")),
@@ -320,6 +331,10 @@ def _public(state, agent_id):
         "reply_busy": bool(session.get("reply_busy") or session.get("booting")),
         "booting": bool(session.get("booting")),
     }
+    if audio_chunks:
+        payload["chunks"] = list(audio_chunks)
+    payload.update(_audio_meta(session))
+    return payload
 
 
 def active_for_agent(state, agent_id):

@@ -4,6 +4,7 @@ import { postJson, request } from "../../_core/api.js";
 import { render } from "../../core.js";
 import { showToast } from "../../_core/notify.js";
 import { errorText } from "../../_core/notify.js";
+import { sendSandboxProspectMessage } from "./sandbox.js";
 import { drawSandboxWaveform } from "../_dialer/card.js";
 import { routeTestAudio } from "../_dialer/_voice/devices.js";
 
@@ -42,6 +43,7 @@ function voiceState() {
       playbackNode: null,
       agentGain: null,
       pollActive: false,
+      textOnly: false,
     };
   }
   return S.sandboxVoice;
@@ -59,6 +61,8 @@ function mergeSyncPayload(agentId, payload) {
   box.ended = Boolean(payload.ended);
   box.reply_busy = Boolean(payload.reply_busy);
   box.booting = Boolean(payload.booting);
+  if (payload.audio_encoding) box.audio_encoding = payload.audio_encoding;
+  if (payload.audio_sample_rate) box.audio_sample_rate = payload.audio_sample_rate;
   if (!box.partialProspect) box.partialProspect = "";
 }
 
@@ -197,6 +201,46 @@ async function playMulawBase64(payload) {
   });
 }
 
+async function playPcm16Base64(payload, sampleRate) {
+  const context = await ensureAudioContext();
+  const voice = voiceState();
+  const raw = Uint8Array.from(atob(payload), (char) => char.charCodeAt(0));
+  const sampleCount = Math.floor(raw.length / 2);
+  const pcm = new Float32Array(sampleCount);
+  const view = new DataView(raw.buffer, raw.byteOffset, sampleCount * 2);
+  for (let index = 0; index < sampleCount; index += 1) {
+    pcm[index] = view.getInt16(index * 2, true) / 32768;
+  }
+  const buffer = context.createBuffer(1, sampleCount, sampleRate);
+  buffer.copyToChannel(pcm, 0);
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  const sink = voice.agentGain || context.destination;
+  source.connect(sink);
+  await new Promise((resolve) => {
+    source.onended = () => resolve();
+    source.start();
+  });
+}
+
+async function playSandboxAudioBase64(payload, meta) {
+  const encoding = String(meta?.encoding || "pcm_s16le");
+  const sampleRate = Number(meta?.sampleRate || 24000);
+  if (encoding === "pcm_mulaw") {
+    await playMulawBase64(payload);
+    return;
+  }
+  await playPcm16Base64(payload, sampleRate);
+}
+
+function sandboxPlaybackMeta(agentId) {
+  const box = sandboxBox(agentId);
+  return {
+    encoding: box?.audio_encoding || "pcm_s16le",
+    sampleRate: Number(box?.audio_sample_rate || 24000),
+  };
+}
+
 function pauseRecognition() {
   const voice = voiceState();
   voice.recognitionWanted = false;
@@ -221,29 +265,45 @@ function resumeRecognition(agentId) {
   }
 }
 
+export function syncSandboxVoiceTranscriptSeq(seq) {
+  const voice = voiceState();
+  if (seq != null) voice.lastTranscriptSeq = seq;
+}
+
+export function pauseSandboxCapture() {
+  pauseRecognition();
+  voiceState().capturePaused = true;
+}
+
+export function resumeSandboxCapture() {
+  const voice = voiceState();
+  voice.capturePaused = false;
+  resumeRecognition(voice.agentId);
+}
+
+export function isSandboxAgentSpeaking() {
+  const voice = voiceState();
+  return Boolean(voice.agentSpeaking || voice.playing);
+}
+
 async function sendProspectFinal(agentId, text) {
   const box = sandboxBox(agentId);
   if (!box || box.ended || box.reply_busy) return;
-  pauseRecognition();
-  box.partialProspect = "";
-  box.reply_busy = true;
-  render();
+  pauseSandboxCapture();
   try {
-    const payload = await postJson("/api/ai-agents/sandbox/turn", { agent_id: agentId, text });
-    mergeSyncPayload(agentId, payload);
-    voiceState().lastTranscriptSeq = payload.transcript_seq || voiceState().lastTranscriptSeq;
-    if (payload.ended) showToast("Agent ended the call ([END_CALL]).");
-    render();
-  } catch (error) {
-    showToast(errorText(error, "Agent could not reply."), true);
-    box.reply_busy = false;
-    render();
+    const payload = await sendSandboxProspectMessage(text);
+    if (payload) {
+      mergeSyncPayload(agentId, payload);
+      syncSandboxVoiceTranscriptSeq(payload.transcript_seq);
+    }
   } finally {
-    if (!box.ended && !box.reply_busy) resumeRecognition(agentId);
-    else if (!box.ended) {
+    const latest = sandboxBox(agentId);
+    if (latest && !latest.ended && !latest.reply_busy) {
+      resumeSandboxCapture();
+    } else if (latest && !latest.ended) {
       window.setTimeout(() => {
-        const latest = sandboxBox(agentId);
-        if (latest && !latest.reply_busy && !latest.ended) resumeRecognition(agentId);
+        const again = sandboxBox(agentId);
+        if (again && !again.reply_busy && !again.ended) resumeSandboxCapture();
       }, 300);
     }
   }
@@ -315,16 +375,18 @@ async function drainPlayQueue() {
   pauseRecognition();
   paintSandboxVoiceChrome();
   try {
+    const meta = sandboxPlaybackMeta(voice.agentId);
     while (voice.playQueue.length) {
       const chunk = voice.playQueue.shift();
-      await playMulawBase64(chunk);
+      await playSandboxAudioBase64(chunk, meta);
     }
   } finally {
     voice.playing = false;
     voice.agentSpeaking = false;
     voice.capturePaused = false;
     paintSandboxVoiceChrome();
-    resumeRecognition(voice.agentId);
+    const box = sandboxBox(voice.agentId);
+    if (!voice.textOnly && box && !box.ended && !box.reply_busy) resumeSandboxCapture();
   }
 }
 
@@ -332,6 +394,14 @@ function enqueuePlayback(chunks) {
   if (!chunks?.length) return;
   voiceState().playQueue.push(mergeMulawChunksBase64(chunks));
   drainPlayQueue().catch(() => {});
+}
+
+export function playSandboxOutboundChunks(chunks) {
+  enqueuePlayback(chunks);
+}
+
+export async function ensureSandboxPlayback() {
+  await ensureAudioContext();
 }
 
 async function pollSandboxSync(agentId) {
@@ -352,8 +422,16 @@ async function pollSandboxSync(agentId) {
     if (payload.ended) {
       if (box) box.active = false;
       stopSandboxVoiceKeepServer();
-    }
-    if (box && !box.reply_busy && !box.ended && !voice.capturePaused) {
+    } else if (
+      !voice.textOnly
+      && box
+      && !box.reply_busy
+      && !box.ended
+      && !voice.capturePaused
+      && !voice.agentSpeaking
+      && !voice.playing
+      && !payload.chunks?.length
+    ) {
       resumeRecognition(agentId);
     }
   } catch {
@@ -403,6 +481,7 @@ function stopSandboxVoiceKeepServer() {
   voice.pendingMulaw = [];
   voice.playQueue = [];
   voice.agentId = "";
+  voice.textOnly = false;
   voice.playing = false;
   voice.agentSpeaking = false;
   voice.capturePaused = false;
@@ -425,7 +504,9 @@ export function paintSandboxVoiceChrome() {
   const active = Boolean(voice.agentId);
   if (status) {
     if (!active && !box?.active) {
-      status.textContent = "Press Start — agent opens immediately; your words appear as you speak.";
+      status.textContent = voice.textOnly
+        ? "Choose Text chat and Start — no mic or speaker session."
+        : "Choose Live voice and Start — mic and agent audio use your Settings devices.";
     } else if (ended) {
       status.textContent = "Call ended — press Start to rehearse again or Stop to exit.";
     } else if (voice.agentSpeaking) {
@@ -434,6 +515,8 @@ export function paintSandboxVoiceChrome() {
       status.textContent = "Agent connecting…";
     } else if (box?.reply_busy) {
       status.textContent = "Agent thinking…";
+    } else if (voice.textOnly) {
+      status.textContent = "Text chat — you hear the agent; mic stays off.";
     } else if (voice.useMulawFallback) {
       status.textContent = "Mic live — speak, then pause briefly (browser speech assist off).";
     } else {
@@ -442,42 +525,8 @@ export function paintSandboxVoiceChrome() {
   }
 }
 
-export async function startSandboxVoice(agentId) {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error("Microphone access is not available in this browser.");
-  }
-  await ensureAudioContext();
+function beginSandboxPolling(agentId) {
   const voice = voiceState();
-  stopSandboxVoice();
-  voice.agentId = agentId;
-  const box = sandboxBox(agentId);
-  voice.lastTranscriptSeq = box?.transcript_seq || 0;
-  voice.micStream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-  });
-  const context = voice.audioContext;
-  voice.micSource = context.createMediaStreamSource(voice.micStream);
-  voice.analyser = context.createAnalyser();
-  voice.analyser.fftSize = 256;
-  voice.micSource.connect(voice.analyser);
-  const bufferSize = 2048;
-  voice.processor = context.createScriptProcessor(bufferSize, 1, 1);
-  voice.processor.onaudioprocess = (event) => {
-    if (!voice.useMulawFallback || voice.capturePaused || voice.agentId !== agentId) return;
-    const input = event.inputBuffer.getChannelData(0);
-    const mulaw = downsampleToMulaw(input, context.sampleRate);
-    if (mulaw.length) voice.pendingMulaw.push(...mulaw);
-  };
-  const sink = context.createGain();
-  sink.gain.value = 0;
-  voice.micSource.connect(voice.processor);
-  voice.processor.connect(sink);
-  sink.connect(context.destination);
-  voice.audioSendWarned = false;
-  bindSpeechRecognition(agentId);
-  voice.sendTimer = window.setInterval(() => {
-    flushMicBatch(agentId).catch(() => {});
-  }, SEND_BATCH_MS);
   voice.pollActive = true;
   const pollMs = () => (sandboxBox(agentId)?.booting ? 60 : 120);
   const schedulePoll = () => {
@@ -491,7 +540,65 @@ export async function startSandboxVoice(agentId) {
       });
   };
   schedulePoll();
-  startWaveformPaint();
+}
+
+export async function startSandboxTextPoll(agentId) {
+  await ensureAudioContext();
+  const voice = voiceState();
+  stopSandboxVoice();
+  voice.agentId = agentId;
+  voice.textOnly = true;
+  voice.lastTranscriptSeq = sandboxBox(agentId)?.transcript_seq || 0;
+  beginSandboxPolling(agentId);
+  paintSandboxVoiceChrome();
+  await pollSandboxSync(agentId);
+}
+
+export async function startSandboxVoice(agentId) {
+  await ensureAudioContext();
+  const voice = voiceState();
+  stopSandboxVoice();
+  voice.agentId = agentId;
+  voice.textOnly = false;
+  const box = sandboxBox(agentId);
+  voice.lastTranscriptSeq = box?.transcript_seq || 0;
+  voice.audioSendWarned = false;
+  if (navigator.mediaDevices?.getUserMedia) {
+    try {
+      voice.micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const context = voice.audioContext;
+      voice.micSource = context.createMediaStreamSource(voice.micStream);
+      voice.analyser = context.createAnalyser();
+      voice.analyser.fftSize = 256;
+      voice.micSource.connect(voice.analyser);
+      const bufferSize = 2048;
+      voice.processor = context.createScriptProcessor(bufferSize, 1, 1);
+      voice.processor.onaudioprocess = (event) => {
+        if (!voice.useMulawFallback || voice.capturePaused || voice.agentId !== agentId) return;
+        const input = event.inputBuffer.getChannelData(0);
+        const mulaw = downsampleToMulaw(input, context.sampleRate);
+        if (mulaw.length) voice.pendingMulaw.push(...mulaw);
+      };
+      const sink = context.createGain();
+      sink.gain.value = 0;
+      voice.micSource.connect(voice.processor);
+      voice.processor.connect(sink);
+      sink.connect(context.destination);
+      bindSpeechRecognition(agentId);
+      voice.sendTimer = window.setInterval(() => {
+        flushMicBatch(agentId).catch(() => {});
+      }, SEND_BATCH_MS);
+      startWaveformPaint();
+    } catch (error) {
+      voice.useMulawFallback = true;
+      showToast(errorText(error, "Mic unavailable — type messages or allow microphone access."), true);
+    }
+  } else {
+    voice.useMulawFallback = true;
+  }
+  beginSandboxPolling(agentId);
   paintSandboxVoiceChrome();
   await pollSandboxSync(agentId);
 }

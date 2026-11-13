@@ -138,8 +138,8 @@
         >
           <header class="ai-sandbox-head">
             <div>
-              <h3 class="ai-panel-label">Voice sandbox</h3>
-              <p id="aiDialerAgent-sandboxVoiceStatus" class="ai-sandbox-hint">Speak as the prospect with your mic — same AI voice stack as live calls.</p>
+              <h3 class="ai-panel-label">Sandbox</h3>
+              <p id="aiDialerAgent-sandboxVoiceStatus" class="ai-sandbox-hint">Rehearse as the prospect — live voice or text-only chat.</p>
             </div>
             <div class="ai-sandbox-controls dialer-controls">
               <button type="button" id="aiDialerAgent-sandboxStartButton" class="button button-primary">Start</button>
@@ -147,7 +147,19 @@
             </div>
           </header>
 
-          <section class="ai-sandbox-audio-test" aria-label="Mic level and headphone check only">
+          <fieldset class="ai-sandbox-mode" id="aiDialerAgent-sandboxModeFieldset" aria-label="Sandbox interaction mode">
+            <legend class="ai-sandbox-mode-legend">Mode</legend>
+            <label class="ai-sandbox-mode-option">
+              <input type="radio" name="aiDialerAgent-sandboxMode" id="aiDialerAgent-sandboxModeVoice" value="voice" checked>
+              <span>Live voice</span>
+            </label>
+            <label class="ai-sandbox-mode-option">
+              <input type="radio" name="aiDialerAgent-sandboxMode" id="aiDialerAgent-sandboxModeText" value="text">
+              <span>Text chat (agent still speaks)</span>
+            </label>
+          </fieldset>
+
+          <section class="ai-sandbox-audio-test" id="aiDialerAgent-sandboxAudioTest" aria-label="Mic level and headphone check only">
             <h4 class="ai-sandbox-audio-title">Mic level check (not the sandbox call)</h4>
             <p class="ai-sandbox-hint">Use this before Start to confirm input volume and headphones. It does not talk to the agent.</p>
             <div class="ai-sandbox-audio-actions">
@@ -157,14 +169,23 @@
             <p id="aiDialerAgent-sandboxAudioTestStatus" class="ai-sandbox-hint" role="status"></p>
             <span id="aiDialerAgent-sandboxMicMeter" class="ai-sandbox-mic-pill">Input level 0%</span>
             <audio id="aiDialerAgent-sandboxTestPlayback" class="ai-sandbox-test-playback" hidden controls></audio>
-            <audio id="aiDialerAgent-sandboxAgentPlayback" class="ai-sandbox-test-playback" hidden autoplay playsinline></audio>
           </section>
+          <audio id="aiDialerAgent-sandboxAgentPlayback" class="ai-sandbox-agent-playback" hidden autoplay playsinline></audio>
 
           <div class="ai-live-viewport ai-sandbox-viewport">
             <div id="aiDialerAgent-sandboxTranscript" class="ai-chat-thread" role="log" aria-live="polite" aria-label="Sandbox transcript">
               <p class="transcript-empty">Start the sandbox to rehearse with the agent.</p>
             </div>
-            <div class="ai-waveform-rail" aria-hidden="true">
+            <form id="aiDialerAgent-sandboxComposer" class="ai-sandbox-composer" hidden>
+              <p id="aiDialerAgent-sandboxComposerHint" class="ai-sandbox-hint">You are the prospect — type a line or use your mic.</p>
+              <div class="ai-sandbox-compose-row">
+                <textarea id="aiDialerAgent-sandboxInput" rows="2" maxlength="2000" placeholder="Type what the prospect says…" aria-label="Prospect message" disabled></textarea>
+                <div class="ai-sandbox-compose-actions">
+                  <button type="submit" id="aiDialerAgent-sandboxSend" class="button button-primary" disabled>Send</button>
+                </div>
+              </div>
+            </form>
+            <div class="ai-waveform-rail" id="aiDialerAgent-sandboxWaveformRail" aria-hidden="true">
               <canvas id="aiDialerAgent-sandboxWaveform" height="48" width="640" role="img" aria-label="Sandbox mic activity"></canvas>
               <output id="aiDialerAgent-sandboxAudioLevel" class="visually-hidden">0%</output>
             </div>
