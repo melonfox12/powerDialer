@@ -111,7 +111,7 @@ function settingsPayload() {
     openai_api_key: byId("openaiKeyInput").value,
     ai_llm_model: byId("aiLlmModelInput").value,
     cartesia_api_key: byId("cartesiaKeyInput").value,
-    cartesia_voice_id: byId("cartesiaVoiceInput").value,
+    cartesia_voice_id: byId("cartesiaVoiceInput").value.trim(),
     ai_bridge_embedded: byId("aiBridgeEmbeddedInput").checked,
     ai_voicemail_drop: byId("aiVoicemailDropInput").checked,
     ai_voicemail_message: byId("aiVoicemailMessageInput").value,
@@ -165,7 +165,9 @@ export function bindSettings() {
       byId("settingsDialog").close();
       render();
       const cartesiaSaved = settings.has_cartesia_api_key;
-      const detail = cartesiaSaved ? " Cartesia key is on file for AI speech." : "";
+      const voiceId = (settings.cartesia_voice_id || "").trim();
+      let detail = cartesiaSaved ? " Cartesia key is on file for AI speech." : "";
+      if (voiceId) detail += ` Voice id …${voiceId.slice(-8)}.`;
       showToast(
         (settings.account_email ? `Settings saved for ${settings.account_email}` : "Dialer settings saved") + detail,
       );

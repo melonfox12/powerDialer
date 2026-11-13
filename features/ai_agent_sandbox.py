@@ -2,6 +2,7 @@
 
 import base64
 import threading
+import time
 from datetime import datetime, timezone
 
 from features import ai_agent_playbook, ai_agents, ai_voice_cartesia, ai_voice_llm, ai_voice_stt
@@ -158,6 +159,19 @@ def _prospect_turn(state, agent_id, text, *, from_stt=False):
     return _public(state, agent_id, audio_chunks=audio_chunks)
 
 
+def _wait_playback_ready(state, agent_id, timeout=90.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with state.lock:
+            session = state.ai_sandbox_sessions.get(agent_id)
+            if not session:
+                return False
+            if session.get("playback_ready"):
+                return True
+        time.sleep(0.05)
+    return False
+
+
 def _boot_session(state, agent_id, system, prospect):
     opening = _opening_reply(state, system)
     with state.lock:
@@ -167,8 +181,22 @@ def _boot_session(state, agent_id, system, prospect):
         session["messages"] = [{"role": "assistant", "content": opening}]
         session["transcript"] = [_transcript_line("Agent", opening)]
         session["transcript_seq"] = 1
-        session["booting"] = False
+    if not _wait_playback_ready(state, agent_id):
+        state.record_activity("Sandbox: browser speaker path not ready in time", "error")
     _synthesize_agent_speech(state, agent_id, opening)
+    with state.lock:
+        session = state.ai_sandbox_sessions.get(agent_id)
+        if session:
+            session["booting"] = False
+
+
+def mark_playback_ready(state, agent_id):
+    agent_id = str(agent_id or "").strip()
+    with state.lock:
+        session = state.ai_sandbox_sessions.get(agent_id)
+        if session:
+            session["playback_ready"] = True
+    return _public(state, agent_id)
 
 
 def start(state, agent_id, prospect=None):
@@ -195,6 +223,7 @@ def start(state, agent_id, prospect=None):
             "last_prospect_key": "",
             "reply_busy": False,
             "booting": True,
+            "playback_ready": False,
             "ended": False,
         }
     threading.Thread(target=_boot_session, args=(state, agent_id, system, prospect), daemon=True).start()
@@ -297,8 +326,12 @@ def stream_sync(state, agent_id):
                 "reply_busy": False,
             }
         start = int(session.get("outbound_cursor") or 0)
-        chunks = list(session.get("outbound_chunks") or [])[start:]
-        session["outbound_cursor"] = len(session.get("outbound_chunks") or [])
+        pending = list(session.get("outbound_chunks") or [])[start:]
+        if session.get("playback_ready"):
+            chunks = pending
+            session["outbound_cursor"] = len(session.get("outbound_chunks") or [])
+        else:
+            chunks = []
         return {
             "agent_id": agent_id,
             "chunks": chunks,

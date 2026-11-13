@@ -28,10 +28,11 @@ class SandboxTests(unittest.TestCase):
         state = self._state()
         opened = ai_agent_sandbox.start(state, "ava", {"name": "Pat"})
         self.assertTrue(opened["active"])
+        ai_agent_sandbox.mark_playback_ready(state, "ava")
         snapshot = opened
         for _ in range(40):
             snapshot = ai_agent_sandbox.stream_sync(state, "ava")
-            if len(snapshot.get("transcript") or []) >= 1:
+            if len(snapshot.get("transcript") or []) >= 1 and snapshot.get("chunks"):
                 break
             time.sleep(0.02)
         self.assertEqual(len(snapshot["transcript"]), 1)
@@ -49,6 +50,7 @@ class SandboxTests(unittest.TestCase):
         with patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_chunks", return_value=(["qq=="], "")):
             with patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", return_value="Hi there"):
                 ai_agent_sandbox.start(state, "ava", None)
+                ai_agent_sandbox.mark_playback_ready(state, "ava")
                 for _ in range(50):
                     if state.ai_sandbox_sessions.get("ava", {}).get("booting") is False:
                         break
@@ -60,6 +62,7 @@ class SandboxTests(unittest.TestCase):
         state = self._state()
         with patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", return_value="Hi"):
             ai_agent_sandbox.start(state, "ava", None)
+            ai_agent_sandbox.mark_playback_ready(state, "ava")
         cleared = ai_agent_sandbox.reset(state, "ava")
         self.assertFalse(cleared["active"])
         self.assertEqual(state.ai_sandbox_sessions, {})
@@ -78,6 +81,7 @@ class SandboxTests(unittest.TestCase):
 
         state = self._state()
         ai_agent_sandbox.start(state, "ava", None)
+        ai_agent_sandbox.mark_playback_ready(state, "ava")
         for _ in range(40):
             if state.ai_sandbox_sessions.get("ava", {}).get("booting") is False:
                 break

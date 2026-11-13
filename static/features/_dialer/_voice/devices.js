@@ -49,6 +49,18 @@ export async function routeTestAudio(audioElement) {
   }
 }
 
+/** When supported, route Web Audio straight to the selected output (avoids MediaStream→<audio> drift). */
+export async function routeAudioContextOutput(context) {
+  const outputId = byId("audioOutputSelect")?.value || "default";
+  if (!context || typeof context.setSinkId !== "function") return false;
+  try {
+    await context.setSinkId(outputId === "default" ? "" : outputId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function twilioHasDevice(collection, id) {
   if (!collection || !id) return false;
   if (typeof collection.has === "function") return collection.has(id);

@@ -523,6 +523,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/ai-agents/sandbox/turn"),
     ("GET", "/api/ai-agents/sandbox/sync"),
     ("POST", "/api/ai-agents/sandbox/audio"),
+    ("POST", "/api/ai-agents/sandbox/playback-ready"),
     ("GET", "/api/ai-voice/bootstrap"),
     ("POST", "/api/ai-voice/inbound"),
     ("POST", "/api/ai-voice/stream-started"),

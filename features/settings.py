@@ -32,6 +32,8 @@ def preferences(values):
         provided = str(values[key] if values.get(key) is not None else "").strip()
         if key == "OPENING_SCRIPT":
             result[key] = str(values.get(key) or "")
+        elif key == "CARTESIA_VOICE_ID":
+            result[key] = provided
         elif provided:
             result[key] = provided
     for key, minimum, maximum in (

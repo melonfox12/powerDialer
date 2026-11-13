@@ -10,10 +10,12 @@ import {
   isSandboxAgentSpeaking,
   pauseSandboxCapture,
   resumeSandboxCapture,
+  beginSandboxPolling,
   ensureSandboxPlayback,
+  ensureSandboxPlaybackReady,
   playSandboxOutboundChunks,
-  startSandboxTextPoll,
-  startSandboxVoice,
+  prepareSandboxTextSession,
+  prepareSandboxVoiceSession,
   stopSandboxVoice,
   syncSandboxVoiceTranscriptSeq,
   waitForSandboxOpening,
@@ -109,8 +111,12 @@ export async function sendSandboxProspectMessage(text) {
     mergeSandboxPayload(payload);
     syncSandboxVoiceTranscriptSeq(payload.transcript_seq);
     if (payload.chunks?.length) {
-      await ensureSandboxPlayback();
-      playSandboxOutboundChunks(payload.chunks);
+      try {
+        await ensureSandboxPlayback();
+        playSandboxOutboundChunks(payload.chunks);
+      } catch (playbackError) {
+        showToast(errorText(playbackError, "Agent replied, but speaker audio could not play."), true);
+      }
     }
     if (payload.ended) showToast("Agent ended the call ([END_CALL]).");
     render();
@@ -235,16 +241,20 @@ async function startSandbox() {
   paintSandboxChrome();
   render();
   try {
-    const sessionWork =
-      interactionMode === "text"
-        ? startSandboxTextPoll(id)
-        : startSandboxVoice(id);
-    const [payload] = await Promise.all([
-      postJson("/api/ai-agents/sandbox/start", { agent_id: id, prospect: DEFAULT_PROSPECT }),
-      sessionWork,
-    ]);
+    if (interactionMode === "text") {
+      await prepareSandboxTextSession(id);
+    } else {
+      await prepareSandboxVoiceSession(id);
+    }
+    const payload = await postJson("/api/ai-agents/sandbox/start", {
+      agent_id: id,
+      prospect: DEFAULT_PROSPECT,
+    });
+    await ensureSandboxPlaybackReady({ force: true });
+    await postJson("/api/ai-agents/sandbox/playback-ready", { agent_id: id });
     mergeSandboxPayload(payload);
     box.active = true;
+    beginSandboxPolling(id);
     render();
     await waitForSandboxOpening(id);
     render();

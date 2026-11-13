@@ -2,11 +2,17 @@
 
 import base64
 import json
+import re
 import urllib.error
 import urllib.request
 
 from shared.infra import debug_event
 from shared.vocabulary import CARTESIA_SANDBOX_SAMPLE_RATE, CARTESIA_TTS_MODEL
+
+_UUID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
+_DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"
 
 
 def _parse_error_detail(raw):
@@ -22,11 +28,22 @@ def _parse_error_detail(raw):
     return raw[:200]
 
 
-def _voice_spec(settings):
-    voice_id = str((settings or {}).get("CARTESIA_VOICE_ID") or "").strip()
-    if voice_id:
-        return {"mode": "id", "id": voice_id}
-    return {"mode": "id", "id": "a0e99841-438c-4a64-b679-ae501e7d6091"}
+def _normalize_voice_id(raw):
+    voice_id = str(raw or "").strip().strip('"').strip("'")
+    if not voice_id:
+        return ""
+    if _UUID_RE.match(voice_id):
+        return voice_id.lower()
+    return ""
+
+
+def _voice_id(settings):
+    """Cartesia API (2026-08-14) expects voice as a UUID string or {\"id\": \"...\"}, not legacy mode/id."""
+    raw = str((settings or {}).get("CARTESIA_VOICE_ID") or "").strip()
+    custom = _normalize_voice_id(raw)
+    if raw and not custom:
+        debug_event("warn", "cartesia voice", f"invalid CARTESIA_VOICE_ID {raw[:40]!r}; using default voice")
+    return custom or _DEFAULT_VOICE_ID
 
 
 def _fetch_tts_bytes(settings, text, *, encoding, sample_rate):
@@ -37,16 +54,19 @@ def _fetch_tts_bytes(settings, text, *, encoding, sample_rate):
     if not key:
         return b"", "Cartesia API key is missing — add CARTESIA_API_KEY in Settings."
     model_id = str((settings or {}).get("CARTESIA_TTS_MODEL") or CARTESIA_TTS_MODEL).strip() or CARTESIA_TTS_MODEL
+    voice_id = _voice_id(settings)
     payload = {
         "model_id": model_id,
         "transcript": text,
-        "voice": _voice_spec(settings),
+        "voice": voice_id,
         "output_format": {
             "container": "raw",
             "encoding": encoding,
             "sample_rate": sample_rate,
         },
     }
+    if _normalize_voice_id((settings or {}).get("CARTESIA_VOICE_ID")):
+        debug_event("cartesia", "tts", f"model={model_id} voice=…{voice_id[-8:]} rate={sample_rate}")
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
         "https://api.cartesia.ai/tts/bytes",

@@ -237,6 +237,7 @@ class AppHandler(HandlerMixin, BaseHTTPRequestHandler):
                 dialer.post_ai_sandbox_turn,
                 dialer.post_ai_sandbox_reset,
                 dialer.post_ai_sandbox_audio,
+                dialer.post_ai_sandbox_playback_ready,
             ):
                 handler(self, self.read_json(body))
             else:

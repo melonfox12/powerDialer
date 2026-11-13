@@ -6,7 +6,7 @@ import { showToast } from "../../_core/notify.js";
 import { errorText } from "../../_core/notify.js";
 import { sendSandboxProspectMessage } from "./sandbox.js";
 import { drawSandboxWaveform } from "../_dialer/card.js";
-import { routeTestAudio } from "../_dialer/_voice/devices.js";
+import { routeAudioContextOutput, routeTestAudio } from "../_dialer/_voice/devices.js";
 
 const TARGET_RATE = 8000;
 const MULAW_BIAS = 0x84;
@@ -44,6 +44,9 @@ function voiceState() {
       agentGain: null,
       pollActive: false,
       textOnly: false,
+      playbackArmed: false,
+      listenerReady: false,
+      deferredPlayback: [],
     };
   }
   return S.sandboxVoice;
@@ -138,14 +141,22 @@ function startWaveformPaint() {
 
 async function ensureAgentPlaybackRoute() {
   const voice = voiceState();
-  if (!voice.audioContext || voice.playbackNode) return;
-  voice.playbackNode = voice.audioContext.createMediaStreamDestination();
+  if (!voice.audioContext || voice.agentOutputRouted) return;
   voice.agentGain = voice.audioContext.createGain();
   voice.agentGain.gain.value = Number(byId("testVolumeInput")?.value || 100) / 100;
+  const direct = await routeAudioContextOutput(voice.audioContext);
+  if (direct) {
+    voice.agentGain.connect(voice.audioContext.destination);
+    voice.agentOutputDirect = true;
+    voice.agentOutputRouted = true;
+    return;
+  }
+  voice.playbackNode = voice.audioContext.createMediaStreamDestination();
   voice.agentGain.connect(voice.playbackNode);
   voice.playbackEl = byId("aiDialerAgent-sandboxAgentPlayback");
   if (voice.playbackEl) {
     voice.playbackEl.srcObject = voice.playbackNode.stream;
+    voice.playbackEl.playbackRate = 1;
     await routeTestAudio(voice.playbackEl);
     try {
       await voice.playbackEl.play();
@@ -153,6 +164,8 @@ async function ensureAgentPlaybackRoute() {
       /* gesture already happened on Start */
     }
   }
+  voice.agentOutputDirect = false;
+  voice.agentOutputRouted = true;
 }
 
 async function ensureAudioContext() {
@@ -167,7 +180,7 @@ async function ensureAudioContext() {
   return voice.audioContext;
 }
 
-function mergeMulawChunksBase64(chunks) {
+function mergeAudioChunksBase64(chunks) {
   if (!chunks?.length) return "";
   if (chunks.length === 1) return chunks[0];
   const parts = chunks.map((chunk) => Uint8Array.from(atob(chunk), (char) => char.charCodeAt(0)));
@@ -179,6 +192,10 @@ function mergeMulawChunksBase64(chunks) {
     offset += part.length;
   }
   return bytesToBase64(merged);
+}
+
+function mergeMulawChunksBase64(chunks) {
+  return mergeAudioChunksBase64(chunks);
 }
 
 async function playMulawBase64(payload) {
@@ -201,18 +218,24 @@ async function playMulawBase64(payload) {
   });
 }
 
-async function playPcm16Base64(payload, sampleRate) {
-  const context = await ensureAudioContext();
-  const voice = voiceState();
+function decodePcm16Base64(payload, context, sampleRate) {
   const raw = Uint8Array.from(atob(payload), (char) => char.charCodeAt(0));
-  const sampleCount = Math.floor(raw.length / 2);
+  const usable = raw.length - (raw.length % 2);
+  const sampleCount = usable / 2;
   const pcm = new Float32Array(sampleCount);
-  const view = new DataView(raw.buffer, raw.byteOffset, sampleCount * 2);
+  const view = new DataView(raw.buffer, raw.byteOffset, usable);
   for (let index = 0; index < sampleCount; index += 1) {
     pcm[index] = view.getInt16(index * 2, true) / 32768;
   }
   const buffer = context.createBuffer(1, sampleCount, sampleRate);
   buffer.copyToChannel(pcm, 0);
+  return buffer;
+}
+
+async function playPcm16Base64(payload, sampleRate) {
+  const context = await ensureAudioContext();
+  const voice = voiceState();
+  const buffer = decodePcm16Base64(payload, context, sampleRate);
   const source = context.createBufferSource();
   source.buffer = buffer;
   const sink = voice.agentGain || context.destination;
@@ -375,10 +398,30 @@ async function drainPlayQueue() {
   pauseRecognition();
   paintSandboxVoiceChrome();
   try {
+    const context = await ensureAudioContext();
+    await context.resume();
     const meta = sandboxPlaybackMeta(voice.agentId);
+    const sink = voice.agentGain || context.destination;
+    let scheduleAt = context.currentTime + 0.06;
     while (voice.playQueue.length) {
-      const chunk = voice.playQueue.shift();
-      await playSandboxAudioBase64(chunk, meta);
+      const batch = voice.playQueue.splice(0, voice.playQueue.length);
+      const merged = mergeAudioChunksBase64(batch);
+      if (!merged) continue;
+      if (String(meta.encoding || "pcm_s16le") === "pcm_mulaw") {
+        await playMulawBase64(merged);
+        continue;
+      }
+      const sampleRate = Number(meta.sampleRate || 24000);
+      const buffer = decodePcm16Base64(merged, context, sampleRate);
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(sink);
+      const startAt = Math.max(scheduleAt, context.currentTime + 0.02);
+      await new Promise((resolve) => {
+        source.onended = () => resolve();
+        source.start(startAt);
+      });
+      scheduleAt = startAt + buffer.duration;
     }
   } finally {
     voice.playing = false;
@@ -392,7 +435,14 @@ async function drainPlayQueue() {
 
 function enqueuePlayback(chunks) {
   if (!chunks?.length) return;
-  voiceState().playQueue.push(mergeMulawChunksBase64(chunks));
+  const voice = voiceState();
+  const merged = mergeAudioChunksBase64(chunks);
+  if (!merged) return;
+  if (!voice.listenerReady) {
+    voice.deferredPlayback.push(merged);
+    return;
+  }
+  voice.playQueue.push(merged);
   drainPlayQueue().catch(() => {});
 }
 
@@ -401,7 +451,75 @@ export function playSandboxOutboundChunks(chunks) {
 }
 
 export async function ensureSandboxPlayback() {
-  await ensureAudioContext();
+  await ensureSandboxPlaybackReady();
+}
+
+function flushDeferredPlayback() {
+  const voice = voiceState();
+  if (!voice.listenerReady || !voice.deferredPlayback.length) return;
+  const pending = voice.deferredPlayback.splice(0, voice.deferredPlayback.length);
+  for (const chunk of pending) {
+    if (chunk) voice.playQueue.push(chunk);
+  }
+  if (voice.playQueue.length) drainPlayQueue().catch(() => {});
+}
+
+const LISTENER_SETTLE_MS = 120;
+
+async function waitForSandboxMediaListener(voice) {
+  if (voice.agentOutputDirect || !voice.playbackEl) return;
+  const el = voice.playbackEl;
+  el.playbackRate = 1;
+  try {
+    await el.play();
+  } catch {
+    /* Start click already gave a gesture */
+  }
+  if (!el.paused) return;
+  await new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error("Speaker output did not start.")), 8000);
+    el.addEventListener(
+      "playing",
+      () => {
+        window.clearTimeout(timeout);
+        resolve();
+      },
+      { once: true },
+    );
+  });
+}
+
+async function primeAgentPlaybackPath(context, voice) {
+  const leadIn = 0.08;
+  const sampleRate = 24000;
+  const primeSamples = Math.floor(sampleRate * 0.12);
+  const buffer = context.createBuffer(1, primeSamples, sampleRate);
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  const sink = voice.agentGain || context.destination;
+  source.connect(sink);
+  const when = context.currentTime + leadIn;
+  await new Promise((resolve) => {
+    source.onended = () => resolve();
+    source.start(when);
+  });
+  await new Promise((resolve) => window.setTimeout(resolve, LISTENER_SETTLE_MS));
+}
+
+export async function ensureSandboxPlaybackReady({ force = false } = {}) {
+  const context = await ensureAudioContext();
+  const voice = voiceState();
+  if (voice.listenerReady && !force) {
+    await context.resume();
+    return context;
+  }
+  await context.resume();
+  await waitForSandboxMediaListener(voice);
+  await primeAgentPlaybackPath(context, voice);
+  voice.playbackArmed = true;
+  voice.listenerReady = true;
+  flushDeferredPlayback();
+  return context;
 }
 
 export async function pollSandboxSync(agentId) {
@@ -439,7 +557,10 @@ async function pollSandboxSyncInternal(agentId) {
       voice.lastTranscriptSeq = seq;
       render();
     }
-    if (payload.chunks?.length) enqueuePlayback(payload.chunks);
+    if (payload.chunks?.length && voice.listenerReady) enqueuePlayback(payload.chunks);
+    else if (payload.chunks?.length) {
+      voice.deferredPlayback.push(mergeAudioChunksBase64(payload.chunks));
+    }
     if (payload.ended) {
       if (box) box.active = false;
       stopSandboxVoiceKeepServer();
@@ -508,9 +629,19 @@ function stopSandboxVoiceKeepServer() {
   voice.capturePaused = false;
   voice.playbackEl?.pause();
   if (voice.playbackEl) voice.playbackEl.srcObject = null;
+  try {
+    voice.agentGain?.disconnect();
+  } catch {
+    /* already disconnected */
+  }
   voice.playbackNode = null;
   voice.agentGain = null;
   voice.playbackEl = null;
+  voice.agentOutputRouted = false;
+  voice.agentOutputDirect = false;
+  voice.playbackArmed = false;
+  voice.listenerReady = false;
+  voice.deferredPlayback = [];
   const box = sandboxBox(S.aiDialerSelectedAgentId);
   if (box) box.partialProspect = "";
   stopWaveformPaint();
@@ -546,7 +677,7 @@ export function paintSandboxVoiceChrome() {
   }
 }
 
-function beginSandboxPolling(agentId) {
+export function beginSandboxPolling(agentId) {
   const voice = voiceState();
   voice.pollActive = true;
   const pollMs = () => (sandboxBox(agentId)?.booting ? 60 : 120);
@@ -563,19 +694,17 @@ function beginSandboxPolling(agentId) {
   schedulePoll();
 }
 
-export async function startSandboxTextPoll(agentId) {
+export async function prepareSandboxTextSession(agentId) {
   await ensureAudioContext();
   const voice = voiceState();
   stopSandboxVoice();
   voice.agentId = agentId;
   voice.textOnly = true;
   voice.lastTranscriptSeq = sandboxBox(agentId)?.transcript_seq || 0;
-  beginSandboxPolling(agentId);
   paintSandboxVoiceChrome();
-  await pollSandboxSync(agentId);
 }
 
-export async function startSandboxVoice(agentId) {
+export async function prepareSandboxVoiceSession(agentId) {
   await ensureAudioContext();
   const voice = voiceState();
   stopSandboxVoice();
@@ -619,9 +748,7 @@ export async function startSandboxVoice(agentId) {
   } else {
     voice.useMulawFallback = true;
   }
-  beginSandboxPolling(agentId);
   paintSandboxVoiceChrome();
-  await pollSandboxSync(agentId);
 }
 
 export function stopSandboxVoice() {

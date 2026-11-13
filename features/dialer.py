@@ -100,6 +100,9 @@ class Dialer(DialerState):
     def ai_sandbox_sync(self, agent_id):
         return ai_agent_sandbox.stream_sync(self, agent_id)
 
+    def ai_sandbox_playback_ready(self, agent_id):
+        return ai_agent_sandbox.mark_playback_ready(self, agent_id)
+
     def rejoin_browser_voice(self):
         return queue.rejoin_browser_voice(self)
 
@@ -501,6 +504,12 @@ def post_ai_sandbox_audio(request, data):
     request.send_json(200, dialer.ai_sandbox_sync(agent_id))
 
 
+def post_ai_sandbox_playback_ready(request, data):
+    agent_id = str(data.get("agent_id") or "").strip()
+    dialer = request.account.dialer
+    request.send_json(200, dialer.ai_sandbox_playback_ready(agent_id))
+
+
 ROUTES = [
     ("GET", "/api/state", get_state, "GET reads"),
     ("GET", "/api/leads", get_leads, "GET reads"),
@@ -538,4 +547,5 @@ ROUTES = [
     ("POST", "/api/ai-agents/sandbox/reset", post_ai_sandbox_reset, "POST"),
     ("GET", "/api/ai-agents/sandbox/sync", get_ai_sandbox_sync, "GET reads"),
     ("POST", "/api/ai-agents/sandbox/audio", post_ai_sandbox_audio, "POST"),
+    ("POST", "/api/ai-agents/sandbox/playback-ready", post_ai_sandbox_playback_ready, "POST"),
 ]
