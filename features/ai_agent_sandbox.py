@@ -54,8 +54,12 @@ def _bump_transcript(session, line):
     session["transcript_seq"] = int(session.get("transcript_seq") or 0) + 1
 
 
+def _mark_outbound_delivered(session):
+    session["outbound_cursor"] = len(session.get("outbound_chunks") or [])
+
+
 def _synthesize_agent_speech(state, agent_id, text):
-    """Cartesia TTS for sandbox; chunks are returned to the client and marked consumed in the session."""
+    """Cartesia TTS for sandbox; chunks are queued until sync or an HTTP payload delivers them."""
     text = str(text or "").strip()
     if not text:
         return []
@@ -65,7 +69,6 @@ def _synthesize_agent_speech(state, agent_id, text):
         if not session:
             return []
         session.setdefault("outbound_chunks", []).extend(chunks)
-        session["outbound_cursor"] = len(session.get("outbound_chunks") or [])
         session["outbound_audio"] = dict(ai_voice_cartesia.SANDBOX_AUDIO_META)
     if err:
         state.record_activity(f"Sandbox: {err}", "error")
@@ -333,6 +336,10 @@ def _public(state, agent_id, audio_chunks=None):
     }
     if audio_chunks:
         payload["chunks"] = list(audio_chunks)
+        with state.lock:
+            session = state.ai_sandbox_sessions.get(agent_id)
+            if session:
+                _mark_outbound_delivered(session)
     payload.update(_audio_meta(session))
     return payload
 

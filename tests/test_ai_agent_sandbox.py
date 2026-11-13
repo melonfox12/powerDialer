@@ -42,6 +42,20 @@ class SandboxTests(unittest.TestCase):
         self.assertEqual(reply["transcript"][-1]["speaker"], "Agent")
         self.assertEqual(reply.get("chunks"), ["qq==", "qw=="])
 
+    def test_undelivered_opening_reaches_sync(self):
+        import time
+
+        state = self._state()
+        with patch("features.ai_agent_sandbox.ai_voice_cartesia.tts_sandbox_chunks", return_value=(["qq=="], "")):
+            with patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", return_value="Hi there"):
+                ai_agent_sandbox.start(state, "ava", None)
+                for _ in range(50):
+                    if state.ai_sandbox_sessions.get("ava", {}).get("booting") is False:
+                        break
+                    time.sleep(0.02)
+                sync = ai_agent_sandbox.stream_sync(state, "ava")
+                self.assertEqual(sync["chunks"], ["qq=="])
+
     def test_reset(self):
         state = self._state()
         with patch("features.ai_agent_sandbox.ai_voice_llm.chat_reply", return_value="Hi"):

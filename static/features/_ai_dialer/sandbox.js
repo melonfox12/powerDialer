@@ -16,6 +16,7 @@ import {
   startSandboxVoice,
   stopSandboxVoice,
   syncSandboxVoiceTranscriptSeq,
+  waitForSandboxOpening,
 } from "./sandbox-voice.js";
 
 const DEFAULT_PROSPECT = { name: "Jordan", business: "Sample Services LLC" };
@@ -244,6 +245,8 @@ async function startSandbox() {
     ]);
     mergeSandboxPayload(payload);
     box.active = true;
+    render();
+    await waitForSandboxOpening(id);
     render();
     showToast(
       interactionMode === "text"

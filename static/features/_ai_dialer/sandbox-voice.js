@@ -404,7 +404,28 @@ export async function ensureSandboxPlayback() {
   await ensureAudioContext();
 }
 
-async function pollSandboxSync(agentId) {
+export async function pollSandboxSync(agentId) {
+  const voice = voiceState();
+  if (voice.agentId !== agentId && voice.agentId) return;
+  if (!voice.agentId) voice.agentId = agentId;
+  await pollSandboxSyncInternal(agentId);
+}
+
+export async function waitForSandboxOpening(agentId, maxMs = 45000) {
+  await ensureSandboxPlayback();
+  const deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    await pollSandboxSyncInternal(agentId);
+    const box = sandboxBox(agentId);
+    if (box && !box.booting && (box.transcript?.length || 0) > 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+async function pollSandboxSyncInternal(agentId) {
+
   const voice = voiceState();
   if (voice.agentId !== agentId) return;
   try {
@@ -531,7 +552,7 @@ function beginSandboxPolling(agentId) {
   const pollMs = () => (sandboxBox(agentId)?.booting ? 60 : 120);
   const schedulePoll = () => {
     if (!voice.pollActive || voice.agentId !== agentId) return;
-    pollSandboxSync(agentId)
+    pollSandboxSyncInternal(agentId)
       .catch(() => {})
       .finally(() => {
         if (voice.pollActive && voice.agentId === agentId) {

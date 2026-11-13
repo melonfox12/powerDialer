@@ -54,7 +54,7 @@ def _fetch_tts_bytes(settings, text, *, encoding, sample_rate):
         method="POST",
         headers={
             "X-API-Key": key,
-            "Cartesia-Version": "2024-06-10",
+            "Cartesia-Version": "2026-08-14",
             "Content-Type": "application/json",
         },
     )
