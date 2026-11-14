@@ -5,6 +5,7 @@ import { bindCallMonitor, bindDialer, bindKeyboard, bindSessionGoal, bindVoice, 
 import { bindAiDialer } from "./features/ai-dialer-agent.js";
 import { bindPerformance } from "./features/performance.js";
 import "./features/pipeline.js";
+import { bindWorkflow } from "./features/workflow.js";
 import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "./features/prospects.js";
 import { bindSettings } from "./features/settings.js";
 import { arcadeSensory, startArcade } from "./features/arcade.js";
@@ -14,6 +15,7 @@ bindDebugListeners();
 startStatusClock();
 startArcade();
 bindNavigation();
+bindWorkflow();
 bindDialogs();
 bindProspects();
 bindAddProspect();

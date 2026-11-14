@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Project map
 
-Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `static/shell.html`, `static/features/dialer.html`, `static/features/ai-dialer-agent.html`, `static/features/session-summary-dialog.html`, `static/features/performance.html`, `static/features/pipeline.html`, `static/features/prospects.html`, `static/features/settings.html`, `static/shell-end.html`. Tabs switch in `static/_core/navigation.js` (`setDashboardTab`). There is no router.
+Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `static/shell.html`, `static/features/dialer.html`, `static/features/ai-dialer-agent.html`, `static/features/session-summary-dialog.html`, `static/features/performance.html`, `static/features/pipeline.html`, `static/features/workflow.html`, `static/features/prospects.html`, `static/features/settings.html`, `static/shell-end.html`. Tabs switch in `static/_core/navigation.js` (`setDashboardTab`). There is no router.
 
 ## Folders
 
@@ -30,6 +30,7 @@ Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_pa
 - Prospects: `static/features/prospects.html` `#prospectsTabPanel`; JS `static/features/prospects.js` and `static/features/_prospects/`
 - Caller pool: `#poolTabPanel` is in `static/features/prospects.html`; render `static/features/_dialer/pool-view.js`; timezone `static/features/_dialer/pool.js`
 - Performance: `static/features/performance.html` `#metricsPanel` wraps only `#performanceTabPanel`. JS `static/features/performance.js`. `setDashboardTab` shows `#metricsPanel` only on the Performance tab; Prospects/Pool/Dials panels are siblings in `#dashboard-top-row`.
+- Workflow: `static/features/workflow.html` `#workflowTabPanel`. JS `static/features/workflow.js`. Styles `static/css/linear/workflow.css`. Visual node canvas (preview); drag layout persisted in `localStorage`.
 
 ## Layout, tokens, charts
 

@@ -63,6 +63,7 @@ class HandlerMixin:
                 os.path.join(STATIC_DIR, "features", "session-summary-dialog.html"),
                 os.path.join(STATIC_DIR, "features", "performance.html"),
                 os.path.join(STATIC_DIR, "features", "pipeline.html"),
+                os.path.join(STATIC_DIR, "features", "workflow.html"),
                 os.path.join(STATIC_DIR, "features", "prospects.html"),
                 os.path.join(STATIC_DIR, "features", "settings.html"),
                 os.path.join(STATIC_DIR, "shell-end.html"),

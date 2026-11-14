@@ -1,6 +1,6 @@
 import { S, state } from "./state.js";
 
-/** @typedef {"always"|"dialer"|"aiDialerAgent"|"dialFilters"|"prospects"|"performance"|"pipeline"|"pool"|"dials"} RenderScope */
+/** @typedef {"always"|"dialer"|"aiDialerAgent"|"dialFilters"|"prospects"|"performance"|"pipeline"|"workflow"|"pool"|"dials"} RenderScope */
 
 /** @type {{ fn: () => void, scope: RenderScope | RenderScope[] }[]} */
 const renderers = [];
@@ -45,6 +45,9 @@ export function rendererScopeEnabled(scope) {
         break;
       case "pipeline":
         if (tab === "pipeline") return true;
+        break;
+      case "workflow":
+        if (tab === "workflow") return true;
         break;
       case "pool":
         if (tab === "pool") return true;

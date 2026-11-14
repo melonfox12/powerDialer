@@ -73,6 +73,22 @@
   font-size: 12px;
   font-weight: 450;
 }
+.side-folder-head {
+  color: #62666d;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.side-folder-head:hover {
+  color: #9b9da3;
+  background: #151618;
+}
+.side-folder:has(.side-link.active) .side-folder-head {
+  color: #8a8f98;
+}
+.side-folder-items .side-link {
+  padding-left: 10px;
+}
 .side-link {
   min-height: 28px;
   border-radius: 6px;

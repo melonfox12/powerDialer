@@ -1,0 +1,189 @@
+<div id="workflowTabPanel" class="dashboard-tab-panel workflow-tab-panel" role="tabpanel" aria-labelledby="workflowTabButton" hidden>
+  <div class="workflow-shell">
+    <header class="workflow-head">
+      <div>
+        <h2 class="workflow-title">Lead workflow</h2>
+        <p class="workflow-lede">Visual map from raw prospect list through lookup, CRM formatting, caller pool, AI agents, and pipeline sync. Drag node headers to rearrange. Middle-click drag to pan (release for glide); scroll wheel to zoom. Preview only — wiring comes later.</p>
+      </div>
+      <span class="workflow-badge">Visual preview</span>
+    </header>
+    <div id="workflowViewport" class="workflow-viewport" tabindex="0" aria-label="Workflow canvas">
+      <div id="workflowWorld" class="workflow-world">
+      <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
+      <div id="workflowNodeLayer" class="workflow-node-layer">
+
+        <article class="workflow-node workflow-node--source" data-workflow-node="prospect-list">
+          <header class="workflow-node-header">
+            <span class="workflow-node-tag">Source</span>
+            <h3 class="workflow-node-title">Main prospect list</h3>
+          </header>
+          <div class="workflow-node-body">
+            <p class="workflow-stat"><strong>12,450</strong> raw prospects</p>
+            <p class="workflow-hint">Pre-generated master list (~10k–20k). Feeds all downstream automation.</p>
+          </div>
+          <span class="workflow-socket workflow-socket-out" data-socket="out" title="Output"></span>
+        </article>
+
+        <article class="workflow-node workflow-node--lookup" data-workflow-node="phone-lookup">
+          <header class="workflow-node-header">
+            <span class="workflow-node-tag">Twilio lookup</span>
+            <h3 class="workflow-node-title">Phone number lookup</h3>
+          </header>
+          <div class="workflow-node-body workflow-node-form">
+            <label class="workflow-field">
+              <span>Numbers to research</span>
+              <input type="number" value="500" min="1" max="20000" disabled aria-disabled="true">
+            </label>
+            <label class="workflow-field">
+              <span>Selection mode</span>
+              <select disabled aria-disabled="true">
+                <option>Random from top of list</option>
+                <option>Filter by list column</option>
+              </select>
+            </label>
+            <label class="workflow-field">
+              <span>Industry target</span>
+              <select disabled aria-disabled="true">
+                <option>Any industry</option>
+                <option>Restaurants</option>
+                <option>Home services</option>
+                <option>Healthcare</option>
+              </select>
+            </label>
+            <p class="workflow-hint">Python automation — line type research (mobile, landline, VoIP). No LLM.</p>
+            <button class="button button-quiet workflow-node-action" type="button" disabled>Run lookup (soon)</button>
+          </div>
+          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
+          <span class="workflow-socket workflow-socket-out" data-socket="out"></span>
+        </article>
+
+        <article class="workflow-node workflow-node--format" data-workflow-node="format-org">
+          <header class="workflow-node-header">
+            <span class="workflow-node-tag workflow-node-tag--green">Organization</span>
+            <h3 class="workflow-node-title">Formatting &amp; CSV</h3>
+          </header>
+          <div class="workflow-node-body">
+            <p class="workflow-stat"><strong>global_crm.csv</strong> in node memory</p>
+            <p class="workflow-hint">Merges prospect fields + lookup column into your CRM schema.</p>
+            <div class="workflow-node-actions">
+              <button class="button button-quiet" type="button" disabled title="Coming soon">Download CSV</button>
+            </div>
+          </div>
+          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
+          <span class="workflow-socket workflow-socket-out" data-socket="out"></span>
+        </article>
+
+        <article class="workflow-node workflow-node--pool" data-workflow-node="caller-pool">
+          <header class="workflow-node-header">
+            <span class="workflow-node-tag">Queue</span>
+            <h3 class="workflow-node-title">Main caller pool</h3>
+          </header>
+          <div class="workflow-node-body">
+            <p class="workflow-stat"><strong>2,840</strong> eligible to dial</p>
+            <p class="workflow-hint">Agents pull prospects directly from this pool.</p>
+          </div>
+          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
+          <span class="workflow-socket workflow-socket-out" data-socket="out"></span>
+        </article>
+
+        <article class="workflow-node workflow-node--group workflow-node--office" data-workflow-node="digital-office">
+          <header class="workflow-node-header">
+            <span class="workflow-node-tag workflow-node-tag--green">Agentic</span>
+            <h3 class="workflow-node-title">Digital sales office</h3>
+          </header>
+          <div class="workflow-node-body">
+            <p class="workflow-hint">AI dialer seats — qualification &amp; calling. Bidirectional sync with pipeline.</p>
+            <div class="workflow-office-grid" role="list" aria-label="Digital sales agents">
+              <div class="workflow-agent-seat" role="listitem" data-agent-seat="alpha">
+                <div class="workflow-agent-seat-head">
+                  <strong>Agent Alpha</strong>
+                  <span class="workflow-agent-pill">Standby</span>
+                </div>
+                <div class="workflow-agent-seat-body">
+                  <span class="workflow-agent-meta">Pool: <em>320</em> · Lines: 3</span>
+                  <div class="workflow-agent-seat-actions">
+                    <button class="button button-quiet workflow-agent-expand" type="button" data-agent-name="Agent Alpha">Expand desk</button>
+                  </div>
+                </div>
+              </div>
+              <div class="workflow-agent-seat" role="listitem" data-agent-seat="beta">
+                <div class="workflow-agent-seat-head">
+                  <strong>Agent Beta</strong>
+                  <span class="workflow-agent-pill">Standby</span>
+                </div>
+                <div class="workflow-agent-seat-body">
+                  <span class="workflow-agent-meta">Pool: <em>280</em> · Lines: 3</span>
+                  <div class="workflow-agent-seat-actions">
+                    <button class="button button-quiet workflow-agent-expand" type="button" data-agent-name="Agent Beta">Expand desk</button>
+                  </div>
+                </div>
+              </div>
+              <div class="workflow-agent-seat" role="listitem" data-agent-seat="gamma">
+                <div class="workflow-agent-seat-head">
+                  <strong>Agent Gamma</strong>
+                  <span class="workflow-agent-pill is-live">Live</span>
+                </div>
+                <div class="workflow-agent-seat-body">
+                  <span class="workflow-agent-meta">Pool: <em>410</em> · Lines: 3</span>
+                  <div class="workflow-agent-seat-actions">
+                    <button class="button button-quiet workflow-agent-expand" type="button" data-agent-name="Agent Gamma">Expand desk</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
+          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="To pipeline"></span>
+          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="From pipeline"></span>
+        </article>
+
+        <article class="workflow-node workflow-node--pipeline" data-workflow-node="pipeline">
+          <header class="workflow-node-header">
+            <span class="workflow-node-tag">CRM</span>
+            <h3 class="workflow-node-title">Pipeline board</h3>
+          </header>
+          <div class="workflow-node-body">
+            <p class="workflow-hint">Mirrors Pipeline tab. Auto-updates when agents start, end, and progress leads.</p>
+            <div class="workflow-pipeline-mini" aria-label="Pipeline preview">
+              <div class="workflow-pipeline-col"><span>Dialed</span><strong>42</strong></div>
+              <div class="workflow-pipeline-col"><span>Contacted</span><strong>18</strong></div>
+              <div class="workflow-pipeline-col"><span>Follow up</span><strong>9</strong></div>
+              <div class="workflow-pipeline-col"><span>Closed</span><strong>3</strong></div>
+            </div>
+          </div>
+          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="From digital office"></span>
+          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="To digital office"></span>
+        </article>
+
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="workflowAgentSettingsDialog" class="workflow-agent-dialog">
+    <form method="dialog" class="workflow-agent-dialog-form">
+      <h3 id="workflowAgentDialogTitle">Agent desk</h3>
+      <p class="workflow-hint">Same controls as the AI Dialer Agent desk — preview layout only.</p>
+      <label class="workflow-field">
+        <span>Agent name</span>
+        <input type="text" id="workflowAgentDialogName" value="Agent" disabled>
+      </label>
+      <label class="workflow-field">
+        <span>Concurrent lines</span>
+        <select disabled aria-disabled="true"><option selected>3 lines</option><option>1 line</option></select>
+      </label>
+      <label class="workflow-field">
+        <span>Pool claim</span>
+        <select disabled aria-disabled="true"><option>From main caller pool</option></select>
+      </label>
+      <div class="workflow-agent-dialog-prompt">
+        <span>Playbook prompt</span>
+        <textarea rows="6" disabled aria-disabled="true" placeholder="Agent qualification script…"></textarea>
+      </div>
+      <div class="workflow-agent-dialog-actions">
+        <button class="button button-quiet" value="cancel">Close</button>
+        <button class="button button-primary" type="button" disabled>Save (soon)</button>
+      </div>
+    </form>
+  </dialog>
+</div>
