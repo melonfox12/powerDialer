@@ -30,6 +30,7 @@ export async function createAgentSeat(name, title) {
     syncAiDialerViews();
   }
   render();
+  window.dispatchEvent(new CustomEvent("godial-ai-agent-created", { detail: { agent } }));
   return agent;
 }
 
@@ -68,7 +69,7 @@ export async function deleteAgentSeat(agentId) {
   showToast("Agent seat deleted.");
 }
 
-function openCreateDialog() {
+export function openAgentCreateDialog() {
   const dialog = byId("aiDialerAgent-createDialog");
   const nameInput = byId("aiDialerAgent-createName");
   const titleInput = byId("aiDialerAgent-createTitle");
@@ -80,7 +81,7 @@ function openCreateDialog() {
 }
 
 export function bindAgentFleetActions() {
-  byId("aiDialerAgent-newAgentButton")?.addEventListener("click", () => openCreateDialog());
+  byId("aiDialerAgent-newAgentButton")?.addEventListener("click", () => openAgentCreateDialog());
 
   const form = byId("aiDialerAgent-createForm");
   form?.addEventListener("submit", async (event) => {

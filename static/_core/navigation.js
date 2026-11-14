@@ -305,6 +305,7 @@ export function setDashboardTab(name, moveFocus = false) {
     byId(`${tab}TabPanel`).hidden = S.dashboardTab !== tab;
   }
   setText("pageTitle", TAB_TITLES[S.dashboardTab]);
+  byId("crmView")?.classList.toggle("is-workflow-view", S.dashboardTab === "workflow");
   if (S.dashboardTab === "performance") {
     S.performanceFetchedAt = 0;
     S.performancePainted = null;

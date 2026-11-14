@@ -1,13 +1,19 @@
 <div id="workflowTabPanel" class="dashboard-tab-panel workflow-tab-panel" role="tabpanel" aria-labelledby="workflowTabButton" hidden>
   <div class="workflow-shell">
-    <header class="workflow-head">
-      <div>
-        <h2 class="workflow-title">Lead workflow</h2>
-        <p class="workflow-lede">Visual map from raw prospect list through lookup, CRM formatting, caller pool, AI agents, and pipeline sync. Drag node headers to rearrange. Middle-click drag to pan (release for glide); scroll wheel to zoom. Preview only — wiring comes later.</p>
-      </div>
-      <span class="workflow-badge">Visual preview</span>
-    </header>
-    <div id="workflowViewport" class="workflow-viewport" tabindex="0" aria-label="Workflow canvas">
+    <div class="workflow-toolbar" role="toolbar" aria-label="Workflow canvas tools">
+      <button id="workflowToolPan" type="button" class="workflow-toolbar-btn is-selected" data-workflow-tool="pan" aria-pressed="true" title="Hand — pan and move nodes">
+        <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.2a1 1 0 0 1 1.4 0l1.1 1.1V3.3a1 1 0 1 1 2 0v3.1l2.1 2.1a2.2 2.2 0 0 1 .6 1.5v2.7a1 1 0 0 1-1.7.7L8.2 11.2l-2.9 2.3a1 1 0 0 1-1.6-.8V7.4c0-.6.2-1.1.6-1.5l1.3-1.3V4.2a1 1 0 0 1 0-1.4Z" fill="currentColor"/></svg>
+        <span>Hand</span>
+      </button>
+      <button id="workflowToolAnchor" type="button" class="workflow-toolbar-btn" data-workflow-tool="anchor" aria-pressed="false" title="Anchor editor — drag connection points">
+        <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M3 13 L8.1 7.9" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+          <path d="M11.2 3.6 8.1 7.9 10.15 9.05Z" fill="currentColor" />
+        </svg>
+        <span>Anchor editor</span>
+      </button>
+    </div>
+    <div id="workflowViewport" class="workflow-viewport is-tool-pan" tabindex="0" aria-label="Workflow canvas">
       <div id="workflowWorld" class="workflow-world">
       <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
       <div id="workflowNodeLayer" class="workflow-node-layer">
@@ -92,49 +98,54 @@
             <h3 class="workflow-node-title">Digital sales office</h3>
           </header>
           <div class="workflow-node-body">
-            <p class="workflow-hint">AI dialer seats — qualification &amp; calling. Bidirectional sync with pipeline.</p>
-            <div class="workflow-office-grid" role="list" aria-label="Digital sales agents">
-              <div class="workflow-agent-seat" role="listitem" data-agent-seat="alpha">
-                <div class="workflow-agent-seat-head">
-                  <strong>Agent Alpha</strong>
-                  <span class="workflow-agent-pill">Standby</span>
+            <div class="workflow-office-toolbar">
+              <p class="workflow-hint">AI dialer seats — sync via Organizer ↔ Pipeline.</p>
+              <button type="button" id="workflowOfficeAddAgent" class="button button-quiet workflow-office-add">+ Add agent</button>
+            </div>
+            <div id="workflowOfficeGrid" class="workflow-office-grid" role="list" aria-label="Digital sales agents"></div>
+          </div>
+          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
+          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="Agent activity → Organizer"></span>
+          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="Organizer → office"></span>
+        </article>
+
+        <article class="workflow-node workflow-node--organizer" data-workflow-node="organizer">
+          <header class="workflow-node-header">
+            <span class="workflow-node-tag workflow-node-tag--green">Router</span>
+            <h3 class="workflow-node-title">Organizer</h3>
+          </header>
+          <div class="workflow-node-body">
+            <p class="workflow-hint">Merges pipeline CRM state and agentic call activity, then routes updates to each side.</p>
+            <div class="workflow-organizer-diagram" aria-hidden="true">
+              <div class="workflow-organizer-ins">
+                <div class="workflow-organizer-lane workflow-organizer-lane--pipe">
+                  <span class="workflow-organizer-lane-label">In · Pipeline info</span>
+                  <span class="workflow-organizer-lane-sample">Board deltas</span>
                 </div>
-                <div class="workflow-agent-seat-body">
-                  <span class="workflow-agent-meta">Pool: <em>320</em> · Lines: 3</span>
-                  <div class="workflow-agent-seat-actions">
-                    <button class="button button-quiet workflow-agent-expand" type="button" data-agent-name="Agent Alpha">Expand desk</button>
-                  </div>
+                <div class="workflow-organizer-lane workflow-organizer-lane--agent">
+                  <span class="workflow-organizer-lane-label">In · Agent activity</span>
+                  <span class="workflow-organizer-lane-sample">Sessions &amp; lead events</span>
                 </div>
               </div>
-              <div class="workflow-agent-seat" role="listitem" data-agent-seat="beta">
-                <div class="workflow-agent-seat-head">
-                  <strong>Agent Beta</strong>
-                  <span class="workflow-agent-pill">Standby</span>
-                </div>
-                <div class="workflow-agent-seat-body">
-                  <span class="workflow-agent-meta">Pool: <em>280</em> · Lines: 3</span>
-                  <div class="workflow-agent-seat-actions">
-                    <button class="button button-quiet workflow-agent-expand" type="button" data-agent-name="Agent Beta">Expand desk</button>
-                  </div>
-                </div>
+              <div class="workflow-organizer-merge">
+                <span class="workflow-organizer-core">Normalize · match · route</span>
               </div>
-              <div class="workflow-agent-seat" role="listitem" data-agent-seat="gamma">
-                <div class="workflow-agent-seat-head">
-                  <strong>Agent Gamma</strong>
-                  <span class="workflow-agent-pill is-live">Live</span>
+              <div class="workflow-organizer-outs">
+                <div class="workflow-organizer-lane workflow-organizer-lane--out-pipe">
+                  <span class="workflow-organizer-lane-label">Out · Pipeline board</span>
+                  <span class="workflow-organizer-lane-sample">Step moves &amp; timers</span>
                 </div>
-                <div class="workflow-agent-seat-body">
-                  <span class="workflow-agent-meta">Pool: <em>410</em> · Lines: 3</span>
-                  <div class="workflow-agent-seat-actions">
-                    <button class="button button-quiet workflow-agent-expand" type="button" data-agent-name="Agent Gamma">Expand desk</button>
-                  </div>
+                <div class="workflow-organizer-lane workflow-organizer-lane--out-agent">
+                  <span class="workflow-organizer-lane-label">Out · Digital office</span>
+                  <span class="workflow-organizer-lane-sample">Seat context &amp; pool</span>
                 </div>
               </div>
             </div>
           </div>
-          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
-          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="To pipeline"></span>
-          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="From pipeline"></span>
+          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-a" title="Pipeline input"></span>
+          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-b" title="Agent activity input"></span>
+          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-a" title="Pipeline output"></span>
+          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-b" title="Digital office output"></span>
         </article>
 
         <article class="workflow-node workflow-node--pipeline" data-workflow-node="pipeline">
@@ -143,7 +154,7 @@
             <h3 class="workflow-node-title">Pipeline board</h3>
           </header>
           <div class="workflow-node-body">
-            <p class="workflow-hint">Mirrors Pipeline tab. Auto-updates when agents start, end, and progress leads.</p>
+            <p class="workflow-hint">Mirrors Pipeline tab. Syncs through Organizer ↔ Digital office.</p>
             <div class="workflow-pipeline-mini" aria-label="Pipeline preview">
               <div class="workflow-pipeline-col"><span>Dialed</span><strong>42</strong></div>
               <div class="workflow-pipeline-col"><span>Contacted</span><strong>18</strong></div>
@@ -151,14 +162,40 @@
               <div class="workflow-pipeline-col"><span>Closed</span><strong>3</strong></div>
             </div>
           </div>
-          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="From digital office"></span>
-          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="To digital office"></span>
+          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="Organizer → pipeline"></span>
+          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="Pipeline → Organizer"></span>
         </article>
 
       </div>
+      <svg id="workflowEdgeArrows" class="workflow-edge-arrows" aria-hidden="true"></svg>
       </div>
     </div>
   </div>
+
+  <dialog id="workflowAgentAddDialog" class="workflow-agent-dialog workflow-office-add-dialog">
+    <div class="workflow-agent-dialog-form">
+      <h3>Add agent to office</h3>
+      <p class="workflow-hint">Import a copy from AI Dialer Agent or create a new fleet seat.</p>
+      <div class="workflow-office-add-choices">
+        <button type="button" id="workflowOfficeImportBtn" class="button button-secondary">Import existing agent</button>
+        <button type="button" id="workflowOfficeCreateBtn" class="button button-primary">Create new agent</button>
+      </div>
+      <div class="workflow-agent-dialog-actions">
+        <button type="button" id="workflowOfficeAddCancel" class="button button-quiet">Cancel</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="workflowAgentImportDialog" class="workflow-agent-dialog workflow-office-import-dialog">
+    <form method="dialog" class="workflow-agent-dialog-form">
+      <h3>Import existing agent</h3>
+      <p class="workflow-hint">Adds a workflow seat linked to that agent profile — no new profile is created.</p>
+      <div id="workflowOfficeImportList" class="workflow-office-import-list" role="list"></div>
+      <div class="workflow-agent-dialog-actions">
+        <button class="button button-quiet" value="cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="workflowAgentSettingsDialog" class="workflow-agent-dialog">
     <form method="dialog" class="workflow-agent-dialog-form">
