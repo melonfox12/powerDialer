@@ -24,6 +24,10 @@ const PAN_RELEASE_GAIN = 0.78;
 const PAN_MAX_SPEED = 2.05;
 const PAN_MIN_SPEED = 0.09;
 const PAN_DECAY_PER_SEC = 5.4;
+const DRAG_EDGE_INSET = 52;
+/** Max viewport pan speed (px/s) when pushing a node past the screen edge */
+const DRAG_EDGE_PAN_MAX = 190;
+const DRAG_EDGE_FRAME_MS = 16;
 
 const EDGES = [
   { from: "prospect-list", fromSocket: "out", to: "phone-lookup", toSocket: "in" },
@@ -57,6 +61,20 @@ let panInertiaFrame = 0;
 let bound = false;
 /** Top-left of the scrollable workspace in logical coordinates (can be negative). */
 let canvasOrigin = { x: 0, y: 0 };
+let workspaceBoundsReady = false;
+let panCameraFrameQueued = false;
+let dragEdgeFrame = 0;
+let lastDragPointer = { x: 0, y: 0 };
+let workflowFrameQueued = false;
+let lastSurfaceW = 0;
+let lastSurfaceH = 0;
+/** @type {SVGPathElement[]} */
+let edgePathEls = [];
+/** @type {SVGLineElement[]} */
+let edgeOutCapEls = [];
+/** @type {SVGPolygonElement[]} */
+let edgeInArrowEls = [];
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 function viewport() {
   return document.getElementById("workflowViewport");
@@ -165,8 +183,18 @@ function measureContentBounds() {
 }
 
 function updateWorkspaceBounds() {
+  const prevOriginX = canvasOrigin.x;
+  const prevOriginY = canvasOrigin.y;
   const { minX, minY, maxX, maxY } = measureContentBounds();
   canvasOrigin = { x: minX, y: minY };
+  const dx = canvasOrigin.x - prevOriginX;
+  const dy = canvasOrigin.y - prevOriginY;
+  if ((dx || dy) && (dragState || workspaceBoundsReady)) {
+    camera.panX += dx * camera.scale;
+    camera.panY += dy * camera.scale;
+    applyCamera();
+  }
+  workspaceBoundsReady = true;
   const w = Math.min(MAX_SPAN_W, Math.max(MIN_CANVAS_W, maxX - minX));
   const h = Math.min(MAX_SPAN_H, Math.max(MIN_CANVAS_H, maxY - minY));
   for (const el of [world(), nodeLayer(), edgesSvg(), arrowsSvg()]) {
@@ -180,7 +208,7 @@ function updateWorkspaceBounds() {
 function applyCamera() {
   const el = world();
   if (!el) return;
-  el.style.transform = `translate(${camera.panX}px, ${camera.panY}px) scale(${camera.scale})`;
+  el.style.transform = `translate3d(${camera.panX}px, ${camera.panY}px, 0) scale(${camera.scale})`;
   const layer = nodeLayer();
   const svg = edgesSvg();
   const arrowLayer = arrowsSvg();
@@ -189,11 +217,28 @@ function applyCamera() {
   if (arrowLayer) arrowLayer.style.transform = "";
 }
 
+function applyPanCameraFromState() {
+  if (!panState) return;
+  camera.panX = panState.originPanX + (panState.latestX - panState.originX);
+  camera.panY = panState.originPanY + (panState.latestY - panState.originY);
+  applyCamera();
+}
+
+function schedulePanCameraApply() {
+  if (panCameraFrameQueued) return;
+  panCameraFrameQueued = true;
+  requestAnimationFrame(() => {
+    panCameraFrameQueued = false;
+    applyPanCameraFromState();
+  });
+}
+
 function stopPanInertia() {
   if (panInertiaFrame) cancelAnimationFrame(panInertiaFrame);
   panInertiaFrame = 0;
   panInertia = null;
   viewport()?.classList.remove("is-gliding");
+  syncWorkflowInteractionClass();
 }
 
 function pushPanSample(samples, clientX, clientY) {
@@ -225,6 +270,7 @@ function startPanInertia(vx, vy) {
   if (Math.hypot(vx, vy) < PAN_MIN_SPEED) return;
   panInertia = { vx, vy, lastT: performance.now() };
   viewport()?.classList.add("is-gliding");
+  syncWorkflowInteractionClass();
   const tick = (now) => {
     if (!panInertia) return;
     const dt = Math.min(40, now - panInertia.lastT);
@@ -235,7 +281,6 @@ function startPanInertia(vx, vy) {
     camera.panX += panInertia.vx * dt;
     camera.panY += panInertia.vy * dt;
     applyCamera();
-    paintEdges();
     if (Math.hypot(panInertia.vx, panInertia.vy) < PAN_MIN_SPEED) {
       stopPanInertia();
       saveCamera();
@@ -246,9 +291,50 @@ function startPanInertia(vx, vy) {
   panInertiaFrame = requestAnimationFrame(tick);
 }
 
+function growWorkspaceDuringDragIfNeeded() {
+  const layer = nodeLayer();
+  if (!layer || !dragState) return;
+  const pos = layout[dragState.id];
+  if (!pos) return;
+  const size = defaultNodeSize(dragState.node);
+  const nw = dragState.node.offsetWidth || size.w;
+  const nh = dragState.node.offsetHeight || size.h;
+  const frozen = dragState.frozenOrigin;
+  const needW = pos.x - frozen.x + nw + CANVAS_PAD;
+  const needH = pos.y - frozen.y + nh + CANVAS_PAD;
+  const prevW = Number.parseFloat(layer.style.width) || MIN_CANVAS_W;
+  const prevH = Number.parseFloat(layer.style.height) || MIN_CANVAS_H;
+  const w = Math.min(MAX_SPAN_W, Math.max(MIN_CANVAS_W, prevW, needW));
+  const h = Math.min(MAX_SPAN_H, Math.max(MIN_CANVAS_H, prevH, needH));
+  if (w === prevW && h === prevH) return;
+  for (const el of [world(), nodeLayer(), edgesSvg(), arrowsSvg()]) {
+    if (!el) continue;
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+  }
+}
+
+function workflowViewportInteracting() {
+  return Boolean(dragState || panState || panInertia);
+}
+
+function syncWorkflowInteractionClass() {
+  viewport()?.classList.toggle("is-workflow-interacting", workflowViewportInteracting());
+}
+
 function applyLayout() {
   const layer = nodeLayer();
   if (!layer) return;
+  if (dragState) {
+    canvasOrigin = dragState.frozenOrigin;
+    growWorkspaceDuringDragIfNeeded();
+    const pos = layout[dragState.id];
+    if (pos) {
+      dragState.node.style.left = `${pos.x - canvasOrigin.x}px`;
+      dragState.node.style.top = `${pos.y - canvasOrigin.y}px`;
+    }
+    return;
+  }
   updateWorkspaceBounds();
   for (const node of layer.querySelectorAll("[data-workflow-node]")) {
     const id = node.dataset.workflowNode;
@@ -298,6 +384,10 @@ const WORKFLOW_ANCHOR_RADIUS = 6;
 const WORKFLOW_ARROW_BACK = WORKFLOW_ANCHOR_RADIUS + 5;
 /** Half-width at arrow base; mid-span width = this value (must stay < anchor radius). */
 const WORKFLOW_ARROW_HALF_W = WORKFLOW_ANCHOR_RADIUS - 1;
+/** Output: white highlight along the node edge (half-length each side of anchor). */
+const WORKFLOW_OUTPUT_CAP_HALF = 12;
+/** Connector leaves the output anchor this far along the outward ray. */
+const WORKFLOW_OUTPUT_LINE_TRIM = 3;
 
 function edgeBezierControls(x1, y1, x2, y2, lane = 0) {
   const horizontal = Math.max(64, Math.abs(x2 - x1) * 0.48);
@@ -344,29 +434,37 @@ function edgeOutwardFromNodeCenter(anchorX, anchorY, nodeId) {
   return Math.atan2(anchorY - center.y, anchorX - center.x);
 }
 
-function edgePath(x1, y1, x2, y2, lane = 0, trimStart = 0, trimEnd = 0, fromNodeId = "", toNodeId = "") {
-  const { bx1, by1, bx2, by2 } = edgeBezierControls(x1, y1, x2, y2, lane);
+function anchorOutwardAngle(ax, ay, nodeId, x1, y1, x2, y2, lane, atEnd) {
+  return (
+    edgeOutwardFromNodeCenter(ax, ay, nodeId) ??
+    (atEnd ? edgeTangentAngleAtEnd(x1, y1, x2, y2, lane) : edgeTangentAngleAtStart(x1, y1, x2, y2, lane))
+  );
+}
+
+function edgePath(x1, y1, x2, y2, lane = 0, trimStart = 0, trimEnd = 0, outwardStart = 0, outwardEnd = 0) {
+  let { bx1, by1, bx2, by2, horizontal } = edgeBezierControls(x1, y1, x2, y2, lane);
   let sx = x1;
   let sy = y1;
   let ex = x2;
   let ey = y2;
+  const ctrlLen = Math.max(52, horizontal * 0.75);
+
   if (trimStart > 0) {
-    const outward =
-      edgeOutwardFromNodeCenter(x1, y1, fromNodeId) ?? edgeTangentAngleAtStart(x1, y1, x2, y2, lane);
-    sx = x1 + Math.cos(outward) * trimStart;
-    sy = y1 + Math.sin(outward) * trimStart;
+    sx = x1 + Math.cos(outwardStart) * trimStart;
+    sy = y1 + Math.sin(outwardStart) * trimStart;
+    bx1 = sx + Math.cos(outwardStart) * ctrlLen;
+    by1 = sy + Math.sin(outwardStart) * ctrlLen;
   }
   if (trimEnd > 0) {
-    const outward = edgeOutwardFromNodeCenter(x2, y2, toNodeId) ?? edgeTangentAngleAtEnd(x1, y1, x2, y2, lane);
-    ex = x2 + Math.cos(outward) * trimEnd;
-    ey = y2 + Math.sin(outward) * trimEnd;
+    ex = x2 + Math.cos(outwardEnd) * trimEnd;
+    ey = y2 + Math.sin(outwardEnd) * trimEnd;
+    bx2 = ex + Math.cos(outwardEnd) * ctrlLen;
+    by2 = ey + Math.sin(outwardEnd) * ctrlLen;
   }
   return `M ${sx} ${sy} C ${bx1} ${by1}, ${bx2} ${by2}, ${ex} ${ey}`;
 }
 
-function edgeInputArrowPoints(x1, y1, x2, y2, lane, toNodeId, ax, ay) {
-  const outward =
-    edgeOutwardFromNodeCenter(ax, ay, toNodeId) ?? edgeTangentAngleAtEnd(x1, y1, x2, y2, lane);
+function edgeInputArrowPolygon(ax, ay, outward) {
   const cos = Math.cos(outward);
   const sin = Math.sin(outward);
   const backX = ax + cos * WORKFLOW_ARROW_BACK;
@@ -378,97 +476,216 @@ function edgeInputArrowPoints(x1, y1, x2, y2, lane, toNodeId, ax, ay) {
   ].join(" ");
 }
 
-/** Output anchor — tip points along the edge, away from the source node block. */
-function edgeOutputArrowPoints(x1, y1, x2, y2, lane, fromNodeId, ax, ay) {
-  const outward =
-    edgeOutwardFromNodeCenter(ax, ay, fromNodeId) ?? edgeTangentAngleAtStart(x1, y1, x2, y2, lane);
-  const cos = Math.cos(outward);
-  const sin = Math.sin(outward);
-  const backX = ax - cos * WORKFLOW_ARROW_BACK;
-  const backY = ay - sin * WORKFLOW_ARROW_BACK;
-  return [
-    `${ax},${ay}`,
-    `${backX - sin * WORKFLOW_ARROW_HALF_W},${backY + cos * WORKFLOW_ARROW_HALF_W}`,
-    `${backX + sin * WORKFLOW_ARROW_HALF_W},${backY - cos * WORKFLOW_ARROW_HALF_W}`,
-  ].join(" ");
+function edgeOutputCapSegment(ax, ay, outward) {
+  const tangent = outward + Math.PI / 2;
+  const cos = Math.cos(tangent);
+  const sin = Math.sin(tangent);
+  const half = WORKFLOW_OUTPUT_CAP_HALF;
+  return {
+    x1: ax - cos * half,
+    y1: ay - sin * half,
+    x2: ax + cos * half,
+    y2: ay + sin * half,
+  };
 }
 
-function paintEdges() {
+function scheduleWorkflowFrame() {
+  if (workflowFrameQueued) return;
+  workflowFrameQueued = true;
+  requestAnimationFrame(() => {
+    workflowFrameQueued = false;
+    paintEdges();
+  });
+}
+
+function ensureEdgeGraphics() {
+  if (edgePathEls.length === EDGES.length) return;
   const svg = edgesSvg();
   const arrowLayer = arrowsSvg();
-  if (!svg) return;
-  applyLayout();
-  const layer = nodeLayer();
-  const w = layer ? Number.parseFloat(layer.style.width) || MIN_CANVAS_W : MIN_CANVAS_W;
-  const h = layer ? Number.parseFloat(layer.style.height) || MIN_CANVAS_H : MIN_CANVAS_H;
-  for (const surface of [svg, arrowLayer]) {
+  if (!svg || !arrowLayer) return;
+  edgePathEls = [];
+  edgeOutCapEls = [];
+  edgeInArrowEls = [];
+  svg.replaceChildren();
+  arrowLayer.replaceChildren();
+  const pathGroup = document.createElementNS(SVG_NS, "g");
+  pathGroup.setAttribute("class", "workflow-edge-layer");
+  const arrowGroup = document.createElementNS(SVG_NS, "g");
+  arrowGroup.setAttribute("class", "workflow-edge-arrow-layer");
+  for (let i = 0; i < EDGES.length; i++) {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("class", "workflow-edge");
+    pathGroup.appendChild(path);
+    edgePathEls.push(path);
+    const line = document.createElementNS(SVG_NS, "line");
+    line.setAttribute("class", "workflow-edge-output-cap");
+    const poly = document.createElementNS(SVG_NS, "polygon");
+    poly.setAttribute("class", "workflow-edge-arrow workflow-edge-arrow--in");
+    arrowGroup.appendChild(line);
+    arrowGroup.appendChild(poly);
+    edgeOutCapEls.push(line);
+    edgeInArrowEls.push(poly);
+  }
+  svg.appendChild(pathGroup);
+  arrowLayer.appendChild(arrowGroup);
+}
+
+function setEdgeSurfaceSize(w, h) {
+  if (w === lastSurfaceW && h === lastSurfaceH) return;
+  lastSurfaceW = w;
+  lastSurfaceH = h;
+  for (const surface of [edgesSvg(), arrowsSvg()]) {
     if (!surface) continue;
     surface.setAttribute("width", String(w));
     surface.setAttribute("height", String(h));
     surface.setAttribute("viewBox", `0 0 ${w} ${h}`);
-    surface.setAttribute("shape-rendering", "geometricPrecision");
   }
-  const paths = ['<g class="workflow-edge-layer">'];
-  const arrows = ['<g class="workflow-edge-arrow-layer">'];
-  for (const edge of EDGES) {
+}
+
+function repaintEdgeGraphics() {
+  ensureEdgeGraphics();
+  const layer = nodeLayer();
+  const w = layer ? Number.parseFloat(layer.style.width) || MIN_CANVAS_W : MIN_CANVAS_W;
+  const h = layer ? Number.parseFloat(layer.style.height) || MIN_CANVAS_H : MIN_CANVAS_H;
+  setEdgeSurfaceSize(w, h);
+  const fast = Boolean(dragState);
+  for (const surface of [edgesSvg(), arrowsSvg()]) {
+    surface?.setAttribute("shape-rendering", fast ? "optimizeSpeed" : "geometricPrecision");
+  }
+  const dragId = dragState?.id;
+  for (let i = 0; i < EDGES.length; i++) {
+    const edge = EDGES[i];
+    if (dragId && edge.from !== dragId && edge.to !== dragId) continue;
     const from = socketPoint(edge.from, edge.fromSocket);
     const to = socketPoint(edge.to, edge.toSocket);
-    if (!from || !to) continue;
+    const pathEl = edgePathEls[i];
+    const capEl = edgeOutCapEls[i];
+    const arrowEl = edgeInArrowEls[i];
+    if (!from || !to || !pathEl || !capEl || !arrowEl) continue;
     const lane = edge.lane || 0;
-    const trim = WORKFLOW_ARROW_BACK;
-    const path = edgePath(from.x, from.y, to.x, to.y, lane, trim, trim, edge.from, edge.to);
-    paths.push(`<path class="workflow-edge" d="${path}" />`);
-    arrows.push(
-      `<polygon class="workflow-edge-arrow workflow-edge-arrow--out" points="${edgeOutputArrowPoints(from.x, from.y, to.x, to.y, lane, edge.from, from.x, from.y)}" />`,
+    const outwardStart = anchorOutwardAngle(from.x, from.y, edge.from, from.x, from.y, to.x, to.y, lane, false);
+    const outwardEnd = anchorOutwardAngle(to.x, to.y, edge.to, from.x, from.y, to.x, to.y, lane, true);
+    pathEl.setAttribute(
+      "d",
+      edgePath(
+        from.x,
+        from.y,
+        to.x,
+        to.y,
+        lane,
+        WORKFLOW_OUTPUT_LINE_TRIM,
+        WORKFLOW_ARROW_BACK,
+        outwardStart,
+        outwardEnd,
+      ),
     );
-    arrows.push(
-      `<polygon class="workflow-edge-arrow workflow-edge-arrow--in" points="${edgeInputArrowPoints(from.x, from.y, to.x, to.y, lane, edge.to, to.x, to.y)}" />`,
-    );
+    const outCap = edgeOutputCapSegment(from.x, from.y, outwardStart);
+    capEl.setAttribute("x1", String(outCap.x1));
+    capEl.setAttribute("y1", String(outCap.y1));
+    capEl.setAttribute("x2", String(outCap.x2));
+    capEl.setAttribute("y2", String(outCap.y2));
+    arrowEl.setAttribute("points", edgeInputArrowPolygon(to.x, to.y, outwardEnd));
   }
-  paths.push("</g>");
-  arrows.push("</g>");
-  svg.innerHTML = paths.join("");
-  if (arrowLayer) arrowLayer.innerHTML = arrows.join("");
+}
+
+function paintEdges() {
+  if (!edgesSvg()) return;
+  applyLayout();
+  repaintEdgeGraphics();
 }
 
 function refreshWorkflowCanvas() {
   if (document.getElementById("workflowTabPanel")?.hidden) return;
+  if (workflowViewportInteracting()) return;
   applyCamera();
-  requestAnimationFrame(paintEdges);
+  scheduleWorkflowFrame();
+}
+
+function dragEdgePanDelta(clientX, clientY, dtMs) {
+  const rect = viewportRect();
+  if (!rect || dtMs <= 0) return { dx: 0, dy: 0 };
+  const dt = dtMs / 1000;
+  const inset = DRAG_EDGE_INSET;
+  const max = DRAG_EDGE_PAN_MAX;
+  let vx = 0;
+  let vy = 0;
+  if (clientX < rect.left + inset) {
+    vx = max * Math.min(1, (rect.left + inset - clientX) / inset);
+  } else if (clientX > rect.right - inset) {
+    vx = -max * Math.min(1, (clientX - (rect.right - inset)) / inset);
+  }
+  if (clientY < rect.top + inset) {
+    vy = max * Math.min(1, (rect.top + inset - clientY) / inset);
+  } else if (clientY > rect.bottom - inset) {
+    vy = -max * Math.min(1, (clientY - (rect.bottom - inset)) / inset);
+  }
+  return { dx: vx * dt, dy: vy * dt };
+}
+
+function stopDragEdgeLoop() {
+  if (dragEdgeFrame) cancelAnimationFrame(dragEdgeFrame);
+  dragEdgeFrame = 0;
+  if (dragState) dragState.lastFrameTs = 0;
+}
+
+function startDragEdgeLoop() {
+  stopDragEdgeLoop();
+  const tick = (now) => {
+    if (!dragState) return;
+    const prev = dragState.lastFrameTs || now;
+    const dtMs = Math.min(32, Math.max(DRAG_EDGE_FRAME_MS, now - prev));
+    dragState.lastFrameTs = now;
+    const edgePan = dragEdgePanDelta(lastDragPointer.x, lastDragPointer.y, dtMs);
+    if (edgePan.dx || edgePan.dy) {
+      camera.panX += edgePan.dx;
+      camera.panY += edgePan.dy;
+      applyCamera();
+    }
+    dragEdgeFrame = requestAnimationFrame(tick);
+  };
+  dragEdgeFrame = requestAnimationFrame(tick);
 }
 
 function onPointerMove(event) {
   if (panState) {
-    camera.panX = panState.originPanX + (event.clientX - panState.originX);
-    camera.panY = panState.originPanY + (event.clientY - panState.originY);
+    panState.latestX = event.clientX;
+    panState.latestY = event.clientY;
     pushPanSample(panState.samples, event.clientX, event.clientY);
-    applyCamera();
-    paintEdges();
+    schedulePanCameraApply();
     return;
   }
   if (!dragState) return;
+  lastDragPointer.x = event.clientX;
+  lastDragPointer.y = event.clientY;
   const pt = clientToWorld(event.clientX, event.clientY);
   layout[dragState.id] = {
     x: clampLogicalCoord(pt.x - dragState.offsetX),
     y: clampLogicalCoord(pt.y - dragState.offsetY),
   };
-  paintEdges();
+  scheduleWorkflowFrame();
 }
 
 function endInteraction(event) {
   if (panState) {
+    applyPanCameraFromState();
     const samples = panState.samples;
     const releaseVelocity = panReleaseVelocity(samples);
     viewport()?.releasePointerCapture?.(panState.pointerId);
     panState = null;
+    panCameraFrameQueued = false;
     viewport()?.classList.remove("is-panning");
+    syncWorkflowInteractionClass();
     if (releaseVelocity.vx || releaseVelocity.vy) startPanInertia(releaseVelocity.vx, releaseVelocity.vy);
     else saveCamera();
   }
   if (dragState) {
+    stopDragEdgeLoop();
     dragState.node.classList.remove("is-dragging");
     dragState = null;
+    syncWorkflowInteractionClass();
+    paintEdges();
     saveLayout();
+    saveCamera();
   }
   document.removeEventListener("pointermove", onPointerMove);
   document.removeEventListener("pointerup", endInteraction);
@@ -484,12 +701,15 @@ function startPan(event) {
   panState = {
     originX: event.clientX,
     originY: event.clientY,
+    latestX: event.clientX,
+    latestY: event.clientY,
     originPanX: camera.panX,
     originPanY: camera.panY,
     pointerId: event.pointerId,
     samples,
   };
   viewport()?.classList.add("is-panning");
+  syncWorkflowInteractionClass();
   viewport()?.setPointerCapture?.(event.pointerId);
   document.addEventListener("pointermove", onPointerMove);
   document.addEventListener("pointerup", endInteraction);
@@ -513,9 +733,15 @@ function startDrag(event) {
     node,
     offsetX: pt.x - pos.x,
     offsetY: pt.y - pos.y,
+    frozenOrigin: { ...canvasOrigin },
+    lastFrameTs: 0,
   };
+  lastDragPointer.x = event.clientX;
+  lastDragPointer.y = event.clientY;
   layout[id] = { x: pos.x, y: pos.y };
   node.classList.add("is-dragging");
+  syncWorkflowInteractionClass();
+  startDragEdgeLoop();
   document.addEventListener("pointermove", onPointerMove);
   document.addEventListener("pointerup", endInteraction);
   document.addEventListener("pointercancel", endInteraction);
@@ -537,7 +763,6 @@ function onWheel(event) {
   camera.panX = px - displayX * nextScale;
   camera.panY = py - displayY * nextScale;
   applyCamera();
-  paintEdges();
   saveCamera();
 }
 
@@ -547,7 +772,7 @@ function suppressMiddleAutoScroll(event) {
 
 export function repaintWorkflowEdges() {
   if (document.getElementById("workflowTabPanel")?.hidden) return;
-  requestAnimationFrame(paintEdges);
+  scheduleWorkflowFrame();
 }
 
 export function bindWorkflow() {
@@ -557,7 +782,7 @@ export function bindWorkflow() {
   loadSocketLayout();
   applyCamera();
   applyLayout();
-  bindWorkflowTools({ onAnchorMoved: paintEdges });
+  bindWorkflowTools({ onAnchorMoved: scheduleWorkflowFrame });
   const layer = nodeLayer();
   const view = viewport();
   layer?.addEventListener("pointerdown", startDrag);

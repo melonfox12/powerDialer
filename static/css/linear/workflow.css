@@ -103,6 +103,16 @@
   cursor: grabbing;
 }
 
+.workflow-viewport.is-panning .workflow-world,
+.workflow-viewport.is-gliding .workflow-world,
+.workflow-viewport.is-workflow-interacting .workflow-world {
+  will-change: transform;
+}
+
+.workflow-node.is-dragging {
+  will-change: left, top;
+}
+
 .workflow-world {
   position: absolute;
   top: 0;
@@ -110,6 +120,7 @@
   min-width: 2280px;
   min-height: 920px;
   transform-origin: 0 0;
+  backface-visibility: hidden;
 }
 
 .workflow-edges {
@@ -138,7 +149,8 @@
   fill: none;
   stroke: #f2f4f8;
   stroke-width: 2.5;
-  stroke-linecap: round;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
   opacity: 0.92;
 }
 
@@ -146,6 +158,13 @@
   fill: #f2f4f8;
   opacity: 0.95;
   stroke: none;
+}
+
+.workflow-edge-output-cap {
+  stroke: #f2f4f8;
+  stroke-width: 3.5;
+  stroke-linecap: butt;
+  opacity: 0.98;
 }
 
 .workflow-node-layer {
