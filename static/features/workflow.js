@@ -17,8 +17,12 @@ const MAX_SPAN_H = 16000;
 const LOGICAL_COORD_LIMIT = 30000;
 const CANVAS_PAD = 180;
 const ZOOM_INTENSITY = 0.00115;
+const TRACKPAD_ZOOM_INTENSITY = 0.0085;
 const MIN_SCALE = 0.22;
 const MAX_SCALE = 2.75;
+const WHEEL_DELTA_PIXEL = 0;
+const WHEEL_DELTA_LINE = 1;
+const WHEEL_LINE_TO_PX = 16;
 const PAN_VELOCITY_WINDOW_MS = 110;
 const PAN_RELEASE_GAIN = 0.78;
 const PAN_MAX_SPEED = 2.05;
@@ -63,6 +67,8 @@ let panCameraFrameQueued = false;
 let dragEdgeFrame = 0;
 let lastDragPointer = { x: 0, y: 0 };
 let workflowFrameQueued = false;
+let wheelPanAccum = { dx: 0, dy: 0 };
+let wheelPanRaf = 0;
 let lastSurfaceW = 0;
 let lastSurfaceH = 0;
 /** @type {SVGPathElement[]} */
@@ -688,8 +694,68 @@ function endInteraction(event) {
   document.removeEventListener("pointercancel", endInteraction);
 }
 
+function pointerStartsCanvasPan(event) {
+  if (event.button === 1) return true;
+  if (event.button !== 0 || panState || dragState) return false;
+  if (workflowToolBlocksNodeDrag()) return false;
+  if (event.target.closest(".workflow-node-header")) return false;
+  if (event.target.closest("button, a, input, select, textarea, label, [contenteditable='true']")) return false;
+  return true;
+}
+
+function zoomCameraAtClient(clientX, clientY, deltaY, { pinch = false } = {}) {
+  const view = viewport();
+  if (!view) return;
+  const rect = view.getBoundingClientRect();
+  const px = clientX - rect.left;
+  const py = clientY - rect.top;
+  const displayX = (px - camera.panX) / camera.scale;
+  const displayY = (py - camera.panY) / camera.scale;
+  const intensity = pinch ? TRACKPAD_ZOOM_INTENSITY : ZOOM_INTENSITY;
+  const factor = Math.exp(-deltaY * intensity);
+  const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, camera.scale * factor));
+  camera.scale = nextScale;
+  camera.panX = px - displayX * nextScale;
+  camera.panY = py - displayY * nextScale;
+  applyCamera();
+  saveCamera();
+}
+
+function wheelPansViewport(event) {
+  if (event.ctrlKey || event.metaKey) return false;
+  if (event.deltaX !== 0) return true;
+  return event.deltaMode === WHEEL_DELTA_PIXEL;
+}
+
+function wheelDeltaToPx(deltaX, deltaY, deltaMode) {
+  if (deltaMode === WHEEL_DELTA_LINE) {
+    return { dx: deltaX * WHEEL_LINE_TO_PX, dy: deltaY * WHEEL_LINE_TO_PX };
+  }
+  return { dx: deltaX, dy: deltaY };
+}
+
+function flushWheelPan() {
+  wheelPanRaf = 0;
+  const { dx, dy } = wheelPanAccum;
+  wheelPanAccum.dx = 0;
+  wheelPanAccum.dy = 0;
+  if (!dx && !dy) return;
+  camera.panX -= dx;
+  camera.panY -= dy;
+  applyCamera();
+  saveCamera();
+}
+
+function queueWheelPan(deltaX, deltaY, deltaMode) {
+  const { dx, dy } = wheelDeltaToPx(deltaX, deltaY, deltaMode);
+  wheelPanAccum.dx += dx;
+  wheelPanAccum.dy += dy;
+  if (wheelPanRaf) return;
+  wheelPanRaf = requestAnimationFrame(flushWheelPan);
+}
+
 function startPan(event) {
-  if (event.button !== 1) return;
+  if (!pointerStartsCanvasPan(event)) return;
   event.preventDefault();
   stopPanInertia();
   const samples = [];
@@ -748,18 +814,12 @@ function onWheel(event) {
   if (!view || view !== event.currentTarget) return;
   event.preventDefault();
   stopPanInertia();
-  const rect = view.getBoundingClientRect();
-  const px = event.clientX - rect.left;
-  const py = event.clientY - rect.top;
-  const displayX = (px - camera.panX) / camera.scale;
-  const displayY = (py - camera.panY) / camera.scale;
-  const factor = Math.exp(-event.deltaY * ZOOM_INTENSITY);
-  const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, camera.scale * factor));
-  camera.scale = nextScale;
-  camera.panX = px - displayX * nextScale;
-  camera.panY = py - displayY * nextScale;
-  applyCamera();
-  saveCamera();
+  if (wheelPansViewport(event)) {
+    queueWheelPan(event.deltaX, event.deltaY, event.deltaMode);
+    return;
+  }
+  const pinch = event.ctrlKey || event.metaKey;
+  zoomCameraAtClient(event.clientX, event.clientY, event.deltaY, { pinch });
 }
 
 function suppressMiddleAutoScroll(event) {

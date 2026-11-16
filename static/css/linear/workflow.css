@@ -98,6 +98,11 @@
   touch-action: none;
 }
 
+.workflow-viewport.is-tool-pan {
+  cursor: grab;
+}
+
+.workflow-viewport.is-tool-pan.is-panning,
 .workflow-viewport.is-panning,
 .workflow-viewport.is-gliding {
   cursor: grabbing;
