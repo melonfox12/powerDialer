@@ -34,10 +34,8 @@ const EDGES = [
   { from: "phone-lookup", fromSocket: "out", to: "format-org", toSocket: "in" },
   { from: "format-org", fromSocket: "out", to: "caller-pool", toSocket: "in" },
   { from: "caller-pool", fromSocket: "out", to: "digital-office", toSocket: "in" },
-  { from: "digital-office", fromSocket: "out-sync", to: "organizer", toSocket: "in-b", hub: true, lane: 1 },
-  { from: "organizer", fromSocket: "out-b", to: "digital-office", toSocket: "in-sync", hub: true, lane: -1 },
-  { from: "pipeline", fromSocket: "out-sync", to: "organizer", toSocket: "in-a", hub: true, lane: 1 },
-  { from: "organizer", fromSocket: "out-a", to: "pipeline", toSocket: "in-sync", hub: true, lane: -1 },
+  { from: "digital-office", fromSocket: "out-sync", to: "pipeline", toSocket: "in-sync", lane: 1 },
+  { from: "pipeline", fromSocket: "out-sync", to: "digital-office", toSocket: "in-sync", lane: -1 },
 ];
 
 const DEFAULT_LAYOUT = {
@@ -46,8 +44,7 @@ const DEFAULT_LAYOUT = {
   "format-org": { x: 700, y: 100 },
   "caller-pool": { x: 1020, y: 140 },
   "digital-office": { x: 1180, y: 300 },
-  organizer: { x: 1580, y: 280 },
-  pipeline: { x: 1980, y: 300 },
+  pipeline: { x: 1620, y: 260 },
 };
 
 const DEFAULT_CAMERA = { panX: 24, panY: 20, scale: 0.92 };
@@ -130,8 +127,7 @@ function saveCamera() {
 
 function defaultNodeSize(node) {
   if (node?.classList.contains("workflow-node--group")) return { w: 360, h: 420 };
-  if (node?.classList.contains("workflow-node--organizer")) return { w: 320, h: 300 };
-  if (node?.classList.contains("workflow-node--pipeline")) return { w: 300, h: 220 };
+  if (node?.classList.contains("workflow-node--pipeline")) return { w: 520, h: 280 };
   return { w: 268, h: 160 };
 }
 

@@ -99,53 +99,14 @@
           </header>
           <div class="workflow-node-body">
             <div class="workflow-office-toolbar">
-              <p class="workflow-hint">AI dialer seats — sync via Organizer ↔ Pipeline.</p>
+              <p class="workflow-hint">AI dialer seats — sync with Pipeline board.</p>
               <button type="button" id="workflowOfficeAddAgent" class="button button-quiet workflow-office-add">+ Add agent</button>
             </div>
             <div id="workflowOfficeGrid" class="workflow-office-grid" role="list" aria-label="Digital sales agents"></div>
           </div>
           <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
-          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="Agent activity → Organizer"></span>
-          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="Organizer → office"></span>
-        </article>
-
-        <article class="workflow-node workflow-node--organizer" data-workflow-node="organizer">
-          <header class="workflow-node-header">
-            <span class="workflow-node-tag workflow-node-tag--green">Router</span>
-            <h3 class="workflow-node-title">Organizer</h3>
-          </header>
-          <div class="workflow-node-body">
-            <p class="workflow-hint">Merges pipeline CRM state and agentic call activity, then routes updates to each side.</p>
-            <div class="workflow-organizer-diagram" aria-hidden="true">
-              <div class="workflow-organizer-ins">
-                <div class="workflow-organizer-lane workflow-organizer-lane--pipe">
-                  <span class="workflow-organizer-lane-label">In · Pipeline info</span>
-                  <span class="workflow-organizer-lane-sample">Board deltas</span>
-                </div>
-                <div class="workflow-organizer-lane workflow-organizer-lane--agent">
-                  <span class="workflow-organizer-lane-label">In · Agent activity</span>
-                  <span class="workflow-organizer-lane-sample">Sessions &amp; lead events</span>
-                </div>
-              </div>
-              <div class="workflow-organizer-merge">
-                <span class="workflow-organizer-core">Normalize · match · route</span>
-              </div>
-              <div class="workflow-organizer-outs">
-                <div class="workflow-organizer-lane workflow-organizer-lane--out-pipe">
-                  <span class="workflow-organizer-lane-label">Out · Pipeline board</span>
-                  <span class="workflow-organizer-lane-sample">Step moves &amp; timers</span>
-                </div>
-                <div class="workflow-organizer-lane workflow-organizer-lane--out-agent">
-                  <span class="workflow-organizer-lane-label">Out · Digital office</span>
-                  <span class="workflow-organizer-lane-sample">Seat context &amp; pool</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-a" title="Pipeline input"></span>
-          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-b" title="Agent activity input"></span>
-          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-a" title="Pipeline output"></span>
-          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-b" title="Digital office output"></span>
+          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="Agent activity → Pipeline"></span>
+          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="Pipeline → office"></span>
         </article>
 
         <article class="workflow-node workflow-node--pipeline" data-workflow-node="pipeline">
@@ -153,17 +114,62 @@
             <span class="workflow-node-tag">CRM</span>
             <h3 class="workflow-node-title">Pipeline board</h3>
           </header>
-          <div class="workflow-node-body">
-            <p class="workflow-hint">Mirrors Pipeline tab. Syncs through Organizer ↔ Digital office.</p>
-            <div class="workflow-pipeline-mini" aria-label="Pipeline preview">
-              <div class="workflow-pipeline-col"><span>Dialed</span><strong>42</strong></div>
-              <div class="workflow-pipeline-col"><span>Contacted</span><strong>18</strong></div>
-              <div class="workflow-pipeline-col"><span>Follow up</span><strong>9</strong></div>
-              <div class="workflow-pipeline-col"><span>Closed</span><strong>3</strong></div>
+          <div class="workflow-node-body workflow-node-body--pipeline">
+            <p class="workflow-hint">Mirrors the Pipeline tab — columns, cards, and step timers.</p>
+            <div class="workflow-pipeline-kanban" aria-label="Pipeline kanban preview">
+              <div class="workflow-pipeline-column">
+                <div class="workflow-pipeline-column-head">
+                  <h4>Dialed <span class="workflow-pipeline-column-count">3</span></h4>
+                </div>
+                <div class="workflow-pipeline-column-list">
+                  <div class="workflow-pipeline-card workflow-pipeline-card--ready">
+                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">MR</span>
+                    <span class="workflow-pipeline-card-title">Metro Retail Co.</span>
+                  </div>
+                  <div class="workflow-pipeline-card workflow-pipeline-card--callback">
+                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">JH</span>
+                    <span class="workflow-pipeline-card-title">Johnson HVAC</span>
+                  </div>
+                </div>
+              </div>
+              <div class="workflow-pipeline-column">
+                <div class="workflow-pipeline-column-head">
+                  <h4>Contacted <span class="workflow-pipeline-column-count">2</span></h4>
+                </div>
+                <div class="workflow-pipeline-column-list">
+                  <div class="workflow-pipeline-card workflow-pipeline-card--waiting">
+                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">SL</span>
+                    <span class="workflow-pipeline-card-title">Summit Legal</span>
+                  </div>
+                </div>
+              </div>
+              <div class="workflow-pipeline-column">
+                <div class="workflow-pipeline-column-head">
+                  <h4>Follow up <span class="workflow-pipeline-column-count">1</span></h4>
+                  <span class="workflow-pipeline-column-wait">48h wait</span>
+                </div>
+                <div class="workflow-pipeline-column-list">
+                  <div class="workflow-pipeline-card workflow-pipeline-card--waiting">
+                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">BK</span>
+                    <span class="workflow-pipeline-card-title">Bright Kitchens</span>
+                  </div>
+                </div>
+              </div>
+              <div class="workflow-pipeline-column">
+                <div class="workflow-pipeline-column-head">
+                  <h4>Closed <span class="workflow-pipeline-column-count">1</span></h4>
+                </div>
+                <div class="workflow-pipeline-column-list">
+                  <div class="workflow-pipeline-card workflow-pipeline-card--booked">
+                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">AP</span>
+                    <span class="workflow-pipeline-card-title">Apex Plumbing</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="Organizer → pipeline"></span>
-          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="Pipeline → Organizer"></span>
+          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="Digital office → pipeline"></span>
+          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="Pipeline → office"></span>
         </article>
 
       </div>
