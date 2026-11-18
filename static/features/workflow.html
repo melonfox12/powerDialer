@@ -1,231 +1,59 @@
 <div id="workflowTabPanel" class="dashboard-tab-panel workflow-tab-panel" role="tabpanel" aria-labelledby="workflowTabButton" hidden>
   <div class="workflow-shell">
-    <div class="workflow-toolbar" role="toolbar" aria-label="Workflow canvas tools">
-      <button id="workflowToolPan" type="button" class="workflow-toolbar-btn is-selected" data-workflow-tool="pan" aria-pressed="true" title="Hand — drag canvas, two-finger scroll to pan, pinch or Ctrl+scroll to zoom">
-        <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.2a1 1 0 0 1 1.4 0l1.1 1.1V3.3a1 1 0 1 1 2 0v3.1l2.1 2.1a2.2 2.2 0 0 1 .6 1.5v2.7a1 1 0 0 1-1.7.7L8.2 11.2l-2.9 2.3a1 1 0 0 1-1.6-.8V7.4c0-.6.2-1.1.6-1.5l1.3-1.3V4.2a1 1 0 0 1 0-1.4Z" fill="currentColor"/></svg>
-        <span>Hand</span>
-      </button>
-      <button id="workflowToolAnchor" type="button" class="workflow-toolbar-btn" data-workflow-tool="anchor" aria-pressed="false" title="Anchor editor — drag connection points">
-        <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M3 13 L8.1 7.9" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
-          <path d="M11.2 3.6 8.1 7.9 10.15 9.05Z" fill="currentColor" />
-        </svg>
-        <span>Anchor editor</span>
-      </button>
-    </div>
-    <div id="workflowViewport" class="workflow-viewport is-tool-pan" tabindex="0" aria-label="Workflow canvas">
-      <div id="workflowWorld" class="workflow-world">
-      <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
-      <div id="workflowNodeLayer" class="workflow-node-layer">
+    <h2 class="visually-hidden">Workflow builder</h2>
+    <div class="workflow-body-row">
+      <aside id="workflowNodeLibrary" class="workflow-node-library" aria-label="Node library" style="--workflow-library-width: 272px">
+        <header class="workflow-library-header">
+          <button type="button" id="workflowLibraryCollapseBtn" class="workflow-library-collapse" aria-expanded="true" aria-controls="workflowLibraryList" title="Collapse node library">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 4 6 8l4 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <span class="workflow-library-title">Node library</span>
+        </header>
+        <div class="workflow-library-search-wrap">
+          <input id="workflowLibrarySearch" type="search" class="workflow-library-search" placeholder="Search nodes…" autocomplete="off" aria-label="Search node library">
+        </div>
+        <div id="workflowLibraryList" class="workflow-library-list" role="list"></div>
+        <div id="workflowLibraryResizer" class="workflow-library-resizer" role="separator" aria-orientation="vertical" aria-label="Resize node library" title="Drag to resize"></div>
+      </aside>
 
-        <article class="workflow-node workflow-node--source" data-workflow-node="prospect-list">
-          <header class="workflow-node-header">
-            <span class="workflow-node-tag">Source</span>
-            <h3 class="workflow-node-title">Main prospect list</h3>
-          </header>
-          <div class="workflow-node-body">
-            <p class="workflow-stat"><strong>12,450</strong> raw prospects</p>
-            <p class="workflow-hint">Pre-generated master list (~10k–20k). Feeds all downstream automation.</p>
+      <div class="workflow-canvas-column">
+        <div class="workflow-toolbar" role="toolbar" aria-label="Workflow canvas tools">
+          <button id="workflowToolPan" type="button" class="workflow-toolbar-btn is-selected" data-workflow-tool="pan" aria-pressed="true" title="Hand — drag canvas, two-finger scroll to pan, pinch or Ctrl+scroll to zoom">
+            <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.2a1 1 0 0 1 1.4 0l1.1 1.1V3.3a1 1 0 1 1 2 0v3.1l2.1 2.1a2.2 2.2 0 0 1 .6 1.5v2.7a1 1 0 0 1-1.7.7L8.2 11.2l-2.9 2.3a1 1 0 0 1-1.6-.8V7.4c0-.6.2-1.1.6-1.5l1.3-1.3V4.2a1 1 0 0 1 0-1.4Z" fill="currentColor"/></svg>
+            <span>Hand</span>
+          </button>
+          <button id="workflowToolAnchor" type="button" class="workflow-toolbar-btn" data-workflow-tool="anchor" aria-pressed="false" title="Anchor editor — drag connection points">
+            <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M3 13 L8.1 7.9" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+              <path d="M11.2 3.6 8.1 7.9 10.15 9.05Z" fill="currentColor" />
+            </svg>
+            <span>Anchor editor</span>
+          </button>
+          <button id="workflowToolResize" type="button" class="workflow-toolbar-btn" data-workflow-tool="resize" aria-pressed="false" title="Size — drag node edges or corner to resize">
+            <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="2.5" y="5" width="9" height="7.5" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.15" stroke-dasharray="2.4 1.6"/>
+              <path d="M6.5 9.2 10.2 6.4 M10.2 6.4 H7.7 M10.2 6.4 V8.9" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span>Size</span>
+          </button>
+        </div>
+        <div id="workflowViewport" class="workflow-viewport is-tool-pan" tabindex="0" aria-label="Workflow canvas">
+          <div id="workflowWorld" class="workflow-world">
+            <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
+            <div id="workflowNodeLayer" class="workflow-node-layer"></div>
+            <svg id="workflowEdgeArrows" class="workflow-edge-arrows" aria-hidden="true"></svg>
           </div>
-          <span class="workflow-socket workflow-socket-out" data-socket="out" title="Output"></span>
-        </article>
-
-        <article class="workflow-node workflow-node--lookup" data-workflow-node="phone-lookup">
-          <header class="workflow-node-header">
-            <span class="workflow-node-tag">Twilio lookup</span>
-            <h3 class="workflow-node-title">Phone number lookup</h3>
-          </header>
-          <div class="workflow-node-body workflow-node-form">
-            <label class="workflow-field">
-              <span>Numbers to research</span>
-              <input type="number" value="500" min="1" max="20000" disabled aria-disabled="true">
-            </label>
-            <label class="workflow-field">
-              <span>Selection mode</span>
-              <select disabled aria-disabled="true">
-                <option>Random from top of list</option>
-                <option>Filter by list column</option>
-              </select>
-            </label>
-            <label class="workflow-field">
-              <span>Industry target</span>
-              <select disabled aria-disabled="true">
-                <option>Any industry</option>
-                <option>Restaurants</option>
-                <option>Home services</option>
-                <option>Healthcare</option>
-              </select>
-            </label>
-            <p class="workflow-hint">Python automation — line type research (mobile, landline, VoIP). No LLM.</p>
-            <button class="button button-quiet workflow-node-action" type="button" disabled>Run lookup (soon)</button>
-          </div>
-          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
-          <span class="workflow-socket workflow-socket-out" data-socket="out"></span>
-        </article>
-
-        <article class="workflow-node workflow-node--format" data-workflow-node="format-org">
-          <header class="workflow-node-header">
-            <span class="workflow-node-tag workflow-node-tag--green">Organization</span>
-            <h3 class="workflow-node-title">Formatting &amp; CSV</h3>
-          </header>
-          <div class="workflow-node-body">
-            <p class="workflow-stat"><strong>global_crm.csv</strong> in node memory</p>
-            <p class="workflow-hint">Merges prospect fields + lookup column into your CRM schema.</p>
-            <div class="workflow-node-actions">
-              <button class="button button-quiet" type="button" disabled title="Coming soon">Download CSV</button>
-            </div>
-          </div>
-          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
-          <span class="workflow-socket workflow-socket-out" data-socket="out"></span>
-        </article>
-
-        <article class="workflow-node workflow-node--pool" data-workflow-node="caller-pool">
-          <header class="workflow-node-header">
-            <span class="workflow-node-tag">Queue</span>
-            <h3 class="workflow-node-title">Main caller pool</h3>
-          </header>
-          <div class="workflow-node-body">
-            <p class="workflow-stat"><strong>2,840</strong> eligible to dial</p>
-            <p class="workflow-hint">Agents pull prospects directly from this pool.</p>
-          </div>
-          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
-          <span class="workflow-socket workflow-socket-out" data-socket="out"></span>
-        </article>
-
-        <article class="workflow-node workflow-node--group workflow-node--office" data-workflow-node="digital-office">
-          <header class="workflow-node-header">
-            <span class="workflow-node-tag workflow-node-tag--green">Agentic</span>
-            <h3 class="workflow-node-title">Digital sales office</h3>
-          </header>
-          <div class="workflow-node-body">
-            <div class="workflow-office-toolbar">
-              <p class="workflow-hint">AI dialer seats — sync with Pipeline board.</p>
-              <button type="button" id="workflowOfficeAddAgent" class="button button-quiet workflow-office-add">+ Add agent</button>
-            </div>
-            <div id="workflowOfficeGrid" class="workflow-office-grid" role="list" aria-label="Digital sales agents"></div>
-          </div>
-          <span class="workflow-socket workflow-socket-in" data-socket="in"></span>
-          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="Agent activity → Pipeline"></span>
-          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="Pipeline → office"></span>
-        </article>
-
-        <article class="workflow-node workflow-node--pipeline" data-workflow-node="pipeline">
-          <header class="workflow-node-header">
-            <span class="workflow-node-tag">CRM</span>
-            <h3 class="workflow-node-title">Pipeline board</h3>
-          </header>
-          <div class="workflow-node-body workflow-node-body--pipeline">
-            <p class="workflow-hint">Mirrors the Pipeline tab — columns, cards, and step timers.</p>
-            <div class="workflow-pipeline-kanban" aria-label="Pipeline kanban preview">
-              <div class="workflow-pipeline-column">
-                <div class="workflow-pipeline-column-head">
-                  <h4>Dialed <span class="workflow-pipeline-column-count">3</span></h4>
-                </div>
-                <div class="workflow-pipeline-column-list">
-                  <div class="workflow-pipeline-card workflow-pipeline-card--ready">
-                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">MR</span>
-                    <span class="workflow-pipeline-card-title">Metro Retail Co.</span>
-                  </div>
-                  <div class="workflow-pipeline-card workflow-pipeline-card--callback">
-                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">JH</span>
-                    <span class="workflow-pipeline-card-title">Johnson HVAC</span>
-                  </div>
-                </div>
-              </div>
-              <div class="workflow-pipeline-column">
-                <div class="workflow-pipeline-column-head">
-                  <h4>Contacted <span class="workflow-pipeline-column-count">2</span></h4>
-                </div>
-                <div class="workflow-pipeline-column-list">
-                  <div class="workflow-pipeline-card workflow-pipeline-card--waiting">
-                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">SL</span>
-                    <span class="workflow-pipeline-card-title">Summit Legal</span>
-                  </div>
-                </div>
-              </div>
-              <div class="workflow-pipeline-column">
-                <div class="workflow-pipeline-column-head">
-                  <h4>Follow up <span class="workflow-pipeline-column-count">1</span></h4>
-                  <span class="workflow-pipeline-column-wait">48h wait</span>
-                </div>
-                <div class="workflow-pipeline-column-list">
-                  <div class="workflow-pipeline-card workflow-pipeline-card--waiting">
-                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">BK</span>
-                    <span class="workflow-pipeline-card-title">Bright Kitchens</span>
-                  </div>
-                </div>
-              </div>
-              <div class="workflow-pipeline-column">
-                <div class="workflow-pipeline-column-head">
-                  <h4>Closed <span class="workflow-pipeline-column-count">1</span></h4>
-                </div>
-                <div class="workflow-pipeline-column-list">
-                  <div class="workflow-pipeline-card workflow-pipeline-card--booked">
-                    <span class="workflow-pipeline-card-avatar" aria-hidden="true">AP</span>
-                    <span class="workflow-pipeline-card-title">Apex Plumbing</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <span class="workflow-socket workflow-socket-in workflow-socket--sync" data-socket="in-sync" title="Digital office → pipeline"></span>
-          <span class="workflow-socket workflow-socket-out workflow-socket--sync" data-socket="out-sync" title="Pipeline → office"></span>
-        </article>
-
-      </div>
-      <svg id="workflowEdgeArrows" class="workflow-edge-arrows" aria-hidden="true"></svg>
+        </div>
       </div>
     </div>
   </div>
 
-  <dialog id="workflowAgentAddDialog" class="workflow-agent-dialog workflow-office-add-dialog">
-    <div class="workflow-agent-dialog-form">
-      <h3>Add agent to office</h3>
-      <p class="workflow-hint">Import a copy from AI Dialer Agent or create a new fleet seat.</p>
-      <div class="workflow-office-add-choices">
-        <button type="button" id="workflowOfficeImportBtn" class="button button-secondary">Import existing agent</button>
-        <button type="button" id="workflowOfficeCreateBtn" class="button button-primary">Create new agent</button>
-      </div>
-      <div class="workflow-agent-dialog-actions">
-        <button type="button" id="workflowOfficeAddCancel" class="button button-quiet">Cancel</button>
-      </div>
-    </div>
-  </dialog>
-
-  <dialog id="workflowAgentImportDialog" class="workflow-agent-dialog workflow-office-import-dialog">
+  <dialog id="workflowNodeInfoDialog" class="workflow-agent-dialog workflow-node-info-dialog">
     <form method="dialog" class="workflow-agent-dialog-form">
-      <h3>Import existing agent</h3>
-      <p class="workflow-hint">Adds a workflow seat linked to that agent profile — no new profile is created.</p>
-      <div id="workflowOfficeImportList" class="workflow-office-import-list" role="list"></div>
-      <div class="workflow-agent-dialog-actions">
-        <button class="button button-quiet" value="cancel">Cancel</button>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="workflowAgentSettingsDialog" class="workflow-agent-dialog">
-    <form method="dialog" class="workflow-agent-dialog-form">
-      <h3 id="workflowAgentDialogTitle">Agent desk</h3>
-      <p class="workflow-hint">Same controls as the AI Dialer Agent desk — preview layout only.</p>
-      <label class="workflow-field">
-        <span>Agent name</span>
-        <input type="text" id="workflowAgentDialogName" value="Agent" disabled>
-      </label>
-      <label class="workflow-field">
-        <span>Concurrent lines</span>
-        <select disabled aria-disabled="true"><option selected>3 lines</option><option>1 line</option></select>
-      </label>
-      <label class="workflow-field">
-        <span>Pool claim</span>
-        <select disabled aria-disabled="true"><option>From main caller pool</option></select>
-      </label>
-      <div class="workflow-agent-dialog-prompt">
-        <span>Playbook prompt</span>
-        <textarea rows="6" disabled aria-disabled="true" placeholder="Agent qualification script…"></textarea>
-      </div>
+      <h3 id="workflowNodeInfoTitle">Node</h3>
+      <div id="workflowNodeInfoBody" class="workflow-node-info-body"></div>
       <div class="workflow-agent-dialog-actions">
         <button class="button button-quiet" value="cancel">Close</button>
-        <button class="button button-primary" type="button" disabled>Save (soon)</button>
       </div>
     </form>
   </dialog>

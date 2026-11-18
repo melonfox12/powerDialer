@@ -12,6 +12,12 @@ const SOCKET_DEFAULT_Y = {
 };
 
 let workflowTool = "pan";
+let resizeState = null;
+let onResizeComplete = () => {};
+const MIN_NODE_W = 200;
+const MIN_NODE_H = 120;
+const MAX_NODE_W = 900;
+const MAX_NODE_H = 720;
 /** @type {Record<string, { t?: number, y?: number }>} */
 let socketLayout = {};
 let anchorDrag = null;
@@ -20,6 +26,18 @@ let onAnchorMoved = () => {};
 
 function isInputSocket(name) {
   return name === "in" || name.startsWith("in-");
+}
+
+export function isWorkflowInputSocket(name) {
+  return isInputSocket(name);
+}
+
+export function isWorkflowOutputSocket(name) {
+  return name === "out" || name.startsWith("out-");
+}
+
+export function getWorkflowTool() {
+  return workflowTool;
 }
 
 function perimeterLength(w, h) {
@@ -160,22 +178,105 @@ export function applySocketLayouts() {
     for (const socket of node.querySelectorAll(".workflow-socket")) {
       const name = socket.dataset.socket;
       if (!name) continue;
-      const t = resolveSocketT(nodeId, name, w, h);
+      let t = resolveSocketT(nodeId, name, w, h);
+      const key = socketKey(nodeId, name);
+      if (socket.dataset.defaultY && !socketLayout[key]) {
+        const y = Number.parseFloat(socket.dataset.defaultY);
+        if (Number.isFinite(y)) {
+          const onLeft = isInputSocket(name);
+          const x = onLeft ? 0 : w;
+          t = pointToT(x, y * h, w, h);
+        }
+      }
       positionSocketElement(socket, t, w, h);
     }
   }
 }
 
 function setWorkflowTool(tool) {
-  workflowTool = tool === "anchor" ? "anchor" : "pan";
+  if (tool === "anchor") workflowTool = "anchor";
+  else if (tool === "resize") workflowTool = "resize";
+  else workflowTool = "pan";
   const viewport = document.getElementById("workflowViewport");
   viewport?.classList.toggle("is-tool-anchor", workflowTool === "anchor");
+  viewport?.classList.toggle("is-tool-resize", workflowTool === "resize");
   viewport?.classList.toggle("is-tool-pan", workflowTool === "pan");
   for (const button of document.querySelectorAll("[data-workflow-tool]")) {
     const selected = button.dataset.workflowTool === workflowTool;
     button.classList.toggle("is-selected", selected);
     button.setAttribute("aria-pressed", String(selected));
   }
+}
+
+function endResizeDrag() {
+  if (!resizeState) return;
+  const node = resizeState.node;
+  const payload = {
+    nodeId: resizeState.nodeId,
+    w: resizeState.latestW,
+    h: resizeState.latestH,
+    paintingOnly: false,
+  };
+  node?.classList.remove("is-resizing");
+  resizeState = null;
+  document.removeEventListener("pointermove", onResizePointerMove);
+  document.removeEventListener("pointerup", endResizeDrag);
+  document.removeEventListener("pointercancel", endResizeDrag);
+  onResizeComplete(payload);
+}
+
+function onResizePointerMove(event) {
+  if (!resizeState) return;
+  const { node, nodeId, mode, startX, startY, originW, originH } = resizeState;
+  const scale = resizeState.scale || 1;
+  const dx = (event.clientX - startX) / scale;
+  const dy = (event.clientY - startY) / scale;
+  let w = originW;
+  let h = originH;
+  if (mode === "e" || mode === "se") w = Math.min(MAX_NODE_W, Math.max(MIN_NODE_W, originW + dx));
+  if (mode === "s" || mode === "se") h = Math.min(MAX_NODE_H, Math.max(MIN_NODE_H, originH + dy));
+  node.style.width = `${Math.round(w)}px`;
+  node.style.height = `${Math.round(h)}px`;
+  node.classList.add("workflow-node--sized");
+  resizeState.latestW = w;
+  resizeState.latestH = h;
+  applySocketLayouts();
+  onResizeComplete({ nodeId, w, h, paintingOnly: true });
+}
+
+function viewportScale() {
+  const world = document.getElementById("workflowWorld");
+  const style = world?.style.transform || "";
+  const scaleMatch = style.match(/scale\(([\d.]+)\)/);
+  return scaleMatch ? Number.parseFloat(scaleMatch[1]) : 1;
+}
+
+function startResizeDrag(handle, event) {
+  if (workflowTool !== "resize" || event.button !== 0) return;
+  const node = handle.closest("[data-workflow-node]");
+  if (!node) return;
+  const nodeId = node.dataset.workflowNode;
+  const mode = handle.dataset.resize;
+  if (!nodeId || !mode) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const rect = node.getBoundingClientRect();
+  resizeState = {
+    node,
+    nodeId,
+    mode,
+    startX: event.clientX,
+    startY: event.clientY,
+    originW: rect.width,
+    originH: rect.height,
+    latestW: rect.width,
+    latestH: rect.height,
+    scale: viewportScale(),
+  };
+  node.classList.add("is-resizing");
+  document.addEventListener("pointermove", onResizePointerMove);
+  document.addEventListener("pointerup", endResizeDrag);
+  document.addEventListener("pointercancel", endResizeDrag);
 }
 
 function endAnchorDrag() {
@@ -220,6 +321,7 @@ export function bindWorkflowTools(options = {}) {
   if (toolsBound) return;
   toolsBound = true;
   onAnchorMoved = typeof options.onAnchorMoved === "function" ? options.onAnchorMoved : () => {};
+  onResizeComplete = typeof options.onResizeComplete === "function" ? options.onResizeComplete : () => {};
   loadSocketLayout();
   applySocketLayouts();
   setWorkflowTool("pan");
@@ -230,6 +332,13 @@ export function bindWorkflowTools(options = {}) {
 
   const layer = document.getElementById("workflowNodeLayer");
   layer?.addEventListener("pointerdown", (event) => {
+    if (workflowTool === "resize" && event.button === 0) {
+      const handle = event.target.closest(".workflow-resize-handle");
+      if (handle) {
+        startResizeDrag(handle, event);
+        return;
+      }
+    }
     if (workflowTool !== "anchor" || event.button !== 0) return;
     const socket = event.target.closest(".workflow-socket");
     if (!socket) return;
@@ -238,5 +347,5 @@ export function bindWorkflowTools(options = {}) {
 }
 
 export function workflowToolBlocksNodeDrag() {
-  return workflowTool === "anchor";
+  return workflowTool === "anchor" || workflowTool === "resize";
 }

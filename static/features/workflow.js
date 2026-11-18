@@ -1,5 +1,18 @@
 import { registerRenderer } from "../core.js";
-import { bindOfficeAgents, renderOfficeAgents } from "./_workflow/office-agents.js";
+import {
+  getWorkflowInstances,
+  getWorkflowLayoutMap,
+  loadWorkflowEdges,
+  loadWorkflowInstances,
+  mountWorkflowInstances,
+  saveWorkflowEdges,
+  saveWorkflowInstances,
+  updateInstancePosition,
+  updateInstanceSize,
+} from "./_workflow/canvas-nodes.js";
+import { buildWorkflowNodeElement } from "./_workflow/node-factory.js";
+import { bindWorkflowConnections, isWorkflowWiring } from "./_workflow/connections.js";
+import { bindNodeLibrary } from "./_workflow/node-library.js";
 import {
   applySocketLayouts,
   bindWorkflowTools,
@@ -8,7 +21,6 @@ import {
   workflowToolBlocksNodeDrag,
 } from "./_workflow/tools.js";
 
-const LAYOUT_KEY = "godial-workflow-layout";
 const CAMERA_KEY = "godial-workflow-camera";
 const MIN_CANVAS_W = 2280;
 const MIN_CANVAS_H = 920;
@@ -33,27 +45,13 @@ const DRAG_EDGE_INSET = 52;
 const DRAG_EDGE_PAN_MAX = 190;
 const DRAG_EDGE_FRAME_MS = 16;
 
-const EDGES = [
-  { from: "prospect-list", fromSocket: "out", to: "phone-lookup", toSocket: "in" },
-  { from: "phone-lookup", fromSocket: "out", to: "format-org", toSocket: "in" },
-  { from: "format-org", fromSocket: "out", to: "caller-pool", toSocket: "in" },
-  { from: "caller-pool", fromSocket: "out", to: "digital-office", toSocket: "in" },
-  { from: "digital-office", fromSocket: "out-sync", to: "pipeline", toSocket: "in-sync", lane: 1 },
-  { from: "pipeline", fromSocket: "out-sync", to: "digital-office", toSocket: "in-sync", lane: -1 },
-];
-
-const DEFAULT_LAYOUT = {
-  "prospect-list": { x: 48, y: 140 },
-  "phone-lookup": { x: 340, y: 100 },
-  "format-org": { x: 700, y: 100 },
-  "caller-pool": { x: 1020, y: 140 },
-  "digital-office": { x: 1180, y: 300 },
-  pipeline: { x: 1620, y: 260 },
-};
+/** @type {{ from: string, fromSocket: string, to: string, toSocket: string, lane?: number }[]} */
+let EDGES = [];
 
 const DEFAULT_CAMERA = { panX: 24, panY: 20, scale: 0.92 };
 
-let layout = { ...DEFAULT_LAYOUT };
+/** @type {Record<string, { x: number, y: number }>} */
+let layout = {};
 let camera = { ...DEFAULT_CAMERA };
 let dragState = null;
 let panState = null;
@@ -100,12 +98,9 @@ function arrowsSvg() {
 }
 
 function loadLayout() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || "{}");
-    layout = { ...DEFAULT_LAYOUT, ...saved };
-  } catch {
-    layout = { ...DEFAULT_LAYOUT };
-  }
+  loadWorkflowInstances();
+  layout = getWorkflowLayoutMap();
+  EDGES = loadWorkflowEdges();
   try {
     const savedCam = JSON.parse(localStorage.getItem(CAMERA_KEY) || "{}");
     camera = { ...DEFAULT_CAMERA, ...savedCam };
@@ -116,11 +111,11 @@ function loadLayout() {
 }
 
 function saveLayout() {
-  try {
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout));
-  } catch {
-    // ignore quota
+  for (const row of getWorkflowInstances()) {
+    const pos = layout[row.id];
+    if (pos) updateInstancePosition(row.id, pos.x, pos.y);
   }
+  saveWorkflowInstances();
 }
 
 function saveCamera() {
@@ -132,9 +127,29 @@ function saveCamera() {
 }
 
 function defaultNodeSize(node) {
-  if (node?.classList.contains("workflow-node--group")) return { w: 360, h: 420 };
-  if (node?.classList.contains("workflow-node--pipeline")) return { w: 520, h: 280 };
-  return { w: 268, h: 160 };
+  const id = node?.dataset?.workflowNode;
+  const inst = id ? getWorkflowInstances().find((row) => row.id === id) : null;
+  const w = node?.offsetWidth || inst?.w || 268;
+  const h = node?.offsetHeight || inst?.h || (node?.classList.contains("workflow-node--sized") ? 160 : undefined);
+  return { w, h: h || 160 };
+}
+
+function syncCanvasOriginDataset() {
+  const el = world();
+  if (!el) return;
+  el.dataset.canvasOriginX = String(canvasOrigin.x);
+  el.dataset.canvasOriginY = String(canvasOrigin.y);
+}
+
+function appendInstanceNode(row) {
+  const layer = nodeLayer();
+  if (!layer || !row) return;
+  const node = buildWorkflowNodeElement(row.id, row.templateId, { w: row.w, h: row.h });
+  if (!node) return;
+  layout[row.id] = { x: row.x, y: row.y };
+  layer.appendChild(node);
+  applySocketLayouts();
+  scheduleWorkflowFrame();
 }
 
 function clampLogicalCoord(value) {
@@ -153,7 +168,7 @@ function measureContentBounds() {
   let found = false;
   for (const node of layer.querySelectorAll("[data-workflow-node]")) {
     const id = node.dataset.workflowNode;
-    const pos = layout[id] || DEFAULT_LAYOUT[id];
+    const pos = layout[id];
     if (!pos) continue;
     found = true;
     const size = defaultNodeSize(node);
@@ -197,6 +212,7 @@ function updateWorkspaceBounds() {
     applyCamera();
   }
   workspaceBoundsReady = true;
+  syncCanvasOriginDataset();
   const w = Math.min(MAX_SPAN_W, Math.max(MIN_CANVAS_W, maxX - minX));
   const h = Math.min(MAX_SPAN_H, Math.max(MIN_CANVAS_H, maxY - minY));
   for (const el of [world(), nodeLayer(), edgesSvg(), arrowsSvg()]) {
@@ -317,7 +333,38 @@ function growWorkspaceDuringDragIfNeeded() {
 }
 
 function workflowViewportInteracting() {
-  return Boolean(dragState || panState || panInertia);
+  return Boolean(dragState || panState || panInertia || isWorkflowWiring());
+}
+
+function resetEdgeGraphicElements() {
+  edgePathEls = [];
+  edgeOutCapEls = [];
+  edgeInArrowEls = [];
+}
+
+function layerPointFromClient(clientX, clientY) {
+  const w = clientToWorld(clientX, clientY);
+  return { x: w.x - canvasOrigin.x, y: w.y - canvasOrigin.y };
+}
+
+function buildWirePathD(x1, y1, x2, y2) {
+  return edgePath(x1, y1, x2, y2);
+}
+
+function tryAddWorkflowEdge(edge) {
+  const dup = EDGES.some(
+    (row) =>
+      row.from === edge.from &&
+      row.fromSocket === edge.fromSocket &&
+      row.to === edge.to &&
+      row.toSocket === edge.toSocket,
+  );
+  if (dup) return false;
+  EDGES.push(edge);
+  saveWorkflowEdges(EDGES);
+  resetEdgeGraphicElements();
+  scheduleWorkflowFrame();
+  return true;
 }
 
 function syncWorkflowInteractionClass() {
@@ -340,7 +387,7 @@ function applyLayout() {
   updateWorkspaceBounds();
   for (const node of layer.querySelectorAll("[data-workflow-node]")) {
     const id = node.dataset.workflowNode;
-    const pos = layout[id] || DEFAULT_LAYOUT[id];
+    const pos = layout[id];
     if (!pos) continue;
     node.style.left = `${pos.x - canvasOrigin.x}px`;
     node.style.top = `${pos.y - canvasOrigin.y}px`;
@@ -371,7 +418,7 @@ function socketPoint(nodeId, socketName) {
   const local = socketCenterOnNode(nodeId, socketName, node);
   if (!local) return null;
 
-  const pos = layout[nodeId] || DEFAULT_LAYOUT[nodeId];
+  const pos = layout[nodeId];
   const nodeLeft = pos ? pos.x - canvasOrigin.x : Number.parseFloat(node.style.left) || 0;
   const nodeTop = pos ? pos.y - canvasOrigin.y : Number.parseFloat(node.style.top) || 0;
 
@@ -414,7 +461,7 @@ function nodeBlockCenter(nodeId) {
   if (!layer) return null;
   const node = layer.querySelector(`[data-workflow-node="${nodeId}"]`);
   if (!node) return null;
-  const pos = layout[nodeId] || DEFAULT_LAYOUT[nodeId];
+  const pos = layout[nodeId];
   if (!pos) return null;
   const nodeLeft = pos.x - canvasOrigin.x;
   const nodeTop = pos.y - canvasOrigin.y;
@@ -699,6 +746,7 @@ function pointerStartsCanvasPan(event) {
   if (event.button !== 0 || panState || dragState) return false;
   if (workflowToolBlocksNodeDrag()) return false;
   if (event.target.closest(".workflow-node-header")) return false;
+  if (event.target.closest(".workflow-node-info-btn, .workflow-resize-handle, .workflow-socket")) return false;
   if (event.target.closest("button, a, input, select, textarea, label, [contenteditable='true']")) return false;
   return true;
 }
@@ -798,6 +846,7 @@ function startPan(event) {
 function startDrag(event) {
   if (event.button !== 0 || panState) return;
   if (workflowToolBlocksNodeDrag()) return;
+  if (event.target.closest(".workflow-node-info-btn")) return;
   stopPanInertia();
   const header = event.target.closest(".workflow-node-header");
   if (!header) return;
@@ -805,7 +854,7 @@ function startDrag(event) {
   if (!node) return;
   event.preventDefault();
   const id = node.dataset.workflowNode;
-  const pos = layout[id] || DEFAULT_LAYOUT[id] || { x: 0, y: 0 };
+  const pos = layout[id] || { x: 0, y: 0 };
   const pt = clientToWorld(event.clientX, event.clientY);
   dragState = {
     id,
@@ -853,9 +902,31 @@ export function bindWorkflow() {
   bound = true;
   loadLayout();
   loadSocketLayout();
+  mountWorkflowInstances(nodeLayer());
   applyCamera();
   applyLayout();
-  bindWorkflowTools({ onAnchorMoved: scheduleWorkflowFrame });
+  bindWorkflowTools({
+    onAnchorMoved: scheduleWorkflowFrame,
+    onResizeComplete: ({ nodeId, w, h, paintingOnly } = {}) => {
+      if (w && h && nodeId) updateInstanceSize(nodeId, w, h);
+      if (!paintingOnly) saveWorkflowInstances();
+      scheduleWorkflowFrame();
+    },
+  });
+  bindNodeLibrary({
+    onInstancePlaced: (row) => {
+      appendInstanceNode(row);
+      saveLayout();
+    },
+  });
+  bindWorkflowConnections({
+    getSocketLayerPoint: socketPoint,
+    layerPointFromClient,
+    buildWirePathD,
+    tryAddEdge: tryAddWorkflowEdge,
+    listEdges: () => EDGES,
+    onWireFrame: scheduleWorkflowFrame,
+  });
   const layer = nodeLayer();
   const view = viewport();
   layer?.addEventListener("pointerdown", startDrag);
@@ -863,13 +934,11 @@ export function bindWorkflow() {
   view?.addEventListener("wheel", onWheel, { passive: false });
   view?.addEventListener("auxclick", suppressMiddleAutoScroll);
   view?.addEventListener("contextmenu", (event) => event.preventDefault());
-  bindOfficeAgents();
   window.addEventListener("godial-workflow-relayout", () => repaintWorkflowEdges());
   window.addEventListener("resize", refreshWorkflowCanvas);
   registerRenderer(refreshWorkflowCanvas, "end", "workflow");
 }
 
 export function initWorkflowTab() {
-  renderOfficeAgents();
   refreshWorkflowCanvas();
 }
