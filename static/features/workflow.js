@@ -721,10 +721,27 @@ function zoomCameraAtClient(clientX, clientY, deltaY, { pinch = false } = {}) {
   saveCamera();
 }
 
+/** Mouse wheel (incl. middle detent) should zoom; two-finger trackpad scroll should pan. */
+function isMouseWheelEvent(event) {
+  if (event.deltaMode === WHEEL_DELTA_LINE) return true;
+  const legacyDelta = event.wheelDelta;
+  if (legacyDelta && Math.abs(legacyDelta) % 120 === 0) return true;
+  if (event.deltaMode === WHEEL_DELTA_PIXEL) {
+    const absY = Math.abs(event.deltaY);
+    const absX = Math.abs(event.deltaX);
+    if (absX < 0.5 && absY >= 48) return true;
+  }
+  return false;
+}
+
 function wheelPansViewport(event) {
   if (event.ctrlKey || event.metaKey) return false;
+  if (event.buttons & 4) return false;
+  if (panState) return false;
+  if (isMouseWheelEvent(event)) return false;
   if (event.deltaX !== 0) return true;
-  return event.deltaMode === WHEEL_DELTA_PIXEL;
+  if (event.deltaMode !== WHEEL_DELTA_PIXEL) return false;
+  return event.deltaY !== 0;
 }
 
 function wheelDeltaToPx(deltaX, deltaY, deltaMode) {
