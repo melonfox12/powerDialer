@@ -3,16 +3,19 @@ import { renderCallerPool, renderTable } from "./registry.js";
 import { render } from "./render.js";
 import { S } from "./state.js";
 
-const DASHBOARD_TABS = ["dialer", "aiDialerAgent", "performance", "pipeline", "workflow", "prospects", "pool", "dials"];
-const TAB_ORDER_KEY = "prospect-desk-sidebar-order";
+/** Tabs shown in the top chrome (fixed order). */
+const TOP_NAV_TABS = ["prospects", "workflow", "pipeline"];
+
+/** All dashboard panels; reachable via `setDashboardTab` even when not in the top bar. */
+const DASHBOARD_TABS = [
+  ...TOP_NAV_TABS,
+  "dialer",
+  "aiDialerAgent",
+  "performance",
+  "pool",
+  "dials",
+];
 const TAB_ACTIVE_KEY = "prospect-desk-dashboard-tab";
-const FOLDER_COLLAPSE_KEY = "prospect-desk-sidebar-folders-collapsed";
-const TAB_FOLDER_KEY = "prospect-desk-sidebar-tab-folders";
-const SIDEBAR_FOLDERS = {
-  "call-desk": ["dialer", "aiDialerAgent"],
-  "pipeline-ops": ["performance", "pipeline", "workflow"],
-  lists: ["prospects", "pool", "dials"],
-};
 const TAB_BUTTONS = {
   dialer: "dialerTabButton",
   aiDialerAgent: "aiDialerAgentTabButton",
@@ -29,111 +32,44 @@ const TAB_TITLES = {
   performance: "Performance",
   pipeline: "Pipeline",
   workflow: "Workflow",
-  prospects: "Prospects",
+  prospects: "Global CRM",
   pool: "Caller pool",
   dials: "Total dials",
 };
 
-export function normalizeTabOrder(order) {
-  const next = [];
-  for (const name of order || []) {
-    if (DASHBOARD_TABS.includes(name) && !next.includes(name)) next.push(name);
-  }
-  for (const name of DASHBOARD_TABS) {
-    if (!next.includes(name)) next.push(name);
-  }
-  return next;
+/** Fixed top bar order: Global CRM → Workflow → Pipeline (rightmost). */
+export function normalizeTabOrder() {
+  return [...TOP_NAV_TABS];
 }
 
-function sidebarTabs() {
-  return [...document.querySelectorAll(".side-links [data-dashboard-tab]")];
+function topTabList() {
+  return document.querySelector(".app-top-tabs");
+}
+
+function dashboardTabButtons() {
+  return [...document.querySelectorAll(".app-top-tabs [data-dashboard-tab]")];
 }
 
 function tabButtonsByName() {
-  return Object.fromEntries(sidebarTabs().map((button) => [button.dataset.dashboardTab, button]));
+  return Object.fromEntries(dashboardTabButtons().map((button) => [button.dataset.dashboardTab, button]));
 }
 
-function defaultTabFolders() {
-  const map = {};
-  for (const [folderId, tabNames] of Object.entries(SIDEBAR_FOLDERS)) {
-    for (const name of tabNames) map[name] = folderId;
-  }
-  return map;
-}
-
-function savedTabFolders() {
-  const defaults = defaultTabFolders();
-  try {
-    const saved = JSON.parse(localStorage.getItem(TAB_FOLDER_KEY) || "{}");
-    const map = { ...defaults };
-    for (const name of DASHBOARD_TABS) {
-      const folderId = saved[name];
-      if (folderId && document.querySelector(`.side-folder[data-side-folder="${folderId}"]`)) map[name] = folderId;
-    }
-    return map;
-  } catch {
-    return defaults;
-  }
-}
-
-function rememberTabFolders() {
-  const map = {};
-  for (const button of sidebarTabs()) {
-    const folderId = button.closest(".side-folder")?.dataset.sideFolder;
-    if (folderId) map[button.dataset.dashboardTab] = folderId;
-  }
-  try {
-    localStorage.setItem(TAB_FOLDER_KEY, JSON.stringify(map));
-  } catch {
-    // ignore quota / private mode
-  }
-}
-
-function applyTabOrder(order) {
-  const normalized = normalizeTabOrder(order);
+function applyTopTabOrder() {
+  const list = topTabList();
+  if (!list) return;
   const buttons = tabButtonsByName();
-  const assignments = savedTabFolders();
-  const tabsByFolder = {};
-  for (const name of DASHBOARD_TABS) {
-    const folderId = assignments[name];
-    if (!tabsByFolder[folderId]) tabsByFolder[folderId] = [];
-    tabsByFolder[folderId].push(name);
+  for (const name of TOP_NAV_TABS) {
+    if (buttons[name]) list.append(buttons[name]);
   }
-  for (const [folderId, tabNames] of Object.entries(tabsByFolder)) {
-    const items = document.querySelector(`.side-folder[data-side-folder="${folderId}"] .side-folder-items`);
-    if (!items) continue;
-    for (const name of tabNames) {
-      if (buttons[name]) items.append(buttons[name]);
-    }
-    const ordered = normalized.filter((name) => tabNames.includes(name));
-    for (const name of tabNames) {
-      if (!ordered.includes(name)) ordered.push(name);
-    }
-    for (const name of ordered) {
-      if (buttons[name]) items.append(buttons[name]);
-    }
-  }
-}
-
-function savedTabOrder() {
-  try {
-    return normalizeTabOrder(JSON.parse(localStorage.getItem(TAB_ORDER_KEY) || "[]"));
-  } catch {
-    return [...DASHBOARD_TABS];
-  }
-}
-
-function rememberTabOrder() {
-  localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(sidebarTabs().map((button) => button.dataset.dashboardTab)));
-  rememberTabFolders();
 }
 
 function savedDashboardTab() {
   try {
     const name = localStorage.getItem(TAB_ACTIVE_KEY) || "";
-    return DASHBOARD_TABS.includes(name) ? name : "dialer";
+    if (TOP_NAV_TABS.includes(name)) return name;
+    return TOP_NAV_TABS[0];
   } catch {
-    return "dialer";
+    return TOP_NAV_TABS[0];
   }
 }
 
@@ -173,126 +109,16 @@ export function syncPerformanceDocumentHeight() {
   }
 }
 
-function placeTab(button, target, before) {
-  const list = target.closest(".side-folder-items");
-  if (!list) return;
-  if (before) list.insertBefore(button, target);
-  else list.insertBefore(button, target.nextSibling);
-  rememberTabOrder();
-}
-
-function savedFolderCollapse() {
-  try {
-    return JSON.parse(localStorage.getItem(FOLDER_COLLAPSE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function rememberFolderCollapse(state) {
-  try {
-    localStorage.setItem(FOLDER_COLLAPSE_KEY, JSON.stringify(state));
-  } catch {
-    // ignore quota / private mode
-  }
-}
-
-function setFolderCollapsed(folderEl, collapsed) {
-  if (!folderEl) return;
-  const folderId = folderEl.dataset.sideFolder;
-  const head = folderEl.querySelector(".side-folder-head");
-  const items = folderEl.querySelector(".side-folder-items");
-  folderEl.classList.toggle("is-collapsed", collapsed);
-  if (head) head.setAttribute("aria-expanded", String(!collapsed));
-  if (items) items.toggleAttribute("hidden", collapsed);
-  const next = savedFolderCollapse();
-  next[folderId] = collapsed;
-  rememberFolderCollapse(next);
-}
-
-function ensureFolderOpenForTab(tabName) {
-  const button = byId(TAB_BUTTONS[tabName]);
-  const folder = button?.closest(".side-folder");
-  if (folder?.classList.contains("is-collapsed")) setFolderCollapsed(folder, false);
-}
-
-function applyFolderCollapse() {
-  const saved = savedFolderCollapse();
-  for (const folder of document.querySelectorAll(".side-folder")) {
-    const folderId = folder.dataset.sideFolder;
-    setFolderCollapsed(folder, Boolean(saved[folderId]));
-  }
-}
-
-function bindSidebarFolders() {
-  for (const head of document.querySelectorAll(".side-folder-head")) {
-    head.addEventListener("click", () => {
-      const folder = head.closest(".side-folder");
-      if (!folder) return;
-      setFolderCollapsed(folder, !folder.classList.contains("is-collapsed"));
-    });
-  }
-}
-
-function clearDropMarks() {
-  for (const button of sidebarTabs()) button.classList.remove("is-dragging", "is-drop-before", "is-drop-after");
-}
-
 function bindTabReorder() {
-  applyTabOrder(savedTabOrder());
-  let dragged = null;
-
-  const markDrop = (button, clientY) => {
-    for (const item of sidebarTabs()) item.classList.remove("is-drop-before", "is-drop-after");
-    if (!button || button === dragged) return null;
-    const rect = button.getBoundingClientRect();
-    const before = clientY < rect.top + rect.height / 2;
-    button.classList.add(before ? "is-drop-before" : "is-drop-after");
-    return before;
-  };
-
-  document.addEventListener("dragover", (event) => {
-    if (!dragged) return;
-    event.preventDefault();
-    const under = event.target.closest?.("[data-dashboard-tab]");
-    markDrop(under, event.clientY);
-  });
-
-  for (const button of sidebarTabs()) {
-    button.draggable = true;
-    button.addEventListener("dragstart", (event) => {
-      dragged = button;
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", button.dataset.dashboardTab);
-      button.classList.add("is-dragging");
-    });
-    button.addEventListener("dragover", (event) => {
-      if (!dragged || dragged === button) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      markDrop(button, event.clientY);
-    });
-    button.addEventListener("drop", (event) => {
-      event.preventDefault();
-      const source = sidebarTabs().find((item) => item.dataset.dashboardTab === event.dataTransfer.getData("text/plain"));
-      if (!source || source === button) return;
-      const before = event.clientY < button.getBoundingClientRect().top + button.offsetHeight / 2;
-      placeTab(source, button, before);
-    });
-    button.addEventListener("dragend", () => {
-      dragged = null;
-      clearDropMarks();
-    });
-  }
+  applyTopTabOrder();
 }
 
 export function setDashboardTab(name, moveFocus = false) {
-  S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : "dialer";
+  S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : TOP_NAV_TABS[0];
   rememberDashboardTab(S.dashboardTab);
-  ensureFolderOpenForTab(S.dashboardTab);
   syncPerformanceDocumentHeight();
   const selectedButton = byId(TAB_BUTTONS[S.dashboardTab]);
-  for (const button of document.querySelectorAll("[data-dashboard-tab]")) {
+  for (const button of dashboardTabButtons()) {
     const selected = button === selectedButton;
     button.classList.toggle("active", selected);
     button.setAttribute("aria-selected", String(selected));
@@ -306,6 +132,8 @@ export function setDashboardTab(name, moveFocus = false) {
   }
   setText("pageTitle", TAB_TITLES[S.dashboardTab]);
   byId("crmView")?.classList.toggle("is-workflow-view", S.dashboardTab === "workflow");
+  byId("crmView")?.classList.toggle("is-global-crm-view", S.dashboardTab === "prospects");
+  byId("crmView")?.classList.toggle("is-pipeline-view", S.dashboardTab === "pipeline");
   if (S.dashboardTab === "performance") {
     S.performanceFetchedAt = 0;
     S.performancePainted = null;
@@ -328,7 +156,7 @@ export function setDashboardTab(name, moveFocus = false) {
   if (S.dashboardTab === "performance") {
     import("../features/performance.js").then((module) => module.repaintPerformanceChart());
   }
-  if (moveFocus) selectedButton.focus();
+  if (moveFocus && selectedButton) selectedButton.focus();
 }
 
 export function setPerformanceMode(mode) {
@@ -343,27 +171,16 @@ export function setPerformanceMode(mode) {
 
 export function bindNavigation() {
   setPerformanceMode(S.performanceMode);
-  applyFolderCollapse();
-  bindSidebarFolders();
   bindTabReorder();
-  for (const tabButton of sidebarTabs()) {
-    tabButton.title = "Drag to reorder";
+  for (const tabButton of dashboardTabButtons()) {
+    tabButton.draggable = false;
     tabButton.addEventListener("click", () => setDashboardTab(tabButton.dataset.dashboardTab));
     tabButton.addEventListener("keydown", (event) => {
-      if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
-        event.preventDefault();
-        const tabs = sidebarTabs();
-        const index = tabs.indexOf(tabButton);
-        const sibling = tabs[index + (event.key === "ArrowUp" ? -1 : 1)];
-        if (sibling) placeTab(tabButton, sibling, event.key === "ArrowUp");
-        tabButton.focus();
-        return;
-      }
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
       event.preventDefault();
-      const tabs = sidebarTabs().map((button) => button.dataset.dashboardTab);
+      const tabs = dashboardTabButtons().map((button) => button.dataset.dashboardTab);
       const index = tabs.indexOf(tabButton.dataset.dashboardTab);
-      const forward = event.key === "ArrowRight" || event.key === "ArrowDown";
+      const forward = event.key === "ArrowRight";
       const next = event.key === "Home" ? 0
         : event.key === "End" ? tabs.length - 1
           : (index + (forward ? 1 : tabs.length - 1)) % tabs.length;

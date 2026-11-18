@@ -8,17 +8,143 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Desktop: shell is viewport-locked (see 05-charts.css); main scrolls so tall tabs (pipeline, pool) stay reachable. */
-@media (min-width: 821px) {
-  .app-shell {
-    flex-direction: row;
-    min-height: 0;
-    height: 100vh;
-    height: 100dvh;
-    overflow: hidden;
-  }
+.app-shell {
+  flex-direction: column;
+  min-height: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
 
-  main {
+.app-top-chrome {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px 0 10px;
+  border-bottom: 1px solid #23252a;
+  background: #08090a;
+}
+
+.app-top-brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+  min-height: 32px;
+  padding: 0 8px;
+  color: #f7f8f8;
+  font-size: 13px;
+  font-weight: 590;
+  letter-spacing: -0.016em;
+  text-decoration: none;
+}
+
+.app-top-tabs-wrap {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.app-top-tabs {
+  flex: 1 1 auto;
+  align-self: stretch;
+  gap: 0;
+  padding: 0 4px;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.app-top-tabs .dashboard-tab {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 450;
+  letter-spacing: -0.01em;
+  border-bottom-width: 2px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.app-top-tabs .dashboard-tab:hover {
+  color: #e8eaed;
+}
+
+.app-top-tabs .dashboard-tab.active {
+  color: #f7f8f8;
+  border-bottom-color: #5e6ad2;
+}
+
+.app-top-tabs [data-dashboard-tab].is-dragging {
+  cursor: grabbing;
+  opacity: 0.45;
+}
+
+.app-top-tabs [data-dashboard-tab].is-drop-before {
+  box-shadow: inset 2px 0 0 #5e6ad2;
+}
+
+.app-top-tabs [data-dashboard-tab].is-drop-after {
+  box-shadow: inset -2px 0 0 #5e6ad2;
+}
+
+.app-top-tabs .dashboard-tab-count {
+  margin-left: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 450;
+  color: #62666d;
+}
+
+.app-top-utilities {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.app-top-utility-button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9b9da3;
+  font-size: 13px;
+  font-weight: 450;
+  cursor: pointer;
+}
+
+.app-top-utility-button:hover {
+  background: #151618;
+  color: #e8eaed;
+}
+
+.app-top-utilities .connection-state {
+  color: #8a8f98;
+  font-size: 12px;
+  font-weight: 450;
+}
+
+.app-top-utilities .account-email {
+  max-width: 160px;
+  overflow: hidden;
+  color: #62666d;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Desktop: main scrolls so tall tabs (pipeline, pool) stay reachable. */
+@media (min-width: 821px) {
+  main.app-main,
+  .app-main {
     flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
@@ -108,12 +234,24 @@
 }
 .side-foot .connection-state { color: #8a8f98; font-size: 12px; font-weight: 450; }
 
-main {
-  margin: 4px 4px 4px 0;
-  border: 1px solid #23252a;
-  border-radius: 8px;
+main.app-main,
+.app-main {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
   background: #0f1011;
 }
+#crmView.is-pipeline-view .page-heading,
+#crmView.is-global-crm-view .page-heading {
+  display: none;
+}
+
+#crmView.is-pipeline-view .dashboard-stack,
+#crmView.is-global-crm-view .dashboard-stack {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .page-heading {
   height: 40px;
   min-height: 40px;

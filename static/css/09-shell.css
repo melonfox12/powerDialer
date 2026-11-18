@@ -43,7 +43,7 @@
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
-  flex-direction: row;
+  flex-direction: column;
   background: #08090a;
   color: var(--ink);
 }
@@ -127,13 +127,14 @@
 .side-foot { display: flex; flex-direction: column; gap: 2px; margin-top: auto; padding-top: 12px; }
 .side-foot .connection-state { padding: 4px 8px; font-size: 12px; }
 .side-foot .account-email { max-width: 100%; padding: 0 8px 6px; }
-main {
+main.app-main,
+.app-main {
   width: auto;
   max-width: none;
-  margin: 8px 8px 8px 0;
+  margin: 0;
   padding: 0;
-  border: 1px solid #23252a;
-  border-radius: 10px;
+  border: 0;
+  border-radius: 0;
   background: #101112;
   overflow: hidden;
 }

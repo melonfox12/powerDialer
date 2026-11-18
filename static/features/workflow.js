@@ -12,7 +12,7 @@ import {
 } from "./_workflow/canvas-nodes.js";
 import { buildWorkflowNodeElement } from "./_workflow/node-factory.js";
 import { bindWorkflowConnections, isWorkflowWiring } from "./_workflow/connections.js";
-import { bindNodeLibrary } from "./_workflow/node-library.js";
+import { bindWorkflowCrmSidebar, renderWorkflowCrmSidebar } from "./_workflow/campaign-crm-sidebar.js";
 import {
   applySocketLayouts,
   bindWorkflowTools,
@@ -913,12 +913,7 @@ export function bindWorkflow() {
       scheduleWorkflowFrame();
     },
   });
-  bindNodeLibrary({
-    onInstancePlaced: (row) => {
-      appendInstanceNode(row);
-      saveLayout();
-    },
-  });
+  bindWorkflowCrmSidebar();
   bindWorkflowConnections({
     getSocketLayerPoint: socketPoint,
     layerPointFromClient,
@@ -941,4 +936,5 @@ export function bindWorkflow() {
 
 export function initWorkflowTab() {
   refreshWorkflowCanvas();
+  renderWorkflowCrmSidebar();
 }

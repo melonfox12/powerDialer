@@ -1,51 +1,139 @@
 <div id="workflowTabPanel" class="dashboard-tab-panel workflow-tab-panel" role="tabpanel" aria-labelledby="workflowTabButton" hidden>
   <div class="workflow-shell">
-    <h2 class="visually-hidden">Workflow builder</h2>
-    <div class="workflow-body-row">
-      <aside id="workflowNodeLibrary" class="workflow-node-library" aria-label="Node library" style="--workflow-library-width: 272px">
+    <h2 class="visually-hidden">Campaign workflow</h2>
+    <div class="workflow-main-row">
+      <aside id="workflowCampaignCrm" class="workflow-node-library workflow-campaign-crm" aria-label="CRM" style="--workflow-library-width: 272px">
         <header class="workflow-library-header">
-          <button type="button" id="workflowLibraryCollapseBtn" class="workflow-library-collapse" aria-expanded="true" aria-controls="workflowLibraryList" title="Collapse node library">
-            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 4 6 8l4 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <span class="workflow-library-title">Node library</span>
+          <span class="workflow-library-title">CRM</span>
         </header>
-        <div class="workflow-library-search-wrap">
-          <input id="workflowLibrarySearch" type="search" class="workflow-library-search" placeholder="Search nodes…" autocomplete="off" aria-label="Search node library">
+        <div class="workflow-crm-filter">
+          <label class="workflow-crm-filter-label" for="workflowCrmFilterField">Filter by</label>
+          <div class="workflow-crm-filter-row">
+            <select id="workflowCrmFilterField" class="workflow-crm-filter-select" aria-label="CRM attribute to filter by">
+              <option value="business_type">Business type</option>
+              <option value="status">Status</option>
+              <option value="state">State</option>
+            </select>
+            <select id="workflowCrmFilterValueSelect" class="workflow-crm-filter-select" aria-label="Filter value" hidden></select>
+            <input id="workflowCrmFilterValueInput" type="text" class="workflow-crm-filter-input" placeholder="Value…" autocomplete="off" aria-label="Filter value">
+          </div>
+          <p id="workflowCrmFilterActive" class="workflow-crm-filter-active" hidden></p>
         </div>
-        <div id="workflowLibraryList" class="workflow-library-list" role="list"></div>
-        <div id="workflowLibraryResizer" class="workflow-library-resizer" role="separator" aria-orientation="vertical" aria-label="Resize node library" title="Drag to resize"></div>
+        <div id="workflowCrmLeadList" class="workflow-crm-lead-list" role="list" aria-label="Prospects for campaign import"></div>
+        <footer class="workflow-crm-footer">
+          <span id="workflowCrmSelectedCount" class="workflow-crm-selected-count">Selected 0</span>
+          <button id="workflowCrmImportBtn" type="button" class="button button-primary workflow-crm-import" disabled title="Campaign import arrives in step 3">Import</button>
+        </footer>
+        <div id="workflowCrmResizer" class="workflow-library-resizer" role="separator" aria-orientation="vertical" aria-label="Resize CRM panel" title="Drag to resize"></div>
       </aside>
 
-      <div class="workflow-canvas-column">
-        <div class="workflow-toolbar" role="toolbar" aria-label="Workflow canvas tools">
-          <button id="workflowToolPan" type="button" class="workflow-toolbar-btn is-selected" data-workflow-tool="pan" aria-pressed="true" title="Hand — drag canvas, two-finger scroll to pan, pinch or Ctrl+scroll to zoom">
-            <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.2a1 1 0 0 1 1.4 0l1.1 1.1V3.3a1 1 0 1 1 2 0v3.1l2.1 2.1a2.2 2.2 0 0 1 .6 1.5v2.7a1 1 0 0 1-1.7.7L8.2 11.2l-2.9 2.3a1 1 0 0 1-1.6-.8V7.4c0-.6.2-1.1.6-1.5l1.3-1.3V4.2a1 1 0 0 1 0-1.4Z" fill="currentColor"/></svg>
-            <span>Hand</span>
-          </button>
-          <button id="workflowToolAnchor" type="button" class="workflow-toolbar-btn" data-workflow-tool="anchor" aria-pressed="false" title="Anchor editor — drag connection points">
-            <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-              <path d="M3 13 L8.1 7.9" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
-              <path d="M11.2 3.6 8.1 7.9 10.15 9.05Z" fill="currentColor" />
-            </svg>
-            <span>Anchor editor</span>
-          </button>
-          <button id="workflowToolResize" type="button" class="workflow-toolbar-btn" data-workflow-tool="resize" aria-pressed="false" title="Size — drag node edges or corner to resize">
-            <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-              <rect x="2.5" y="5" width="9" height="7.5" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.15" stroke-dasharray="2.4 1.6"/>
-              <path d="M6.5 9.2 10.2 6.4 M10.2 6.4 H7.7 M10.2 6.4 V8.9" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span>Size</span>
-          </button>
+      <div class="workflow-center-column">
+        <div class="workflow-campaign-toolbar" role="toolbar" aria-label="Campaign controls">
+          <label class="workflow-campaign-field">
+            <span class="visually-hidden">Campaign</span>
+            <select id="workflowCampaignSelect" class="workflow-campaign-select" disabled aria-label="Campaign">
+              <option>Campaign 1 — Draft</option>
+            </select>
+          </label>
+          <div class="workflow-campaign-transport" aria-label="Campaign run controls">
+            <button type="button" class="button button-primary workflow-campaign-btn" disabled>Start</button>
+            <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Pause</button>
+            <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Stop</button>
+          </div>
+          <div class="workflow-campaign-meta">
+            <span class="workflow-campaign-meta-label">Parallel agents</span>
+            <span class="workflow-campaign-stepper" aria-disabled="true">8 / 10</span>
+          </div>
+          <div class="workflow-campaign-meta workflow-campaign-hours" id="workflowCallingHours" title="Calling window from account settings">
+            <span class="workflow-campaign-meta-label">Calling hours</span>
+            <span id="workflowCallingHoursValue">—</span>
+          </div>
         </div>
-        <div id="workflowViewport" class="workflow-viewport is-tool-pan" tabindex="0" aria-label="Workflow canvas">
-          <div id="workflowWorld" class="workflow-world">
-            <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
-            <div id="workflowNodeLayer" class="workflow-node-layer"></div>
-            <svg id="workflowEdgeArrows" class="workflow-edge-arrows" aria-hidden="true"></svg>
+
+        <div class="workflow-canvas-column">
+          <div class="workflow-toolbar" role="toolbar" aria-label="Workflow canvas tools">
+            <button id="workflowToolPan" type="button" class="workflow-toolbar-btn is-selected" data-workflow-tool="pan" aria-pressed="true" title="Hand — drag canvas, two-finger scroll to pan, pinch or Ctrl+scroll to zoom">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.2a1 1 0 0 1 1.4 0l1.1 1.1V3.3a1 1 0 1 1 2 0v3.1l2.1 2.1a2.2 2.2 0 0 1 .6 1.5v2.7a1 1 0 0 1-1.7.7L8.2 11.2l-2.9 2.3a1 1 0 0 1-1.6-.8V7.4c0-.6.2-1.1.6-1.5l1.3-1.3V4.2a1 1 0 0 1 0-1.4Z" fill="currentColor"/></svg>
+              <span>Hand</span>
+            </button>
+            <button id="workflowToolAnchor" type="button" class="workflow-toolbar-btn" data-workflow-tool="anchor" aria-pressed="false" title="Anchor editor — drag connection points">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M3 13 L8.1 7.9" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+                <path d="M11.2 3.6 8.1 7.9 10.15 9.05Z" fill="currentColor" />
+              </svg>
+              <span>Anchor editor</span>
+            </button>
+            <button id="workflowToolResize" type="button" class="workflow-toolbar-btn" data-workflow-tool="resize" aria-pressed="false" title="Size — drag node edges or corner to resize">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="2.5" y="5" width="9" height="7.5" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.15" stroke-dasharray="2.4 1.6"/>
+                <path d="M6.5 9.2 10.2 6.4 M10.2 6.4 H7.7 M10.2 6.4 V8.9" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Size</span>
+            </button>
+          </div>
+          <div id="workflowViewport" class="workflow-viewport is-tool-pan" tabindex="0" aria-label="Workflow canvas">
+            <div class="workflow-viewport-live" aria-live="polite">
+              <span class="workflow-viewport-live-dot" aria-hidden="true"></span>
+              <span class="workflow-viewport-live-label">Live</span>
+              <span id="workflowLiveMinutes" class="workflow-viewport-live-meta">0 call min</span>
+              <span class="workflow-viewport-live-sep" aria-hidden="true">·</span>
+              <span id="workflowLiveCost" class="workflow-viewport-live-meta">$0.00</span>
+            </div>
+            <div id="workflowWorld" class="workflow-world">
+              <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
+              <div id="workflowNodeLayer" class="workflow-node-layer"></div>
+              <svg id="workflowEdgeArrows" class="workflow-edge-arrows" aria-hidden="true"></svg>
+            </div>
           </div>
         </div>
       </div>
+
+      <aside id="workflowNodeView" class="workflow-node-view" aria-label="Node view">
+        <header class="workflow-node-view-header">
+          <h3 class="workflow-node-view-title">Node view</h3>
+        </header>
+        <div id="workflowNodeViewBody" class="workflow-node-view-body">
+          <p class="workflow-node-view-empty">Select a node, edge, or lead on the canvas to inspect it here.</p>
+        </div>
+      </aside>
     </div>
+
+    <footer class="workflow-funnel-bar" aria-label="Campaign funnel">
+      <div class="workflow-funnel-scope">
+        <button type="button" class="workflow-funnel-toggle is-active" data-funnel-scope="campaign" disabled>Campaign</button>
+        <button type="button" class="workflow-funnel-toggle" data-funnel-scope="today" disabled>Today</button>
+      </div>
+      <div class="workflow-funnel-steps" role="list">
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label">Dials</span>
+          <strong id="workflowFunnelDials" class="workflow-funnel-step-value">0</strong>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label">Pickups</span>
+          <strong id="workflowFunnelPickups" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRatePickups">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label">Conversations</span>
+          <strong id="workflowFunnelConversations" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateConversations">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label">Qualified</span>
+          <strong id="workflowFunnelQualified" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateQualified">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label">Booked</span>
+          <strong id="workflowFunnelBooked" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateBooked">—</span>
+        </div>
+      </div>
+    </footer>
   </div>
 
   <dialog id="workflowNodeInfoDialog" class="workflow-agent-dialog workflow-node-info-dialog">

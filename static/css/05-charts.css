@@ -37,7 +37,8 @@
   html, body { width: 100%; height: 100%; overflow: hidden; }
   body { height: 100vh; height: 100dvh; }
   .app-shell { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
-  main { min-height: 0; overflow: hidden; padding-top: 14px; padding-bottom: 14px; }
+  main.app-main,
+  .app-main { min-height: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; }
   .view.active-view { min-height: 0; overflow: hidden; }
   .dashboard-stack { min-height: 0; overflow: hidden; }
   .dashboard-top-row { min-height: 0; grid-template-rows: minmax(0, 1fr); flex: 1 1 0; }
