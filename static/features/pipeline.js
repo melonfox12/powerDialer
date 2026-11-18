@@ -1,4 +1,4 @@
-import { registerRenderer } from "../core.js";
+import { registerRenderer } from "../_core/registry.js";
 import {
   renderPipelineBoardAndRemember,
   renderPipelineIfStale,

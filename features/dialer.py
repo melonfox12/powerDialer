@@ -32,6 +32,9 @@ class Dialer(DialerState):
     def leads_catalog(self):
         return projection.leads_catalog(self)
 
+    def leads_summary_catalog(self):
+        return projection.leads_summary_catalog(self)
+
     def maintain_crm(self):
         return queue.maintain_crm(self)
 
@@ -235,6 +238,14 @@ def get_leads(request):
     try:
         _maybe_run_nov5_static_callback_migration(request)
         request.send_json(200, request.account.dialer.leads_catalog())
+    except OSError as exc:
+        request.report_storage_error(exc)
+
+
+def get_leads_summary(request):
+    try:
+        _maybe_run_nov5_static_callback_migration(request)
+        request.send_json(200, request.account.dialer.leads_summary_catalog())
     except OSError as exc:
         request.report_storage_error(exc)
 
@@ -542,6 +553,7 @@ def post_ai_sandbox_playback_ready(request, data):
 ROUTES = [
     ("GET", "/api/state", get_state, "GET reads"),
     ("GET", "/api/leads", get_leads, "GET reads"),
+    ("GET", "/api/leads/summary", get_leads_summary, "GET reads"),
     ("GET", "/api/live", get_live, "GET reads"),
     ("GET", "/api/voice-token", get_voice_token, "voice-token"),
     ("POST", "/api/voice/rejoin", post_voice_rejoin, "POST"),

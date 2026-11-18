@@ -1,6 +1,7 @@
-import { registerRenderer } from "../../core.js";
-import { CRM_STATUS_KEYS, CRM_STATUS_LABELS, byId, setText } from "../../_core/format.js";
+import { registerRenderer } from "../../_core/registry.js";
+import { CRM_STATUS_KEYS, CRM_STATUS_LABELS, setText } from "../../_core/format.js";
 import { fieldText, locationText } from "../_prospects/query.js";
+import { pickerLeads } from "../../_core/sync-state.js";
 import { state } from "../../_core/state.js";
 import { templateInfoPayload } from "./node-factory.js";
 
@@ -8,6 +9,8 @@ const PANEL_WIDTH_KEY = "godial-workflow-library-width";
 const MIN_PANEL_W = 200;
 const MAX_PANEL_W = 420;
 const DEFAULT_PANEL_W = 272;
+const PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 220;
 
 const FILTER_FIELDS = {
   business_type: { label: "Business type", kind: "text" },
@@ -17,8 +20,17 @@ const FILTER_FIELDS = {
 
 /** @type {Set<string>} */
 let selectedLeadIds = new Set();
+let selectAllMatching = false;
 let sidebarBound = false;
 let panelDrag = null;
+let lastListSignature = "";
+let lastFilterUiSignature = "";
+let visibleCount = PAGE_SIZE;
+let searchQuery = "";
+let searchDebounceTimer = null;
+/** @type {{ key: string, ids: string[] } | null} */
+let matchingIdCache = null;
+let stateOptionsCache = { version: -1, states: [] };
 
 function panelEl() {
   return document.getElementById("workflowCampaignCrm");
@@ -48,26 +60,157 @@ function businessLabel(lead) {
   return name || "Unnamed";
 }
 
+function leadStateText(lead) {
+  const direct = String(lead?.state || "").trim();
+  if (direct) return direct;
+  return locationText(lead, "state");
+}
+
 function leadMatchesFilter(lead) {
   const field = filterField();
   const value = filterValueText();
   if (!value) return true;
   const folded = value.toLocaleLowerCase();
   if (field === "business_type") {
-    const raw = String(lead.business_type || fieldText(lead, "business type", "Business Type", "Industry") || "").trim();
+    const raw = String(
+      lead.business_type || fieldText(lead, "business type", "Business Type", "Industry") || "",
+    ).trim();
     return raw.toLocaleLowerCase().includes(folded);
   }
   if (field === "status") {
     return (lead.status || "") === value;
   }
   if (field === "state") {
-    return locationText(lead, "state").trim().toUpperCase() === value.toUpperCase();
+    return leadStateText(lead).trim().toUpperCase() === value.toUpperCase();
   }
   return true;
 }
 
-function visibleLeads() {
-  return state.leads.filter((lead) => lead?.id && leadMatchesFilter(lead));
+function leadMatchesSearch(lead, foldedQuery) {
+  if (!foldedQuery) return true;
+  const haystack = [
+    businessLabel(lead),
+    lead.name,
+    lead.business,
+    lead.phone,
+    lead.business_type,
+    fieldText(lead, "business type", "Business Type", "Industry"),
+    leadStateText(lead),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLocaleLowerCase();
+  return haystack.includes(foldedQuery);
+}
+
+function leadMatchesAll(lead) {
+  if (!lead?.id) return false;
+  if (!leadMatchesFilter(lead)) return false;
+  const q = searchQuery.trim().toLocaleLowerCase();
+  return leadMatchesSearch(lead, q);
+}
+
+function filterCacheKey() {
+  return [state.leads_version, filterField(), filterValueText(), searchQuery.trim().toLocaleLowerCase()].join("\u0003");
+}
+
+function invalidateMatchingCache() {
+  matchingIdCache = null;
+}
+
+function catalogLeads() {
+  return pickerLeads();
+}
+
+/** Collect ids for every prospect that matches the current filter + search (no DOM). */
+export function matchingLeadIds() {
+  const key = filterCacheKey();
+  if (matchingIdCache?.key === key) return matchingIdCache.ids;
+  const ids = [];
+  for (const lead of catalogLeads()) {
+    if (leadMatchesAll(lead)) ids.push(lead.id);
+  }
+  matchingIdCache = { key, ids };
+  return ids;
+}
+
+/** Ids to pass into campaign import (visible selection or full matching set). */
+export function workflowCrmImportLeadIds() {
+  if (selectAllMatching) return matchingLeadIds();
+  return [...selectedLeadIds];
+}
+
+function resetPagingAndSelection() {
+  visibleCount = PAGE_SIZE;
+  selectAllMatching = false;
+  selectedLeadIds.clear();
+  invalidateMatchingCache();
+  lastListSignature = "";
+}
+
+function scanMatchingLeads(onMatch) {
+  let total = 0;
+  for (const lead of catalogLeads()) {
+    if (!leadMatchesAll(lead)) continue;
+    total += 1;
+    onMatch(lead, total);
+  }
+  return total;
+}
+
+function sidebarListSignature() {
+  const parts = [];
+  let shown = 0;
+  const limit = visibleCount;
+  const total = scanMatchingLeads((lead, index) => {
+    if (index <= limit) {
+      parts.push(`${lead.id}\u0001${lead.status}\u0001${businessLabel(lead)}`);
+      shown = index;
+    }
+  });
+  return [
+    filterCacheKey(),
+    visibleCount,
+    selectAllMatching ? "all" : "pick",
+    selectedLeadIds.size,
+    total,
+    shown,
+    parts.join("\u0002"),
+  ].join("\u0004");
+}
+
+function filterUiSignature() {
+  return [filterField(), state.leads_version, catalogLeads().length].join("|");
+}
+
+function stateOptions() {
+  if (stateOptionsCache.version === state.leads_version) return stateOptionsCache.states;
+  const states = new Set();
+  for (const lead of catalogLeads()) {
+    const code = leadStateText(lead);
+    if (code) states.add(code);
+  }
+  const sorted = [...states].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  stateOptionsCache = { version: state.leads_version, states: sorted };
+  return sorted;
+}
+
+function syncSelectionUi() {
+  updateSelectedSummary();
+  updateListChrome();
+  const list = listEl();
+  if (!list) return;
+  for (const row of list.querySelectorAll("[data-lead-id]")) {
+    const cb = row.querySelector('input[type="checkbox"]');
+    if (!cb) continue;
+    if (selectAllMatching) {
+      cb.checked = true;
+      cb.indeterminate = false;
+    } else {
+      cb.checked = selectedLeadIds.has(row.dataset.leadId);
+      cb.indeterminate = false;
+    }
+  }
 }
 
 function syncFilterValueControls() {
@@ -95,14 +238,12 @@ function syncFilterValueControls() {
   } else if (config.kind === "state") {
     select.hidden = false;
     input.hidden = true;
-    const states = [...new Set(state.leads.map((lead) => locationText(lead, "state")).filter(Boolean))];
-    states.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
     select.replaceChildren();
     const all = document.createElement("option");
     all.value = "";
     all.textContent = "All states";
     select.append(all);
-    for (const code of states) {
+    for (const code of stateOptions()) {
       const option = document.createElement("option");
       option.value = code;
       option.textContent = code;
@@ -126,27 +267,85 @@ function syncFilterValueControls() {
   }
 }
 
+function updateListChrome() {
+  const totalMatching = matchingLeadIds().length;
+  const showing = Math.min(visibleCount, totalMatching);
+  const meta = document.getElementById("workflowCrmListMeta");
+  if (meta) {
+    if (!totalMatching) {
+      const total = catalogLeads().length;
+      meta.textContent = total ? "0 match filter" : "0 prospects";
+    } else if (showing < totalMatching) {
+      meta.textContent = `Showing ${showing} of ${totalMatching}`;
+    } else {
+      meta.textContent = totalMatching === 1 ? "1 prospect" : `${totalMatching} prospects`;
+    }
+  }
+  const selectAllBtn = document.getElementById("workflowCrmSelectAllMatching");
+  if (selectAllBtn) {
+    if (totalMatching === 0) {
+      selectAllBtn.hidden = true;
+    } else {
+      selectAllBtn.hidden = false;
+      if (selectAllMatching) {
+        selectAllBtn.textContent = `All ${totalMatching} matching selected`;
+        selectAllBtn.setAttribute("aria-pressed", "true");
+      } else {
+        selectAllBtn.textContent = `Select all ${totalMatching} matching`;
+        selectAllBtn.setAttribute("aria-pressed", "false");
+      }
+    }
+  }
+  const loadMore = document.getElementById("workflowCrmLoadMore");
+  if (loadMore) {
+    const more = totalMatching > visibleCount;
+    loadMore.hidden = !more;
+    if (more) {
+      const next = Math.min(PAGE_SIZE, totalMatching - visibleCount);
+      loadMore.textContent = `Load ${next} more`;
+    }
+  }
+}
+
 function updateSelectedSummary() {
-  setText("workflowCrmSelectedCount", `Selected ${selectedLeadIds.size}`);
+  if (selectAllMatching) {
+    const n = matchingLeadIds().length;
+    setText("workflowCrmSelectedCount", `Selected ${n} (all matching)`);
+  } else {
+    setText("workflowCrmSelectedCount", `Selected ${selectedLeadIds.size}`);
+  }
   const btn = document.getElementById("workflowCrmImportBtn");
-  if (btn) btn.disabled = selectedLeadIds.size === 0;
+  if (btn) {
+    const ready = selectAllMatching ? matchingLeadIds().length > 0 : selectedLeadIds.size > 0;
+    btn.disabled = !ready;
+  }
 }
 
 function renderLeadList() {
   const list = listEl();
   if (!list) return;
-  syncFilterValueControls();
   list.replaceChildren();
-  const leads = visibleLeads();
-  if (!leads.length) {
+  const totalCatalog = catalogLeads().length;
+  const slice = [];
+  let totalMatching = 0;
+  scanMatchingLeads((lead, index) => {
+    totalMatching = index;
+    if (index <= visibleCount) slice.push(lead);
+  });
+
+  if (!totalMatching) {
     const empty = document.createElement("p");
     empty.className = "workflow-crm-empty";
-    empty.textContent = state.leads.length ? "No prospects match this filter." : "No prospects in CRM yet.";
+    empty.textContent = totalCatalog
+      ? "No prospects match this filter or search."
+      : "No prospects in CRM yet.";
     list.append(empty);
+    updateListChrome();
     updateSelectedSummary();
     return;
   }
-  for (const lead of leads) {
+
+  for (const lead of slice) {
     const row = document.createElement("div");
     row.className = "workflow-crm-lead-row";
     row.role = "listitem";
@@ -156,12 +355,8 @@ function renderLeadList() {
     label.className = "workflow-crm-lead-check";
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.checked = selectedLeadIds.has(lead.id);
-    checkbox.addEventListener("change", () => {
-      if (checkbox.checked) selectedLeadIds.add(lead.id);
-      else selectedLeadIds.delete(lead.id);
-      updateSelectedSummary();
-    });
+    checkbox.checked = selectAllMatching || selectedLeadIds.has(lead.id);
+    checkbox.setAttribute("aria-label", `Select ${businessLabel(lead)}`);
     label.append(checkbox);
 
     const body = document.createElement("div");
@@ -178,6 +373,7 @@ function renderLeadList() {
     row.append(label, body);
     list.append(row);
   }
+  updateListChrome();
   updateSelectedSummary();
 }
 
@@ -251,8 +447,48 @@ function showNodeInfoDialog(templateId) {
   if (typeof dialog.showModal === "function") dialog.showModal();
 }
 
+function scheduleSearchRender() {
+  if (searchDebounceTimer) window.clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = window.setTimeout(() => {
+    searchDebounceTimer = null;
+    searchQuery = document.getElementById("workflowCrmSearchInput")?.value?.trim() || "";
+    resetPagingAndSelection();
+    renderWorkflowCrmSidebar();
+  }, SEARCH_DEBOUNCE_MS);
+}
+
+export function releaseWorkflowCrmSidebarDom() {
+  lastListSignature = "";
+  lastFilterUiSignature = "";
+  visibleCount = PAGE_SIZE;
+  searchQuery = "";
+  selectAllMatching = false;
+  selectedLeadIds.clear();
+  matchingIdCache = null;
+  if (searchDebounceTimer) {
+    window.clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = null;
+  }
+  listEl()?.replaceChildren();
+  const search = document.getElementById("workflowCrmSearchInput");
+  if (search) search.value = "";
+  document.getElementById("workflowCrmLoadMore")?.setAttribute("hidden", "");
+  document.getElementById("workflowCrmSelectAllMatching")?.setAttribute("hidden", "");
+}
+
 export function renderWorkflowCrmSidebar() {
   if (document.getElementById("workflowTabPanel")?.hidden) return;
+  const filterSig = filterUiSignature();
+  if (filterSig !== lastFilterUiSignature) {
+    lastFilterUiSignature = filterSig;
+    syncFilterValueControls();
+  }
+  const listSig = sidebarListSignature();
+  if (listSig === lastListSignature) {
+    syncSelectionUi();
+    return;
+  }
+  lastListSignature = listSig;
   renderLeadList();
 }
 
@@ -261,17 +497,72 @@ export function bindWorkflowCrmSidebar() {
   sidebarBound = true;
   loadPanelWidth();
 
+  listEl()?.addEventListener("change", (event) => {
+    const input = event.target;
+    if (input?.type !== "checkbox") return;
+    const row = input.closest("[data-lead-id]");
+    if (!row?.dataset.leadId) return;
+    if (selectAllMatching) {
+      selectAllMatching = false;
+      selectedLeadIds.clear();
+    }
+    if (input.checked) selectedLeadIds.add(row.dataset.leadId);
+    else selectedLeadIds.delete(row.dataset.leadId);
+    lastListSignature = "";
+    updateSelectedSummary();
+    updateListChrome();
+    syncSelectionUi();
+  });
+
   document.getElementById("workflowCrmFilterField")?.addEventListener("change", () => {
     document.getElementById("workflowCrmFilterValueSelect").value = "";
     document.getElementById("workflowCrmFilterValueInput").value = "";
-    renderLeadList();
+    resetPagingAndSelection();
+    lastFilterUiSignature = "";
+    renderWorkflowCrmSidebar();
   });
-  document.getElementById("workflowCrmFilterValueSelect")?.addEventListener("change", () => renderLeadList());
-  document.getElementById("workflowCrmFilterValueInput")?.addEventListener("input", () => renderLeadList());
+  document.getElementById("workflowCrmFilterValueSelect")?.addEventListener("change", () => {
+    resetPagingAndSelection();
+    renderWorkflowCrmSidebar();
+  });
+  document.getElementById("workflowCrmFilterValueInput")?.addEventListener("input", () => {
+    resetPagingAndSelection();
+    renderWorkflowCrmSidebar();
+  });
+  document.getElementById("workflowCrmSearchInput")?.addEventListener("input", scheduleSearchRender);
+  document.getElementById("workflowCrmSearchInput")?.addEventListener("search", () => {
+    if (searchDebounceTimer) {
+      window.clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = null;
+    }
+    searchQuery = document.getElementById("workflowCrmSearchInput")?.value?.trim() || "";
+    resetPagingAndSelection();
+    renderWorkflowCrmSidebar();
+  });
+
+  document.getElementById("workflowCrmLoadMore")?.addEventListener("click", () => {
+    visibleCount += PAGE_SIZE;
+    lastListSignature = "";
+    renderWorkflowCrmSidebar();
+  });
+
+  document.getElementById("workflowCrmSelectAllMatching")?.addEventListener("click", () => {
+    if (selectAllMatching) {
+      selectAllMatching = false;
+      selectedLeadIds.clear();
+    } else {
+      selectAllMatching = true;
+      selectedLeadIds.clear();
+    }
+    lastListSignature = "";
+    renderWorkflowCrmSidebar();
+  });
+
   document.getElementById("workflowCrmResizer")?.addEventListener("pointerdown", startPanelResize);
   document.getElementById("workflowCrmImportBtn")?.addEventListener("click", () => {
-    if (selectedLeadIds.size) {
-      // Step 3: import preview + membership records.
+    const ids = workflowCrmImportLeadIds();
+    if (ids.length) {
+      // Step 3: import preview + membership for all ids (including off-screen rows).
     }
   });
 

@@ -1,11 +1,56 @@
 import { request } from "./api.js";
-import { state } from "./state.js";
+import { S, state } from "./state.js";
 import { ensurePipelineRuntimeFromCatalog } from "../features/_pipeline/pipeline-steps.js";
+import { fieldText, locationText } from "../features/_prospects/query.js";
+
+/** Tabs that need the full CRM catalog (transcripts, call_log, wide fields). */
+export const FULL_LEADS_TABS = new Set([
+  "prospects",
+  "pool",
+  "dials",
+  "pipeline",
+  "dialer",
+  "performance",
+  "aiDialerAgent",
+]);
+
+export function needsFullLeadsCatalog(tab = S.dashboardTab) {
+  return FULL_LEADS_TABS.has(tab);
+}
+
+/** Rows for workflow picker / slim views. */
+export function pickerLeads() {
+  if (state.leads_full_loaded && Array.isArray(state.leads) && state.leads.length) {
+    return state.leads;
+  }
+  return state.leads_summary || [];
+}
+
+export function slimLeadRow(lead) {
+  if (!lead?.id) return null;
+  const fields = lead.fields || {};
+  const businessType =
+    String(lead.business_type || "").trim() ||
+    fieldText(lead, "Business Type", "business type", "industry", "Industry");
+  return {
+    id: lead.id,
+    name: lead.name || "",
+    business: lead.business || "",
+    phone: lead.phone || "",
+    status: lead.status || "new",
+    timezone: lead.timezone || "",
+    business_type: businessType,
+    state: locationText(lead, "state"),
+    scheduled_until: lead.scheduled_until ?? null,
+  };
+}
 
 /** Merge dialer snapshot fields without wiping cached lead rows. */
 export function mergeLiveState(live) {
   if (!live) return;
   const leads = state.leads;
+  const leadsSummary = state.leads_summary;
+  const leadsFullLoaded = state.leads_full_loaded;
   const pool = state.pool;
   const timezoneGroups = state.timezone_groups;
   const counts = state.counts;
@@ -13,6 +58,8 @@ export function mergeLiveState(live) {
   const pipelineRevision = state.pipeline_revision;
   Object.assign(state, live);
   if (!Object.prototype.hasOwnProperty.call(live, "leads")) state.leads = leads;
+  state.leads_summary = leadsSummary;
+  state.leads_full_loaded = leadsFullLoaded;
   if (!Object.prototype.hasOwnProperty.call(live, "pool")) state.pool = pool;
   if (!Object.prototype.hasOwnProperty.call(live, "timezone_groups")) state.timezone_groups = timezoneGroups;
   if (!Object.prototype.hasOwnProperty.call(live, "counts")) state.counts = counts;
@@ -32,10 +79,24 @@ export function mergeLeadPatch(leads, patch) {
   else leads.push(patch);
 }
 
+export function mergeLiveLeadPatches(live) {
+  for (const patch of [live?.active_lead, live?.pending_outcome]) {
+    if (!patch?.id) continue;
+    if (state.leads_full_loaded && Array.isArray(state.leads)) {
+      mergeLeadPatch(state.leads, patch);
+    }
+    const slim = slimLeadRow(patch);
+    if (Array.isArray(state.leads_summary) && slim) {
+      mergeLeadPatch(state.leads_summary, slim);
+    }
+  }
+}
+
 export function applyLeadsCatalog(catalog) {
   if (!catalog) return;
   state.leads_version = catalog.leads_version;
   state.leads = catalog.leads || [];
+  state.leads_full_loaded = true;
   if (Array.isArray(catalog.pipeline_steps) && catalog.pipeline_steps.length) {
     state.pipeline_steps = catalog.pipeline_steps;
     state.pipeline_revision = catalog.pipeline_revision ?? state.pipeline_revision;
@@ -53,15 +114,77 @@ export function applyLeadsCatalog(catalog) {
   state.counts = catalog.counts || state.counts;
 }
 
+export function applyLeadsSummary(catalog) {
+  if (!catalog) return;
+  state.leads_version = catalog.leads_version;
+  state.leads_summary = catalog.leads || [];
+  state.leads_full_loaded = false;
+  state.counts = catalog.counts || state.counts;
+  state.business_type_options = catalog.business_type_options || state.business_type_options;
+  if (Array.isArray(catalog.pipeline_steps) && catalog.pipeline_steps.length) {
+    state.pipeline_steps = catalog.pipeline_steps;
+    state.pipeline_revision = catalog.pipeline_revision ?? state.pipeline_revision;
+    ensurePipelineRuntimeFromCatalog(catalog);
+  }
+}
+
 export async function fetchLeadsCatalog() {
   return request("/api/leads");
 }
 
-export async function refreshLeadsIfStale(expectedVersion) {
-  if (expectedVersion === undefined || expectedVersion === state.leads_version) {
-    if (Array.isArray(state.leads)) return;
+export async function fetchLeadsSummary() {
+  return request("/api/leads/summary");
+}
+
+export async function refreshLeadsCatalogForTab() {
+  if (needsFullLeadsCatalog()) {
+    applyLeadsCatalog(await fetchLeadsCatalog());
+    state.leads_full_loaded = true;
+    return;
+  }
+  applyLeadsSummary(await fetchLeadsSummary());
+  state.leads = [];
+  state.leads_full_loaded = false;
+}
+
+export function leadsCatalogIsStale(liveVersion) {
+  if (liveVersion !== state.leads_version) return true;
+  if (needsFullLeadsCatalog()) {
+    return !(state.leads_full_loaded && Array.isArray(state.leads));
+  }
+  return !Array.isArray(state.leads_summary);
+}
+
+export async function ensureFullLeadsCatalog() {
+  if (
+    state.leads_full_loaded &&
+    Array.isArray(state.leads) &&
+    (state.leads.length > 0 || (state.counts?.total ?? 0) === 0)
+  ) {
+    return;
   }
   applyLeadsCatalog(await fetchLeadsCatalog());
+  state.leads_full_loaded = true;
+}
+
+export async function maybeReleaseFullLeadsCatalog(targetTab = S.dashboardTab) {
+  if (needsFullLeadsCatalog(targetTab)) return;
+  if (!state.leads_full_loaded) return;
+  state.leads = [];
+  state.leads_full_loaded = false;
+  state.archived_dials = [];
+  state.dial_records = [];
+  if (!Array.isArray(state.leads_summary) || state.leads_summary.length === 0) {
+    applyLeadsSummary(await fetchLeadsSummary());
+  }
+}
+
+export async function refreshLeadsIfStale(expectedVersion) {
+  if (!leadsCatalogIsStale(expectedVersion)) {
+    if (needsFullLeadsCatalog() && Array.isArray(state.leads)) return;
+    if (!needsFullLeadsCatalog() && Array.isArray(state.leads_summary)) return;
+  }
+  await refreshLeadsCatalogForTab();
 }
 
 /** After a mutation: merge slim state, patch one lead, reload catalog when CRM revision moved. */
@@ -73,10 +196,14 @@ export async function applyMutationPayload(payload) {
     state.pipeline_revision = payload.state.pipeline_revision ?? state.pipeline_revision;
     ensurePipelineRuntimeFromCatalog(payload.state);
   }
-  if (payload?.lead) mergeLeadPatch(state.leads, payload.lead);
+  if (payload?.lead) {
+    mergeLeadPatch(state.leads, payload.lead);
+    const slim = slimLeadRow(payload.lead);
+    if (slim) mergeLeadPatch(state.leads_summary, slim);
+  }
   const after = payload?.state?.leads_version ?? state.leads_version;
-  if (!Array.isArray(state.leads) || after !== before) {
-    applyLeadsCatalog(await fetchLeadsCatalog());
+  if (leadsCatalogIsStale(after) || after !== before) {
+    await refreshLeadsCatalogForTab();
   }
 }
 

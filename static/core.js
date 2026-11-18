@@ -66,7 +66,8 @@ export {
   renderCallerPool,
 } from "./_core/registry.js";
 export { render } from "./_core/render.js";
-export { bindNavigation, setDashboardTab, setPerformanceMode } from "./_core/navigation.js";
+export { bindNavigation, setPerformanceMode } from "./_core/navigation.js";
+export { setDashboardTab } from "./_core/dashboard-tab.js";
 
 export {
   state,

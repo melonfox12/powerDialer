@@ -1,4 +1,4 @@
-import { registerRenderer } from "../core.js";
+import { registerRenderer } from "../_core/registry.js";
 import {
   getWorkflowInstances,
   getWorkflowLayoutMap,
@@ -12,7 +12,11 @@ import {
 } from "./_workflow/canvas-nodes.js";
 import { buildWorkflowNodeElement } from "./_workflow/node-factory.js";
 import { bindWorkflowConnections, isWorkflowWiring } from "./_workflow/connections.js";
-import { bindWorkflowCrmSidebar, renderWorkflowCrmSidebar } from "./_workflow/campaign-crm-sidebar.js";
+import {
+  bindWorkflowCrmSidebar,
+  releaseWorkflowCrmSidebarDom,
+  renderWorkflowCrmSidebar,
+} from "./_workflow/campaign-crm-sidebar.js";
 import {
   applySocketLayouts,
   bindWorkflowTools,
@@ -936,5 +940,6 @@ export function bindWorkflow() {
 
 export function initWorkflowTab() {
   refreshWorkflowCanvas();
+  releaseWorkflowCrmSidebarDom();
   renderWorkflowCrmSidebar();
 }

@@ -486,6 +486,7 @@ EXPECTED_ROUTES = {
     ("DELETE", "/api/leads/{id}"),
     ("GET", "/api/state"),
     ("GET", "/api/leads"),
+    ("GET", "/api/leads/summary"),
     ("GET", "/api/live"),
     ("GET", "/api/voice-token"),
     ("POST", "/api/timezone"),

@@ -23,8 +23,8 @@ import {
   touchTimestampFromDateInput,
 } from "../../_core/notes.js";
 import { showToast } from "../../_core/notify.js";
-import { setDashboardTab } from "../../_core/navigation.js";
-import { render } from "../../core.js";
+import { setDashboardTab } from "../../_core/dashboard-tab.js";
+import { render } from "../../_core/render.js";
 
 let draggedLeadId = null;
 let lastPipelineBoardSignature = null;
@@ -651,6 +651,11 @@ function bindColumnDrop(column, stepKey) {
       column.classList.remove("is-saving");
     }
   });
+}
+
+export function releasePipelineBoardDom() {
+  lastPipelineBoardSignature = null;
+  byId("pipelineBoard")?.replaceChildren();
 }
 
 export function renderPipelineBoard() {

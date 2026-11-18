@@ -2,7 +2,8 @@ import { request } from "../../_core/api.js";
 import { applyMutationPayload } from "../../_core/sync-state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
-import { render, setDashboardTab } from "../../core.js";
+import { setDashboardTab } from "../../_core/dashboard-tab.js";
+import { render } from "../../_core/render.js";
 import { deleteSelectedProspects } from "./records.js";
 
 export async function importCsv(file) {

@@ -47,6 +47,14 @@ td:has(.cell-editor) { overflow: visible; }
 .status-select:focus { border-color: currentColor; outline: none; }
 .status-cell-label { display: inline-flex; align-items: center; gap: 6px; }
 .status-date { color: var(--amber); font-family: var(--mono); font-size: 10px; }
+.crm-table-load-more {
+  flex: none;
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px 0;
+  min-height: 32px;
+  font-size: 12px;
+}
 .table-footer { flex: none; min-height: 39px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 15px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
 .table-delete-button { min-height: 27px; padding: 0 9px; font-size: 10px; }
 .empty-state { display: none; min-height: 280px; flex-direction: column; align-items: center; justify-content: center; padding: 25px; color: var(--muted); text-align: center; }

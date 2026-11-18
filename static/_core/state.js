@@ -1,5 +1,8 @@
 export const state = {
   leads: [],
+  /** Slim rows from GET /api/leads/summary when full catalog is not loaded. */
+  leads_summary: [],
+  leads_full_loaded: false,
   pipeline_steps: [],
   pipeline_revision: 0,
   archived_dials: [],
@@ -37,7 +40,7 @@ export const S = {
   pollBusy: false,
   metricsFetchedAt: 0,
   outcomeSubmitting: false,
-  dashboardTab: "dialer",
+  dashboardTab: "prospects",
   /** `null` = AI call-center fleet grid; otherwise selected agent id. */
   aiDialerSelectedAgentId: null,
   aiWorkspaceTabs: [{ id: "desk", label: "Desk", closable: false }],

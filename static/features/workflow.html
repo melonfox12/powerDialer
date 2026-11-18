@@ -18,8 +18,15 @@
             <input id="workflowCrmFilterValueInput" type="text" class="workflow-crm-filter-input" placeholder="Value…" autocomplete="off" aria-label="Filter value">
           </div>
           <p id="workflowCrmFilterActive" class="workflow-crm-filter-active" hidden></p>
+          <label class="workflow-crm-filter-label" for="workflowCrmSearchInput">Search</label>
+          <input id="workflowCrmSearchInput" type="search" class="workflow-crm-filter-input" placeholder="Name, phone, business…" autocomplete="off" aria-label="Search CRM">
+        </div>
+        <div class="workflow-crm-list-toolbar">
+          <span id="workflowCrmListMeta" class="workflow-crm-list-meta">0 prospects</span>
+          <button id="workflowCrmSelectAllMatching" type="button" class="button button-quiet workflow-crm-select-all" hidden>Select all matching</button>
         </div>
         <div id="workflowCrmLeadList" class="workflow-crm-lead-list" role="list" aria-label="Prospects for campaign import"></div>
+        <button id="workflowCrmLoadMore" type="button" class="button button-quiet workflow-crm-load-more" hidden>Load more</button>
         <footer class="workflow-crm-footer">
           <span id="workflowCrmSelectedCount" class="workflow-crm-selected-count">Selected 0</span>
           <button id="workflowCrmImportBtn" type="button" class="button button-primary workflow-crm-import" disabled title="Campaign import arrives in step 3">Import</button>

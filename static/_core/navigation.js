@@ -1,7 +1,32 @@
 import { byId, humanDialerPanel, setText } from "./format.js";
 import { renderCallerPool, renderTable } from "./registry.js";
 import { render } from "./render.js";
+import {
+  ensureFullLeadsCatalog,
+  maybeReleaseFullLeadsCatalog,
+  needsFullLeadsCatalog,
+} from "./sync-state.js";
+import { wireSetDashboardTab } from "./dashboard-tab.js";
 import { S } from "./state.js";
+
+/** Loaded on demand so navigation does not import feature modules that re-import `core.js` (cycle breaks tab binds). */
+function releaseProspectsTableDomIfLoaded() {
+  return import("../features/_prospects/table.js").then((module) => module.releaseProspectsTableDom());
+}
+
+function releaseWorkflowCrmSidebarDomIfLoaded() {
+  return import("../features/_workflow/campaign-crm-sidebar.js").then((module) => module.releaseWorkflowCrmSidebarDom());
+}
+
+function releasePipelineBoardDomIfLoaded() {
+  return import("../features/_pipeline/board.js").then((module) => module.releasePipelineBoardDom());
+}
+
+/** Drop heavy in-memory CRM catalog when the active tab only needs the slim summary. */
+function releaseFullLeadsCatalogIfIdle() {
+  if (needsFullLeadsCatalog()) return;
+  void maybeReleaseFullLeadsCatalog(S.dashboardTab);
+}
 
 /** Tabs shown in the top chrome (fixed order). */
 const TOP_NAV_TABS = ["prospects", "workflow", "pipeline"];
@@ -114,8 +139,21 @@ function bindTabReorder() {
 }
 
 export function setDashboardTab(name, moveFocus = false) {
+  const previousTab = S.dashboardTab;
   S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : TOP_NAV_TABS[0];
   rememberDashboardTab(S.dashboardTab);
+  if (previousTab === "prospects" && S.dashboardTab !== "prospects") {
+    void releaseProspectsTableDomIfLoaded();
+  }
+  if (previousTab === "workflow" && S.dashboardTab !== "workflow") {
+    void releaseWorkflowCrmSidebarDomIfLoaded();
+  }
+  if (previousTab === "pipeline" && S.dashboardTab !== "pipeline") {
+    void releasePipelineBoardDomIfLoaded();
+  }
+  if (previousTab !== S.dashboardTab) {
+    releaseFullLeadsCatalogIfIdle();
+  }
   syncPerformanceDocumentHeight();
   const selectedButton = byId(TAB_BUTTONS[S.dashboardTab]);
   for (const button of dashboardTabButtons()) {
@@ -124,11 +162,18 @@ export function setDashboardTab(name, moveFocus = false) {
     button.setAttribute("aria-selected", String(selected));
     button.tabIndex = selected ? 0 : -1;
   }
-  byId("dialerTabPanel").hidden = S.dashboardTab !== "dialer";
-  byId("aiDialerAgentTabPanel").hidden = S.dashboardTab !== "aiDialerAgent";
-  byId("metricsPanel").hidden = S.dashboardTab !== "performance";
+  for (const [tab, panelId] of [
+    ["dialer", "dialerTabPanel"],
+    ["aiDialerAgent", "aiDialerAgentTabPanel"],
+  ]) {
+    const panel = byId(panelId);
+    if (panel) panel.hidden = S.dashboardTab !== tab;
+  }
+  const metricsPanel = byId("metricsPanel");
+  if (metricsPanel) metricsPanel.hidden = S.dashboardTab !== "performance";
   for (const tab of ["performance", "pipeline", "workflow", "prospects", "pool", "dials"]) {
-    byId(`${tab}TabPanel`).hidden = S.dashboardTab !== tab;
+    const panel = byId(`${tab}TabPanel`);
+    if (panel) panel.hidden = S.dashboardTab !== tab;
   }
   setText("pageTitle", TAB_TITLES[S.dashboardTab]);
   byId("crmView")?.classList.toggle("is-workflow-view", S.dashboardTab === "workflow");
@@ -138,16 +183,24 @@ export function setDashboardTab(name, moveFocus = false) {
     S.performanceFetchedAt = 0;
     S.performancePainted = null;
   }
-  if (S.dashboardTab === "prospects") renderTable();
+  if (S.dashboardTab === "prospects") {
+    ensureFullLeadsCatalog().then(() => {
+      if (S.dashboardTab === "prospects") renderTable();
+    });
+  }
   if (S.dashboardTab === "pool") renderCallerPool();
   render();
   if (S.dashboardTab === "dials") {
     import("../features/_dialer/dials.js").then((module) => module.refreshDialsTab());
   }
   if (S.dashboardTab === "pipeline") {
-    import("../features/pipeline.js").then((module) => {
-      module.renderPipelineEditor();
-      module.renderPipelineBoardAndRemember();
+    ensureFullLeadsCatalog().then(() => {
+      if (S.dashboardTab !== "pipeline") return;
+      import("../features/pipeline.js").then((module) => {
+        if (S.dashboardTab !== "pipeline") return;
+        module.renderPipelineEditor();
+        module.renderPipelineBoardAndRemember();
+      });
     });
   }
   if (S.dashboardTab === "workflow") {
@@ -196,3 +249,5 @@ export function bindNavigation() {
     syncPerformanceDocumentHeight();
   });
 }
+
+wireSetDashboardTab(setDashboardTab);

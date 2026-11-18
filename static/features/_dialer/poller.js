@@ -4,10 +4,10 @@ import { S, seenSensoryActivity, state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
 import {
-  applyLeadsCatalog,
-  fetchLeadsCatalog,
-  mergeLeadPatch,
+  leadsCatalogIsStale,
+  mergeLiveLeadPatches,
   mergeLiveState,
+  refreshLeadsCatalogForTab,
 } from "../../_core/sync-state.js";
 import { render } from "../../core.js";
 import { maybeRejoinVoice } from "./connect.js";
@@ -40,11 +40,10 @@ export async function refreshState() {
     const live = await request("/api/live");
     const prevVersion = state.leads_version;
     mergeLiveState(live);
-    if (!Array.isArray(state.leads) || live.leads_version !== prevVersion) {
-      applyLeadsCatalog(await fetchLeadsCatalog());
-    } else if (Array.isArray(state.leads)) {
-      mergeLeadPatch(state.leads, live.active_lead);
-      mergeLeadPatch(state.leads, live.pending_outcome);
+    if (leadsCatalogIsStale(live.leads_version) || live.leads_version !== prevVersion) {
+      await refreshLeadsCatalogForTab();
+    } else {
+      mergeLiveLeadPatches(live);
     }
     if (Date.now() - S.metricsFetchedAt > 15000) {
       S.metricsFetchedAt = Date.now();

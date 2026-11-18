@@ -323,6 +323,39 @@
   color: #8b92a0;
 }
 
+.workflow-crm-list-toolbar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #1c1e22;
+}
+
+.workflow-crm-list-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  color: #8b92a0;
+  font-variant-numeric: tabular-nums;
+}
+
+.workflow-crm-select-all {
+  flex: none;
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+.workflow-crm-load-more {
+  flex: none;
+  width: calc(100% - 12px);
+  margin: 0 6px 6px;
+  min-height: 28px;
+  font-size: 12px;
+}
+
 .workflow-crm-lead-list {
   flex: 1 1 auto;
   min-height: 0;
