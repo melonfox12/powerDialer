@@ -1,4 +1,5 @@
 import { buildWorkflowNodeElement } from "./node-factory.js";
+import { buildFixedWorkflowInstances, runFixedCanvasMigration } from "./fixed-canvas.js";
 
 export const INSTANCES_KEY = "godial-workflow-instances";
 export const EDGES_KEY = "godial-workflow-edges";
@@ -32,16 +33,42 @@ export function runWorkflowCanvasMigration() {
   }
 }
 
+function expectedNodeIdSet() {
+  return new Set(buildFixedWorkflowInstances().map((row) => row.id));
+}
+
 export function loadWorkflowInstances() {
   runWorkflowCanvasMigration();
+  runFixedCanvasMigration();
+  const defaults = buildFixedWorkflowInstances();
+  const defaultById = new Map(defaults.map((row) => [row.id, row]));
+  const expected = expectedNodeIdSet();
   try {
     const raw = JSON.parse(localStorage.getItem(INSTANCES_KEY) || "[]");
-    instances = Array.isArray(raw)
-      ? raw.filter((row) => row?.id && row?.templateId && Number.isFinite(row.x) && Number.isFinite(row.y))
-      : [];
+    if (Array.isArray(raw) && raw.length === expected.size) {
+      const rows = raw.filter(
+        (row) =>
+          row?.id &&
+          row?.templateId &&
+          expected.has(row.id) &&
+          Number.isFinite(row.x) &&
+          Number.isFinite(row.y),
+      );
+      if (rows.length === expected.size) {
+        instances = rows.map((row) => ({
+          ...defaultById.get(row.id),
+          ...row,
+          id: row.id,
+          templateId: row.templateId,
+        }));
+        return instances;
+      }
+    }
   } catch {
-    instances = [];
+    // fall through to defaults
   }
+  instances = defaults;
+  saveWorkflowInstances();
   return instances;
 }
 

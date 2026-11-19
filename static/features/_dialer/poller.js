@@ -62,6 +62,10 @@ export async function refreshState() {
   }
 }
 
+let pollingStarted = false;
+
 export function startPolling() {
+  if (pollingStarted) return;
+  pollingStarted = true;
   setInterval(() => { if (!byId("loginGate").hidden) return; refreshState(); }, 1500);
 }

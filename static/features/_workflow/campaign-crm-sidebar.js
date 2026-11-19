@@ -3,6 +3,7 @@ import { CRM_STATUS_KEYS, CRM_STATUS_LABELS, setText } from "../../_core/format.
 import { fieldText, locationText } from "../_prospects/query.js";
 import { pickerLeads } from "../../_core/sync-state.js";
 import { state } from "../../_core/state.js";
+import { openCampaignImportDialog } from "./campaign-import.js";
 import { templateInfoPayload } from "./node-factory.js";
 
 const PANEL_WIDTH_KEY = "godial-workflow-library-width";
@@ -561,9 +562,7 @@ export function bindWorkflowCrmSidebar() {
   document.getElementById("workflowCrmResizer")?.addEventListener("pointerdown", startPanelResize);
   document.getElementById("workflowCrmImportBtn")?.addEventListener("click", () => {
     const ids = workflowCrmImportLeadIds();
-    if (ids.length) {
-      // Step 3: import preview + membership for all ids (including off-screen rows).
-    }
+    if (ids.length) void openCampaignImportDialog(ids);
   });
 
   document.getElementById("workflowNodeLayer")?.addEventListener("click", (event) => {

@@ -1,4 +1,5 @@
 import { WORKFLOW_LANES, workflowTemplateById } from "./node-catalog.js";
+import { nodeLeadCount } from "./campaign-flow.js";
 
 const INFO_ICON =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M8 7.1v4.2M8 5.5v.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>';
@@ -50,6 +51,7 @@ export function buildWorkflowNodeElement(instanceId, templateId, size = {}) {
   }
 
   const outputsLine = template.outputs.join(", ");
+  const leadCount = nodeLeadCount(templateId);
   const header = document.createElement("header");
   header.className = "workflow-node-header";
   header.innerHTML = `
@@ -64,6 +66,7 @@ export function buildWorkflowNodeElement(instanceId, templateId, size = {}) {
   const body = document.createElement("div");
   body.className = "workflow-node-body";
   body.innerHTML = `
+    <p class="workflow-stat workflow-node-lead-count"><strong>Leads here:</strong> <span data-workflow-node-count>${leadCount}</span></p>
     <p class="workflow-stat"><strong>Outputs:</strong> ${outputsLine}</p>
     <p class="workflow-hint"><strong>Shows:</strong> ${template.shows}</p>
   `;

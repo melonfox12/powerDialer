@@ -108,6 +108,44 @@
   font-size: 12px;
 }
 
+.workflow-campaign-create {
+  min-height: 28px;
+  font-size: 12px;
+}
+
+.workflow-campaign-members strong {
+  color: #e8eaed;
+  font-variant-numeric: tabular-nums;
+}
+
+.workflow-import-dialog {
+  max-width: 420px;
+}
+
+.workflow-import-summary {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #c8ccd2;
+}
+
+.workflow-import-warnings-heading {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #8b92a0;
+}
+
+.workflow-import-warnings {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #c5a26a;
+}
+
 .workflow-campaign-meta-label {
   color: #62666d;
 }
@@ -831,6 +869,18 @@ body.is-workflow-library-resizing {
   overflow: visible;
   pointer-events: none;
   z-index: 2;
+}
+
+.workflow-edge-count {
+  fill: #f4f6fb;
+  font-size: 11px;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  stroke: rgba(8, 10, 16, 0.92);
+  stroke-width: 4px;
+  pointer-events: none;
 }
 
 .workflow-edge {

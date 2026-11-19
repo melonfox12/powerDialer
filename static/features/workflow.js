@@ -2,16 +2,24 @@ import { registerRenderer } from "../_core/registry.js";
 import {
   getWorkflowInstances,
   getWorkflowLayoutMap,
-  loadWorkflowEdges,
   loadWorkflowInstances,
   mountWorkflowInstances,
-  saveWorkflowEdges,
   saveWorkflowInstances,
   updateInstancePosition,
   updateInstanceSize,
 } from "./_workflow/canvas-nodes.js";
+import {
+  bindCampaignFlow,
+  edgeLeadCount,
+  getCampaignFlowSnapshot,
+  refreshCampaignFlow,
+} from "./_workflow/campaign-flow.js";
+import { paintWorkflowNodeCounts } from "./_workflow/node-counts.js";
+import { mapFlowEdgesToCanvas, WORKFLOW_FIXED_EDGES } from "./_workflow/transitions.js";
 import { buildWorkflowNodeElement } from "./_workflow/node-factory.js";
 import { bindWorkflowConnections, isWorkflowWiring } from "./_workflow/connections.js";
+import { bindCampaignChrome, refreshCampaignCatalog } from "./_workflow/campaign-chrome.js";
+import { bindCampaignImportDialog } from "./_workflow/campaign-import.js";
 import {
   bindWorkflowCrmSidebar,
   releaseWorkflowCrmSidebarDom,
@@ -79,6 +87,8 @@ let edgePathEls = [];
 let edgeOutCapEls = [];
 /** @type {SVGPolygonElement[]} */
 let edgeInArrowEls = [];
+/** @type {SVGTextElement[]} */
+let edgeCountLabelEls = [];
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 function viewport() {
@@ -101,10 +111,15 @@ function arrowsSvg() {
   return document.getElementById("workflowEdgeArrows");
 }
 
+function loadFixedEdges() {
+  const snap = getCampaignFlowSnapshot();
+  EDGES = mapFlowEdgesToCanvas(snap?.edge_list || WORKFLOW_FIXED_EDGES);
+}
+
 function loadLayout() {
   loadWorkflowInstances();
   layout = getWorkflowLayoutMap();
-  EDGES = loadWorkflowEdges();
+  loadFixedEdges();
   try {
     const savedCam = JSON.parse(localStorage.getItem(CAMERA_KEY) || "{}");
     camera = { ...DEFAULT_CAMERA, ...savedCam };
@@ -344,6 +359,7 @@ function resetEdgeGraphicElements() {
   edgePathEls = [];
   edgeOutCapEls = [];
   edgeInArrowEls = [];
+  edgeCountLabelEls = [];
 }
 
 function layerPointFromClient(clientX, clientY) {
@@ -355,20 +371,8 @@ function buildWirePathD(x1, y1, x2, y2) {
   return edgePath(x1, y1, x2, y2);
 }
 
-function tryAddWorkflowEdge(edge) {
-  const dup = EDGES.some(
-    (row) =>
-      row.from === edge.from &&
-      row.fromSocket === edge.fromSocket &&
-      row.to === edge.to &&
-      row.toSocket === edge.toSocket,
-  );
-  if (dup) return false;
-  EDGES.push(edge);
-  saveWorkflowEdges(EDGES);
-  resetEdgeGraphicElements();
-  scheduleWorkflowFrame();
-  return true;
+function tryAddWorkflowEdge() {
+  return false;
 }
 
 function syncWorkflowInteractionClass() {
@@ -552,17 +556,20 @@ function scheduleWorkflowFrame() {
 }
 
 function ensureEdgeGraphics() {
-  if (edgePathEls.length === EDGES.length) return;
+  if (edgePathEls.length === EDGES.length && edgeCountLabelEls.length === EDGES.length) return;
   const svg = edgesSvg();
   const arrowLayer = arrowsSvg();
   if (!svg || !arrowLayer) return;
   edgePathEls = [];
   edgeOutCapEls = [];
   edgeInArrowEls = [];
+  edgeCountLabelEls = [];
   svg.replaceChildren();
   arrowLayer.replaceChildren();
   const pathGroup = document.createElementNS(SVG_NS, "g");
   pathGroup.setAttribute("class", "workflow-edge-layer");
+  const labelGroup = document.createElementNS(SVG_NS, "g");
+  labelGroup.setAttribute("class", "workflow-edge-label-layer");
   const arrowGroup = document.createElementNS(SVG_NS, "g");
   arrowGroup.setAttribute("class", "workflow-edge-arrow-layer");
   for (let i = 0; i < EDGES.length; i++) {
@@ -570,6 +577,10 @@ function ensureEdgeGraphics() {
     path.setAttribute("class", "workflow-edge");
     pathGroup.appendChild(path);
     edgePathEls.push(path);
+    const label = document.createElementNS(SVG_NS, "text");
+    label.setAttribute("class", "workflow-edge-count");
+    labelGroup.appendChild(label);
+    edgeCountLabelEls.push(label);
     const line = document.createElementNS(SVG_NS, "line");
     line.setAttribute("class", "workflow-edge-output-cap");
     const poly = document.createElementNS(SVG_NS, "polygon");
@@ -580,6 +591,7 @@ function ensureEdgeGraphics() {
     edgeInArrowEls.push(poly);
   }
   svg.appendChild(pathGroup);
+  svg.appendChild(labelGroup);
   arrowLayer.appendChild(arrowGroup);
 }
 
@@ -638,6 +650,15 @@ function repaintEdgeGraphics() {
     capEl.setAttribute("x2", String(outCap.x2));
     capEl.setAttribute("y2", String(outCap.y2));
     arrowEl.setAttribute("points", edgeInputArrowPolygon(to.x, to.y, outwardEnd));
+    const labelEl = edgeCountLabelEls[i];
+    if (labelEl) {
+      const mx = (from.x + to.x) / 2;
+      const my = (from.y + to.y) / 2;
+      const count = edgeLeadCount(edge.id);
+      labelEl.setAttribute("x", String(mx));
+      labelEl.setAttribute("y", String(my));
+      labelEl.textContent = count > 0 ? String(count) : "";
+    }
   }
 }
 
@@ -647,10 +668,18 @@ function paintEdges() {
   repaintEdgeGraphics();
 }
 
+function onWorkflowFlowUpdated() {
+  loadFixedEdges();
+  ensureEdgeGraphics();
+  paintWorkflowNodeCounts();
+  scheduleWorkflowFrame();
+}
+
 function refreshWorkflowCanvas() {
   if (document.getElementById("workflowTabPanel")?.hidden) return;
   if (workflowViewportInteracting()) return;
   applyCamera();
+  paintWorkflowNodeCounts();
   scheduleWorkflowFrame();
 }
 
@@ -918,6 +947,9 @@ export function bindWorkflow() {
     },
   });
   bindWorkflowCrmSidebar();
+  bindCampaignChrome();
+  bindCampaignFlow();
+  bindCampaignImportDialog();
   bindWorkflowConnections({
     getSocketLayerPoint: socketPoint,
     layerPointFromClient,
@@ -934,6 +966,7 @@ export function bindWorkflow() {
   view?.addEventListener("auxclick", suppressMiddleAutoScroll);
   view?.addEventListener("contextmenu", (event) => event.preventDefault());
   window.addEventListener("godial-workflow-relayout", () => repaintWorkflowEdges());
+  window.addEventListener("godial-workflow-flow", onWorkflowFlowUpdated);
   window.addEventListener("resize", refreshWorkflowCanvas);
   registerRenderer(refreshWorkflowCanvas, "end", "workflow");
 }
@@ -942,4 +975,5 @@ export function initWorkflowTab() {
   refreshWorkflowCanvas();
   releaseWorkflowCrmSidebarDom();
   renderWorkflowCrmSidebar();
+  void refreshCampaignCatalog().then(() => refreshCampaignFlow());
 }

@@ -61,24 +61,34 @@ export const WORKFLOW_NODE_TEMPLATES = [
       "Ordered queue of leads ready for the dialer. Shows how deep the queue is and when the next outbound attempt is scheduled.",
   },
   {
-    id: "ai-calling-pool",
+    id: "dialing",
     lane: "ai-calling",
-    title: "AI calling pool",
-    type: "Pool",
-    outputs: ["answered", "no answer", "other"],
-    shows: "live agents out of 10, calls in progress",
+    title: "Dialing",
+    type: "Dial",
+    outputs: ["answered", "no answer / VM / failed"],
+    shows: "calls in progress, dial attempts",
     description:
-      "Parallel AI dialer pool. Tracks active agents vs capacity and live calls, fanning results into answered, no answer, or other paths.",
+      "Places outbound attempts for queued leads. Answered calls move to In conversation; other dispositions route straight to the outcome router.",
+  },
+  {
+    id: "in-conversation",
+    lane: "ai-calling",
+    title: "In conversation",
+    type: "Live",
+    outputs: ["to outcome router"],
+    shows: "agent slots, live transcript preview",
+    description:
+      "Live AI conversation stage. Tracks active agent seats and funnels completed conversations into the outcome router.",
   },
   {
     id: "outcome-router",
     lane: "decide",
     title: "Outcome router",
     type: "Router",
-    outputs: ["answered", "retry", "excluded"],
+    outputs: ["answered", "retry", "disqualified", "excluded"],
     shows: "disposition breakdown",
     description:
-      "Routes call outcomes into answered, retry, or excluded lanes and summarizes disposition mix for the current session.",
+      "Routes call outcomes into qualify, retry, disqualified CRM, or excluded paths and summarizes disposition mix for the session.",
   },
   {
     id: "retry-scheduler",

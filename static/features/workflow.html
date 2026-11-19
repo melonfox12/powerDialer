@@ -29,7 +29,7 @@
         <button id="workflowCrmLoadMore" type="button" class="button button-quiet workflow-crm-load-more" hidden>Load more</button>
         <footer class="workflow-crm-footer">
           <span id="workflowCrmSelectedCount" class="workflow-crm-selected-count">Selected 0</span>
-          <button id="workflowCrmImportBtn" type="button" class="button button-primary workflow-crm-import" disabled title="Campaign import arrives in step 3">Import</button>
+          <button id="workflowCrmImportBtn" type="button" class="button button-primary workflow-crm-import" disabled>Import</button>
         </footer>
         <div id="workflowCrmResizer" class="workflow-library-resizer" role="separator" aria-orientation="vertical" aria-label="Resize CRM panel" title="Drag to resize"></div>
       </aside>
@@ -38,10 +38,13 @@
         <div class="workflow-campaign-toolbar" role="toolbar" aria-label="Campaign controls">
           <label class="workflow-campaign-field">
             <span class="visually-hidden">Campaign</span>
-            <select id="workflowCampaignSelect" class="workflow-campaign-select" disabled aria-label="Campaign">
-              <option>Campaign 1 — Draft</option>
-            </select>
+            <select id="workflowCampaignSelect" class="workflow-campaign-select" aria-label="Campaign"></select>
           </label>
+          <button id="workflowCampaignCreateBtn" type="button" class="button button-quiet workflow-campaign-create">New campaign</button>
+          <span class="workflow-campaign-meta workflow-campaign-members">
+            <span class="workflow-campaign-meta-label">Members</span>
+            <strong id="workflowCampaignMemberCount">0</strong>
+          </span>
           <div class="workflow-campaign-transport" aria-label="Campaign run controls">
             <button type="button" class="button button-primary workflow-campaign-btn" disabled>Start</button>
             <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Pause</button>
@@ -112,7 +115,7 @@
       </div>
       <div class="workflow-funnel-steps" role="list">
         <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label">Dials</span>
+          <span class="workflow-funnel-step-label">Members</span>
           <strong id="workflowFunnelDials" class="workflow-funnel-step-value">0</strong>
         </div>
         <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
@@ -142,6 +145,21 @@
       </div>
     </footer>
   </div>
+
+  <dialog id="workflowCampaignImportDialog" class="workflow-agent-dialog workflow-import-dialog" aria-labelledby="workflowCampaignImportTitle">
+    <form method="dialog" class="workflow-agent-dialog-form workflow-import-form">
+      <h3 id="workflowCampaignImportTitle">Import into campaign</h3>
+      <p id="workflowCampaignImportSummary" class="workflow-import-summary"></p>
+      <div class="workflow-import-warnings-wrap" hidden>
+        <h4 class="workflow-import-warnings-heading">Warnings</h4>
+        <ul id="workflowCampaignImportWarnings" class="workflow-import-warnings"></ul>
+      </div>
+      <div class="workflow-agent-dialog-actions">
+        <button id="workflowCampaignImportCancel" class="button button-quiet" type="button">Cancel</button>
+        <button id="workflowCampaignImportConfirm" class="button button-primary" type="button">Import</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="workflowNodeInfoDialog" class="workflow-agent-dialog workflow-node-info-dialog">
     <form method="dialog" class="workflow-agent-dialog-form">

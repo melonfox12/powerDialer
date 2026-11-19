@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from features._prospects.backend_local import LocalBackend
 from features._prospects.backend_supabase import SupabaseBackend
 from features._prospects.dial_archive import is_dial_archive_storage_lead
+from features._campaigns.store import is_campaigns_storage_lead
 from features._prospects.dial_records import is_dial_records_storage_lead
 from features._prospects.csv_export import csv_bytes_for
 from features._prospects.csv_import import apply_pitch_segment_from_fields, parse_csv, update_lead_fields
@@ -190,7 +191,11 @@ class ProspectStore:
         """Every prospect with a current status. Stored records are not rewritten."""
         leads = [
             lead for lead in self.backend.snapshot()
-            if not is_dial_archive_storage_lead(lead) and not is_dial_records_storage_lead(lead)
+            if (
+                not is_dial_archive_storage_lead(lead)
+                and not is_dial_records_storage_lead(lead)
+                and not is_campaigns_storage_lead(lead)
+            )
         ]
         for lead in leads:
             lead["status"] = canonical_status(lead.get("status"))

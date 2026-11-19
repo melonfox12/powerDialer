@@ -397,7 +397,11 @@ export function appendStatusPill(parent, lead) {
   return pill;
 }
 
+let statusClockStarted = false;
+
 export function startStatusClock() {
+  if (statusClockStarted) return;
+  statusClockStarted = true;
   const tick = () => {
     const now = Date.now();
     if (document.querySelector("[data-pipeline-timer]")) {

@@ -136,15 +136,57 @@ export async function fetchLeadsSummary() {
   return request("/api/leads/summary");
 }
 
+/** One in-flight catalog fetch per mode so refresh + tab switch do not duplicate huge JSON. */
+let fullCatalogLoad = null;
+let summaryCatalogLoad = null;
+
+function finishCatalogLoad(mode) {
+  if (mode === "full") fullCatalogLoad = null;
+  else summaryCatalogLoad = null;
+}
+
+/** Drop cached lead payloads and cancel in-flight catalog fetches (unload / bfcache). */
+export function wipeClientCatalogMemory() {
+  fullCatalogLoad = null;
+  summaryCatalogLoad = null;
+  state.leads = [];
+  state.leads_summary = [];
+  state.leads_full_loaded = false;
+  state.archived_dials = [];
+  state.dial_records = [];
+  state.pool = [];
+  state.global_dialer_pool = [];
+  state.global_dialer_pool_count = 0;
+}
+
+async function loadFullCatalog() {
+  if (fullCatalogLoad) return fullCatalogLoad;
+  fullCatalogLoad = fetchLeadsCatalog()
+    .then((catalog) => {
+      applyLeadsCatalog(catalog);
+      state.leads_full_loaded = true;
+    })
+    .finally(() => finishCatalogLoad("full"));
+  return fullCatalogLoad;
+}
+
+async function loadSummaryCatalog() {
+  if (summaryCatalogLoad) return summaryCatalogLoad;
+  summaryCatalogLoad = fetchLeadsSummary()
+    .then((catalog) => {
+      applyLeadsSummary(catalog);
+      state.leads = [];
+      state.leads_full_loaded = false;
+    })
+    .finally(() => finishCatalogLoad("summary"));
+  return summaryCatalogLoad;
+}
+
 export async function refreshLeadsCatalogForTab() {
   if (needsFullLeadsCatalog()) {
-    applyLeadsCatalog(await fetchLeadsCatalog());
-    state.leads_full_loaded = true;
-    return;
+    return loadFullCatalog();
   }
-  applyLeadsSummary(await fetchLeadsSummary());
-  state.leads = [];
-  state.leads_full_loaded = false;
+  return loadSummaryCatalog();
 }
 
 export function leadsCatalogIsStale(liveVersion) {
@@ -163,8 +205,7 @@ export async function ensureFullLeadsCatalog() {
   ) {
     return;
   }
-  applyLeadsCatalog(await fetchLeadsCatalog());
-  state.leads_full_loaded = true;
+  return loadFullCatalog();
 }
 
 export async function maybeReleaseFullLeadsCatalog(targetTab = S.dashboardTab) {
@@ -175,7 +216,7 @@ export async function maybeReleaseFullLeadsCatalog(targetTab = S.dashboardTab) {
   state.archived_dials = [];
   state.dial_records = [];
   if (!Array.isArray(state.leads_summary) || state.leads_summary.length === 0) {
-    applyLeadsSummary(await fetchLeadsSummary());
+    await loadSummaryCatalog();
   }
 }
 

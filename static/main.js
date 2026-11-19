@@ -10,7 +10,11 @@ import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects 
 import { bindSettings } from "./features/settings.js";
 import { arcadeSensory, startArcade } from "./features/arcade.js";
 import { byId, setDialerText, startStatusClock } from "./_core/format.js";
+import { bindClientMemoryLifecycle } from "./_core/memory.js";
+import { wipeClientCatalogMemory } from "./_core/sync-state.js";
 
+wipeClientCatalogMemory();
+bindClientMemoryLifecycle();
 bindDebugListeners();
 startStatusClock();
 startArcade();
