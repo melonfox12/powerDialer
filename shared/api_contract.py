@@ -103,6 +103,7 @@ SETTINGS_VIEW_KEYS = (
     "break_nudge_minutes",
     "calling_end_hour",
     "calling_start_hour",
+    "campaign_cost_per_minute",
     "cartesia_api_key",
     "cartesia_voice_id",
     "conversation_threshold",

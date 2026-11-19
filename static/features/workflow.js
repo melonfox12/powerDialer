@@ -8,17 +8,21 @@ import {
   updateInstancePosition,
   updateInstanceSize,
 } from "./_workflow/canvas-nodes.js";
-import {
-  bindCampaignFlow,
-  edgeLeadCount,
-  getCampaignFlowSnapshot,
-  refreshCampaignFlow,
-} from "./_workflow/campaign-flow.js";
+import { bindCampaignFlow, refreshCampaignFlow } from "./_workflow/campaign-flow.js";
+import { edgeLeadCount, nodeLeadCount } from "./_workflow/flow-snapshot.js";
 import { paintWorkflowNodeCounts } from "./_workflow/node-counts.js";
-import { mapFlowEdgesToCanvas, WORKFLOW_FIXED_EDGES } from "./_workflow/transitions.js";
+import { buildAdjacentChainEdges } from "./_workflow/transitions.js";
+import {
+  bindWorkflowNodeView,
+  renderWorkflowNodeView,
+  selectWorkflowEdge,
+  selectWorkflowNode,
+} from "./_workflow/node-view.js";
+import { flushWorkflowSelectionRender } from "./_workflow/selection.js";
 import { buildWorkflowNodeElement } from "./_workflow/node-factory.js";
 import { bindWorkflowConnections, isWorkflowWiring } from "./_workflow/connections.js";
 import { bindCampaignChrome, refreshCampaignCatalog } from "./_workflow/campaign-chrome.js";
+import { bindCampaignStats, refreshCampaignStats } from "./_workflow/campaign-stats.js";
 import { bindCampaignImportDialog } from "./_workflow/campaign-import.js";
 import {
   bindWorkflowCrmSidebar,
@@ -112,8 +116,7 @@ function arrowsSvg() {
 }
 
 function loadFixedEdges() {
-  const snap = getCampaignFlowSnapshot();
-  EDGES = mapFlowEdgesToCanvas(snap?.edge_list || WORKFLOW_FIXED_EDGES);
+  EDGES = buildAdjacentChainEdges();
 }
 
 function loadLayout() {
@@ -386,7 +389,7 @@ function applyLayout() {
     canvasOrigin = dragState.frozenOrigin;
     growWorkspaceDuringDragIfNeeded();
     const pos = layout[dragState.id];
-    if (pos) {
+    if (pos && dragState.node) {
       dragState.node.style.left = `${pos.x - canvasOrigin.x}px`;
       dragState.node.style.top = `${pos.y - canvasOrigin.y}px`;
     }
@@ -574,7 +577,10 @@ function ensureEdgeGraphics() {
   arrowGroup.setAttribute("class", "workflow-edge-arrow-layer");
   for (let i = 0; i < EDGES.length; i++) {
     const path = document.createElementNS(SVG_NS, "path");
-    path.setAttribute("class", "workflow-edge");
+    const edge = EDGES[i];
+    path.setAttribute("class", "workflow-edge workflow-edge--selectable");
+    path.setAttribute("data-workflow-edge", edge?.id || "");
+    path.style.pointerEvents = "stroke";
     pathGroup.appendChild(path);
     edgePathEls.push(path);
     const label = document.createElementNS(SVG_NS, "text");
@@ -609,6 +615,7 @@ function setEdgeSurfaceSize(w, h) {
 
 function repaintEdgeGraphics() {
   ensureEdgeGraphics();
+  if (edgePathEls.length !== EDGES.length) return;
   const layer = nodeLayer();
   const w = layer ? Number.parseFloat(layer.style.width) || MIN_CANVAS_W : MIN_CANVAS_W;
   const h = layer ? Number.parseFloat(layer.style.height) || MIN_CANVAS_H : MIN_CANVAS_H;
@@ -617,10 +624,8 @@ function repaintEdgeGraphics() {
   for (const surface of [edgesSvg(), arrowsSvg()]) {
     surface?.setAttribute("shape-rendering", fast ? "optimizeSpeed" : "geometricPrecision");
   }
-  const dragId = dragState?.id;
   for (let i = 0; i < EDGES.length; i++) {
     const edge = EDGES[i];
-    if (dragId && edge.from !== dragId && edge.to !== dragId) continue;
     const from = socketPoint(edge.from, edge.fromSocket);
     const to = socketPoint(edge.to, edge.toSocket);
     const pathEl = edgePathEls[i];
@@ -654,7 +659,10 @@ function repaintEdgeGraphics() {
     if (labelEl) {
       const mx = (from.x + to.x) / 2;
       const my = (from.y + to.y) / 2;
-      const count = edgeLeadCount(edge.id);
+      const count =
+        typeof edge.id === "string" && edge.id.startsWith("e-chain:")
+          ? nodeLeadCount(edge.from)
+          : edgeLeadCount(edge.id);
       labelEl.setAttribute("x", String(mx));
       labelEl.setAttribute("y", String(my));
       labelEl.textContent = count > 0 ? String(count) : "";
@@ -669,6 +677,7 @@ function paintEdges() {
 }
 
 function onWorkflowFlowUpdated() {
+  if (workflowViewportInteracting()) return;
   loadFixedEdges();
   ensureEdgeGraphics();
   paintWorkflowNodeCounts();
@@ -739,6 +748,9 @@ function onPointerMove(event) {
   if (!dragState) return;
   lastDragPointer.x = event.clientX;
   lastDragPointer.y = event.clientY;
+  const dx = event.clientX - dragState.startX;
+  const dy = event.clientY - dragState.startY;
+  if (dx * dx + dy * dy > 36) dragState.moved = true;
   const pt = clientToWorld(event.clientX, event.clientY);
   layout[dragState.id] = {
     x: clampLogicalCoord(pt.x - dragState.offsetX),
@@ -762,11 +774,18 @@ function endInteraction(event) {
   }
   if (dragState) {
     stopDragEdgeLoop();
-    dragState.node.classList.remove("is-dragging");
+    const moved = dragState.moved;
+    const node = dragState.node;
+    const templateId = node?.dataset?.workflowTemplate;
+    node?.classList.remove("is-dragging");
     dragState = null;
     syncWorkflowInteractionClass();
     paintEdges();
     saveLayout();
+    if (!moved && templateId) {
+      selectWorkflowNode(templateId);
+      flushWorkflowSelectionRender();
+    }
     saveCamera();
   }
   document.removeEventListener("pointermove", onPointerMove);
@@ -896,6 +915,9 @@ function startDrag(event) {
     offsetY: pt.y - pos.y,
     frozenOrigin: { ...canvasOrigin },
     lastFrameTs: 0,
+    moved: false,
+    startX: event.clientX,
+    startY: event.clientY,
   };
   lastDragPointer.x = event.clientX;
   lastDragPointer.y = event.clientY;
@@ -949,6 +971,8 @@ export function bindWorkflow() {
   bindWorkflowCrmSidebar();
   bindCampaignChrome();
   bindCampaignFlow();
+  bindCampaignStats();
+  bindWorkflowNodeView();
   bindCampaignImportDialog();
   bindWorkflowConnections({
     getSocketLayerPoint: socketPoint,
@@ -965,6 +989,14 @@ export function bindWorkflow() {
   view?.addEventListener("wheel", onWheel, { passive: false });
   view?.addEventListener("auxclick", suppressMiddleAutoScroll);
   view?.addEventListener("contextmenu", (event) => event.preventDefault());
+  edgesSvg()?.addEventListener("click", (event) => {
+    const path = event.target.closest?.("[data-workflow-edge]");
+    if (!path) return;
+    event.stopPropagation();
+    const edgeId = path.getAttribute("data-workflow-edge");
+    const edge = EDGES.find((row) => row.id === edgeId);
+    if (edge) selectWorkflowEdge(edge.id, edge.from, edge.to);
+  });
   window.addEventListener("godial-workflow-relayout", () => repaintWorkflowEdges());
   window.addEventListener("godial-workflow-flow", onWorkflowFlowUpdated);
   window.addEventListener("resize", refreshWorkflowCanvas);
@@ -975,5 +1007,9 @@ export function initWorkflowTab() {
   refreshWorkflowCanvas();
   releaseWorkflowCrmSidebarDom();
   renderWorkflowCrmSidebar();
-  void refreshCampaignCatalog().then(() => refreshCampaignFlow());
+  renderWorkflowNodeView();
+  void refreshCampaignCatalog().then(async () => {
+    await refreshCampaignFlow();
+    await refreshCampaignStats();
+  });
 }

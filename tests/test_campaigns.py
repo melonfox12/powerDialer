@@ -3,6 +3,7 @@ import unittest
 
 from features._campaigns.import_rules import build_import_plan
 from features._campaigns.store import LocalCampaignStore
+from features._campaigns.stats import build_campaign_stats
 from features._campaigns.transitions import (
     WORKFLOW_EDGES,
     WORKFLOW_ENTRY_NODE,
@@ -63,6 +64,35 @@ class CampaignStoreTests(unittest.TestCase):
             is_allowed_transition("lead-list", "phone-lookup", "out"),
         )
         self.assertIsNone(is_allowed_transition("lead-list", "phone-lookup", "out-business-line"))
+
+    def test_campaign_stats_rates_and_cost(self):
+        settings = {
+            "calling_start_hour": 8,
+            "calling_end_hour": 21,
+            "CAMPAIGN_COST_PER_MINUTE": "0.1",
+            "conversation_threshold": 30,
+        }
+
+        class FakeMetrics:
+            lock = __import__("threading").RLock()
+            data = {"daily": {"2099-01-01": {"dials": 10, "connected": 4, "booked": 1, "talk_seconds": 240}}}
+
+            def _today(self):
+                return "2099-01-01"
+
+        payload = build_campaign_stats(
+            "camp-test",
+            ["a", "b", "c"],
+            {"a": {"id": "a", "status": "booked"}, "b": {"id": "b", "status": "qualified"}},
+            FakeMetrics(),
+            settings,
+            scope="campaign",
+        )
+        self.assertEqual(payload["funnel"]["dials"], 3)
+        self.assertGreaterEqual(payload["funnel"]["booked"], 1)
+        self.assertIsNotNone(payload["funnel"]["rates"]["pickups"])
+        self.assertEqual(payload["live"]["cost_per_minute"], 0.1)
+        self.assertGreater(payload["live"]["cost_usd"], 0)
 
     def test_build_flow_snapshot_respects_branch(self):
         stages = {

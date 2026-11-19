@@ -1,5 +1,4 @@
 import { registerRenderer } from "../../_core/registry.js";
-import { refreshCampaignFlow } from "./campaign-flow.js";
 import { request, postJson } from "../../_core/api.js";
 import { setText } from "../../_core/format.js";
 import { showToast } from "../../_core/notify.js";
@@ -34,7 +33,10 @@ export async function refreshCampaignCatalog() {
   try {
     catalog = await request("/api/campaigns");
     renderCampaignToolbar();
+    const { refreshCampaignFlow } = await import("./campaign-flow.js");
+    const { refreshCampaignStats } = await import("./campaign-stats.js");
     await refreshCampaignFlow();
+    await refreshCampaignStats();
   } catch (error) {
     showToast(error.message, true);
   }
@@ -64,7 +66,6 @@ function paintCampaignMemberCount() {
   const campaign = activeCampaign();
   const count = campaign?.member_count ?? 0;
   setText("workflowCampaignMemberCount", String(count));
-  setText("workflowFunnelDials", String(count));
 }
 
 async function setActiveCampaign(campaignId) {
@@ -72,6 +73,10 @@ async function setActiveCampaign(campaignId) {
   try {
     catalog = await postJson("/api/campaigns/active", { id: campaignId });
     renderCampaignToolbar();
+    const { refreshCampaignFlow } = await import("./campaign-flow.js");
+    const { refreshCampaignStats } = await import("./campaign-stats.js");
+    await refreshCampaignFlow();
+    await refreshCampaignStats();
   } catch (error) {
     showToast(error.message, true);
     await refreshCampaignCatalog();

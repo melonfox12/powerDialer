@@ -1,4 +1,4 @@
-import { nodeLeadCount } from "./campaign-flow.js";
+import { nodeLeadCount } from "./flow-snapshot.js";
 
 export function paintWorkflowNodeCounts() {
   for (const node of document.querySelectorAll("[data-workflow-node]")) {

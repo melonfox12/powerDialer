@@ -493,6 +493,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/campaigns/{id}/import/preview"),
     ("POST", "/api/campaigns/{id}/import"),
     ("GET", "/api/campaigns/{id}/flow"),
+    ("GET", "/api/campaigns/{id}/stats"),
     ("GET", "/api/live"),
     ("GET", "/api/voice-token"),
     ("POST", "/api/timezone"),

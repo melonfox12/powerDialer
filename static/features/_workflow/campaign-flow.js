@@ -1,36 +1,49 @@
 import { registerRenderer } from "../../_core/registry.js";
 import { request } from "../../_core/api.js";
 import { activeCampaignId } from "./campaign-chrome.js";
+import {
+  canvasEdgeLeadIds,
+  edgeLeadCount,
+  getFlowSnapshot,
+  nodeLeadCount,
+  nodeLeadIds,
+  setFlowSnapshot,
+} from "./flow-snapshot.js";
 
-/** @type {{ revision: number, nodes: Record<string, { count: number }>, edges: Record<string, { count: number }> } | null} */
-let snapshot = null;
+export {
+  canvasEdgeLeadIds,
+  edgeLeadCount,
+  nodeLeadCount,
+  nodeLeadIds,
+};
 
 export function getCampaignFlowSnapshot() {
-  return snapshot;
+  return getFlowSnapshot();
 }
 
-export function nodeLeadCount(nodeId) {
-  return snapshot?.nodes?.[nodeId]?.count ?? 0;
-}
-
-export function edgeLeadCount(edgeId) {
-  return snapshot?.edges?.[edgeId]?.count ?? 0;
+function workflowCanvasInteracting() {
+  const view = document.getElementById("workflowViewport");
+  return Boolean(view?.classList.contains("is-workflow-interacting") || view?.classList.contains("is-panning"));
 }
 
 export async function refreshCampaignFlow() {
-  if (document.getElementById("workflowTabPanel")?.hidden) return snapshot;
+  if (document.getElementById("workflowTabPanel")?.hidden) return getFlowSnapshot();
+  if (workflowCanvasInteracting()) return getFlowSnapshot();
   const campaignId = activeCampaignId();
   if (!campaignId) {
-    snapshot = null;
-    return snapshot;
+    setFlowSnapshot(null);
+    return null;
   }
   try {
-    snapshot = await request(`/api/campaigns/${encodeURIComponent(campaignId)}/flow`);
-    window.dispatchEvent(new CustomEvent("godial-workflow-flow"));
-    return snapshot;
+    const next = await request(`/api/campaigns/${encodeURIComponent(campaignId)}/flow`);
+    setFlowSnapshot(next);
+    if (!workflowCanvasInteracting()) {
+      window.dispatchEvent(new CustomEvent("godial-workflow-flow"));
+    }
+    return next;
   } catch {
-    snapshot = null;
-    return snapshot;
+    setFlowSnapshot(null);
+    return null;
   }
 }
 

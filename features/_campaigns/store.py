@@ -112,6 +112,12 @@ class LocalCampaignStore:
     def _member_row(self, data, campaign_id):
         return (data.get("members") or {}).get(campaign_id) or {}
 
+    def member_telemetry(self, campaign_id):
+        with self.lock:
+            row = self._member_row(self._load(), campaign_id)
+            telemetry = row.get("telemetry")
+            return dict(telemetry) if isinstance(telemetry, dict) else {}
+
     def flow_snapshot(self, campaign_id):
         with self.lock:
             data = self._load()
@@ -274,6 +280,12 @@ class SupabaseCampaignStore:
 
     def _member_row(self, data, campaign_id):
         return (data.get("members") or {}).get(campaign_id) or {}
+
+    def member_telemetry(self, campaign_id):
+        with self.lock:
+            row = self._member_row(self._all(), campaign_id)
+            telemetry = row.get("telemetry")
+            return dict(telemetry) if isinstance(telemetry, dict) else {}
 
     def flow_snapshot(self, campaign_id):
         with self.lock:

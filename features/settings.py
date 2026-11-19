@@ -118,6 +118,7 @@ def settings_state(env_path, account_values, storage_name="local JSON files", ac
         "break_nudge_minutes": int(parsed["BREAK_NUDGE_MINUTES"]),
         "calling_start_hour": int(parsed["CALLING_START_HOUR"]),
         "calling_end_hour": int(parsed["CALLING_END_HOUR"]),
+        "campaign_cost_per_minute": float(parsed.get("CAMPAIGN_COST_PER_MINUTE") or SETTING_DEFAULTS["CAMPAIGN_COST_PER_MINUTE"]),
         "opening_script": parsed["OPENING_SCRIPT"],
         "ai_bridge_wss_url": parsed.get("AI_BRIDGE_WSS_URL", ""),
         "ai_bridge_app_url": parsed.get("AI_BRIDGE_APP_URL", ""),

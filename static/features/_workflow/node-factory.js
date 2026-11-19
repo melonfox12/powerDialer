@@ -1,5 +1,6 @@
 import { WORKFLOW_LANES, workflowTemplateById } from "./node-catalog.js";
-import { nodeLeadCount } from "./campaign-flow.js";
+import { WORKFLOW_NODE_IDS } from "./transitions.js";
+import { nodeLeadCount } from "./flow-snapshot.js";
 
 const INFO_ICON =
   '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" stroke-width="1.25"/><path d="M8 7.1v4.2M8 5.5v.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>';
@@ -27,6 +28,11 @@ function isSourceType(template) {
   return template.type === "Source";
 }
 
+function hasChainSuccessor(templateId) {
+  const index = WORKFLOW_NODE_IDS.indexOf(templateId);
+  return index >= 0 && index < WORKFLOW_NODE_IDS.length - 1;
+}
+
 /**
  * @param {string} instanceId
  * @param {string} templateId
@@ -51,7 +57,7 @@ export function buildWorkflowNodeElement(instanceId, templateId, size = {}) {
   }
 
   const outputsLine = template.outputs.join(", ");
-  const leadCount = nodeLeadCount(templateId);
+  const leadCount = typeof nodeLeadCount === "function" ? nodeLeadCount(templateId) : 0;
   const header = document.createElement("header");
   header.className = "workflow-node-header";
   header.innerHTML = `
@@ -94,6 +100,12 @@ export function buildWorkflowNodeElement(instanceId, templateId, size = {}) {
       if (multi) socket.dataset.defaultY = String(socketFraction(index, outs.length));
       article.appendChild(socket);
     });
+  } else if (hasChainSuccessor(templateId)) {
+    const socket = document.createElement("span");
+    socket.className = "workflow-socket workflow-socket-out workflow-socket-out--chain";
+    socket.dataset.socket = "out-chain";
+    socket.title = "Next step";
+    article.appendChild(socket);
   }
 
   const resizeLayer = document.createElement("div");

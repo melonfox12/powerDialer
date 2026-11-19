@@ -4,6 +4,7 @@ import json
 import urllib.parse
 
 from features._campaigns.import_rules import build_import_plan
+from features._campaigns.stats import build_campaign_stats
 
 
 def _campaigns(request):
@@ -94,6 +95,31 @@ def post_campaign_import_preview(request):
         request.send_json(400, {"error": str(exc)})
 
 
+def get_campaign_stats(request):
+    try:
+        campaign_id = _campaign_id_from_path(request, "/stats")
+        _campaign_or_error(request, campaign_id)
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(request.path).query)
+        scope = (query.get("scope") or ["campaign"])[-1]
+        if scope not in ("campaign", "today"):
+            scope = "campaign"
+        settings = request.account.dialer.read_settings()
+        member_ids = _campaigns(request).member_ids(campaign_id)
+        telemetry = _campaigns(request).member_telemetry(campaign_id)
+        payload = build_campaign_stats(
+            campaign_id,
+            member_ids,
+            _leads_by_id(request),
+            request.account.metrics,
+            settings,
+            telemetry=telemetry,
+            scope=scope,
+        )
+        request.send_json(200, payload)
+    except (OSError, ValueError) as exc:
+        request.send_json(400, {"error": str(exc)})
+
+
 def get_campaign_flow(request):
     try:
         campaign_id = _campaign_id_from_path(request, "/flow")
@@ -132,4 +158,5 @@ ROUTES = [
     ("POST", "/api/campaigns/{id}/import/preview", post_campaign_import_preview, "POST"),
     ("POST", "/api/campaigns/{id}/import", post_campaign_import, "POST"),
     ("GET", "/api/campaigns/{id}/flow", get_campaign_flow, "GET reads"),
+    ("GET", "/api/campaigns/{id}/stats", get_campaign_stats, "GET reads"),
 ]

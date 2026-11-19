@@ -96,6 +96,45 @@ export const WORKFLOW_FIXED_EDGES = [
   },
 ];
 
+/** Output socket used to wire each node to its right-hand neighbor in the chain layout. */
+const CHAIN_FROM_SOCKET = {
+  "lead-list": "out",
+  "phone-lookup": "out-business-line",
+  "compliance-gate": "out-pass",
+  "call-queue": "out",
+  dialing: "out-answered",
+  "in-conversation": "out",
+  "outcome-router": "out-retry",
+  "retry-scheduler": "out-exhausted",
+  "qualify-prioritize": "out-qualified",
+  "qualified-crm": "out-chain",
+  "disqualified-crm": "out-chain",
+};
+
+/**
+ * Canvas wires: each node only connects to its immediate neighbor on the right (layout order).
+ * Business logic still uses WORKFLOW_FIXED_EDGES / server transition table.
+ */
+export function buildAdjacentChainEdges() {
+  /** @type {WorkflowFixedEdge[]} */
+  const edges = [];
+  for (let index = 0; index < WORKFLOW_NODE_IDS.length - 1; index += 1) {
+    const from = WORKFLOW_NODE_IDS[index];
+    const to = WORKFLOW_NODE_IDS[index + 1];
+    const fromSocket = CHAIN_FROM_SOCKET[from];
+    if (!fromSocket) continue;
+    edges.push({
+      id: `e-chain:${from}:${to}`,
+      from,
+      to,
+      fromSocket,
+      toSocket: "in",
+      lane: 0,
+    });
+  }
+  return edges;
+}
+
 /** Map API edge_list rows to canvas edge shape. */
 export function mapFlowEdgesToCanvas(edgeList) {
   const source = edgeList?.length ? edgeList : WORKFLOW_FIXED_EDGES;

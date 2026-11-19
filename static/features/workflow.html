@@ -100,7 +100,7 @@
 
       <aside id="workflowNodeView" class="workflow-node-view" aria-label="Node view">
         <header class="workflow-node-view-header">
-          <h3 class="workflow-node-view-title">Node view</h3>
+          <h3 id="workflowNodeViewTitle" class="workflow-node-view-title">Node view</h3>
         </header>
         <div id="workflowNodeViewBody" class="workflow-node-view-body">
           <p class="workflow-node-view-empty">Select a node, edge, or lead on the canvas to inspect it here.</p>
@@ -110,35 +110,35 @@
 
     <footer class="workflow-funnel-bar" aria-label="Campaign funnel">
       <div class="workflow-funnel-scope">
-        <button type="button" class="workflow-funnel-toggle is-active" data-funnel-scope="campaign" disabled>Campaign</button>
-        <button type="button" class="workflow-funnel-toggle" data-funnel-scope="today" disabled>Today</button>
+        <button type="button" class="workflow-funnel-toggle is-active" data-funnel-scope="campaign" aria-pressed="true">Campaign</button>
+        <button type="button" class="workflow-funnel-toggle" data-funnel-scope="today" aria-pressed="false">Today</button>
       </div>
       <div class="workflow-funnel-steps" role="list">
         <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label">Members</span>
+          <span class="workflow-funnel-step-label" title="Dial = call placed to a campaign member.">Dials</span>
           <strong id="workflowFunnelDials" class="workflow-funnel-step-value">0</strong>
         </div>
         <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
         <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label">Pickups</span>
+          <span class="workflow-funnel-step-label" title="Pickup = answered by a person (not voicemail).">Pickups</span>
           <strong id="workflowFunnelPickups" class="workflow-funnel-step-value">0</strong>
           <span class="workflow-funnel-rate" id="workflowFunnelRatePickups">—</span>
         </div>
         <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
         <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label">Conversations</span>
+          <span class="workflow-funnel-step-label" title="Conversation = stayed on the line past the first question.">Conversations</span>
           <strong id="workflowFunnelConversations" class="workflow-funnel-step-value">0</strong>
           <span class="workflow-funnel-rate" id="workflowFunnelRateConversations">—</span>
         </div>
         <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
         <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label">Qualified</span>
+          <span class="workflow-funnel-step-label" title="Qualified = meets your criteria and is ready for a human callback.">Qualified</span>
           <strong id="workflowFunnelQualified" class="workflow-funnel-step-value">0</strong>
           <span class="workflow-funnel-rate" id="workflowFunnelRateQualified">—</span>
         </div>
         <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
         <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label">Booked</span>
+          <span class="workflow-funnel-step-label" title="Booked = walkthrough scheduled (CRM stage, not set by AI).">Booked</span>
           <strong id="workflowFunnelBooked" class="workflow-funnel-step-value">0</strong>
           <span class="workflow-funnel-rate" id="workflowFunnelRateBooked">—</span>
         </div>
