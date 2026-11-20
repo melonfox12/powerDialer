@@ -1,5 +1,8 @@
 /** Fixed workflow graph (keep in sync with features/_campaigns/transitions.py). */
 
+/** When false, the main canvas shows no nodes or edges (campaign API graph unchanged). */
+export const WORKFLOW_VIEWPORT_NODES = false;
+
 export const WORKFLOW_ENTRY_NODE = "lead-list";
 
 /** @type {readonly string[]} */
@@ -116,6 +119,7 @@ const CHAIN_FROM_SOCKET = {
  * Business logic still uses WORKFLOW_FIXED_EDGES / server transition table.
  */
 export function buildAdjacentChainEdges() {
+  if (!WORKFLOW_VIEWPORT_NODES) return [];
   /** @type {WorkflowFixedEdge[]} */
   const edges = [];
   for (let index = 0; index < WORKFLOW_NODE_IDS.length - 1; index += 1) {

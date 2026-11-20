@@ -1,7 +1,7 @@
-import { WORKFLOW_NODE_IDS } from "./transitions.js";
+import { WORKFLOW_NODE_IDS, WORKFLOW_VIEWPORT_NODES } from "./transitions.js";
 
-/** Bumps when default positions change (grid → chain, etc.). */
-export const FIXED_CANVAS_MIGRATION_KEY = "godial-workflow-fixed-canvas-v2";
+/** Bumps when default positions change (grid → chain, empty viewport, etc.). */
+export const FIXED_CANVAS_MIGRATION_KEY = "godial-workflow-fixed-canvas-v3-empty";
 
 const NODE_W = 248;
 const NODE_H = 148;
@@ -37,6 +37,7 @@ export function runFixedCanvasMigration() {
 }
 
 export function buildFixedWorkflowInstances() {
+  if (!WORKFLOW_VIEWPORT_NODES) return [];
   const positions = chainPositions();
   return WORKFLOW_NODE_IDS.map((templateId) => {
     const pos = positions[templateId];

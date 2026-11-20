@@ -46,14 +46,16 @@ export function loadWorkflowInstances() {
   try {
     const raw = JSON.parse(localStorage.getItem(INSTANCES_KEY) || "[]");
     if (Array.isArray(raw) && raw.length === expected.size) {
-      const rows = raw.filter(
-        (row) =>
-          row?.id &&
-          row?.templateId &&
-          expected.has(row.id) &&
-          Number.isFinite(row.x) &&
-          Number.isFinite(row.y),
-      );
+      const rows = expected.size
+        ? raw.filter(
+            (row) =>
+              row?.id &&
+              row?.templateId &&
+              expected.has(row.id) &&
+              Number.isFinite(row.x) &&
+              Number.isFinite(row.y),
+          )
+        : [];
       if (rows.length === expected.size) {
         instances = rows.map((row) => ({
           ...defaultById.get(row.id),

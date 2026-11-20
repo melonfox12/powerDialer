@@ -1006,6 +1006,8 @@ export function bindWorkflow() {
 }
 
 export function initWorkflowTab() {
+  loadLayout();
+  mountWorkflowInstances(nodeLayer());
   refreshWorkflowCanvas();
   releaseWorkflowCrmSidebarDom();
   renderWorkflowCrmSidebar();
