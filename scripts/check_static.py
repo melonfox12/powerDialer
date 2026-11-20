@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
-"""Check that static JS imports resolve, named exports exist, DOM ids exist, and linked assets exist."""
+"""Check that frontend JS imports resolve, named exports exist, DOM ids exist, and linked assets exist."""
 
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-STATIC = ROOT / "static"
+STATIC = ROOT / "frontend"
 PARTIALS = (
     STATIC / "shell.html",
-    STATIC / "features" / "dialer.html",
-    STATIC / "features" / "ai-dialer-agent.html",
-    STATIC / "features" / "session-summary-dialog.html",
-    STATIC / "features" / "performance.html",
+    STATIC / "features" / "app-frame.html",
+    STATIC / "features" / "workflow.html",
     STATIC / "features" / "pipeline.html",
     STATIC / "features" / "prospects.html",
     STATIC / "features" / "settings.html",
@@ -65,6 +63,23 @@ def specifier_names(block):
             original = exported = part
         names.append((original, exported))
     return names
+
+
+def reachable_from(entry):
+    """JS modules transitively imported from entry (static-relative specifiers only)."""
+    seen = set()
+    stack = [entry.resolve()]
+    while stack:
+        path = stack.pop()
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
+        text = path.read_text(encoding="utf-8")
+        for match in IMPORT_FROM.finditer(text):
+            target = resolve_specifier(path, match.group(1))
+            if target.is_file():
+                stack.append(target)
+    return seen
 
 
 def local_exports(text):
@@ -133,12 +148,19 @@ def main():
                         f"{path.relative_to(ROOT)} imports {original} from {specifier}, but it is not exported"
                     )
 
+    entry = STATIC / "main.js"
+    live_js = reachable_from(entry) if entry.is_file() else set(js_files)
+
     html = "".join(path.read_text(encoding="utf-8") for path in PARTIALS if path.is_file())
     html_ids = set(HTML_ID.findall(html))
     html_ids.add("vocabulary")  # injected by web.send_app_page before </head>
-    for text in texts.values():
-        html_ids.update(ASSIGNED_ID.findall(text))
+    for path in live_js:
+        text = texts.get(path)
+        if text:
+            html_ids.update(ASSIGNED_ID.findall(text))
     for path, text in texts.items():
+        if path not in live_js:
+            continue
         for match in DOM_ID.finditer(text):
             element_id = match.group(1) or match.group(2)
             if element_id not in html_ids:

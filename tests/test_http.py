@@ -54,7 +54,7 @@ class HttpContractTests(unittest.TestCase):
         status, page, content_type = self.request("GET", "/")
         self.assertEqual(status, 200)
         self.assertIn("text/html", content_type)
-        snapshot = ROOT / "docs" / "page-before.html"
+        snapshot = ROOT / "misc" / "docs" / "page-before.html"
         self.assertTrue(snapshot.exists(), f"Missing page snapshot {snapshot}")
         def comparable(body):
             text = body.replace(b"\r\n", b"\n").decode("utf-8")
@@ -486,6 +486,14 @@ EXPECTED_ROUTES = {
     ("DELETE", "/api/leads/{id}"),
     ("GET", "/api/state"),
     ("GET", "/api/leads"),
+    ("GET", "/api/leads/summary"),
+    ("GET", "/api/campaigns"),
+    ("POST", "/api/campaigns"),
+    ("POST", "/api/campaigns/active"),
+    ("POST", "/api/campaigns/{id}/import/preview"),
+    ("POST", "/api/campaigns/{id}/import"),
+    ("GET", "/api/campaigns/{id}/flow"),
+    ("GET", "/api/campaigns/{id}/stats"),
     ("GET", "/api/live"),
     ("GET", "/api/voice-token"),
     ("POST", "/api/timezone"),

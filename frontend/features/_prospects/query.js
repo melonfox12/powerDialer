@@ -1,0 +1,237 @@
+import { state } from "../../_core/state.js";
+import { byId } from "../../_core/format.js";
+import { selectedLeadIds } from "./selection.js";
+
+export const LEAD_COLUMNS = [
+  { label: "Business Type", key: "business_type", kind: "text" },
+  { label: "Timezone", key: "timezone", kind: "text" },
+  { label: "First name", key: "first_name", kind: "text" },
+  { label: "Last name", key: "last_name", kind: "text" },
+  { label: "Company", key: "business", kind: "text" },
+  { label: "Pitch segment", key: "pitch_segment", kind: "text" },
+  { label: "City", key: "city", kind: "text" },
+  { label: "State", key: "state", kind: "text" },
+  { label: "Business phone", key: "phone", kind: "text" },
+  { label: "LinkedIn profile", key: "linkedin", kind: "text" },
+  { label: "Website", key: "website", kind: "text" },
+  { label: "Total Reviews", key: "review_count", kind: "number" },
+  { label: "Call status", key: "status", kind: "text" },
+];
+
+export const TRAILING_COLUMNS = [
+  { label: "Notes", key: "notes", kind: "text" },
+  { label: "Call transcript", key: "transcript", kind: "number" },
+];
+
+let columnSort = { key: "review_count", direction: "desc", kind: "number" };
+
+export function currentColumnSort() {
+  return columnSort;
+}
+
+export function setColumnSort(key, direction) {
+  columnSort = { key, direction, kind: columnKind(key) };
+}
+
+export function toggleColumnSort(key) {
+  const kind = columnKind(key);
+  if (columnSort?.key === key) {
+    columnSort = { key, kind, direction: columnSort.direction === "desc" ? "asc" : "desc" };
+    return;
+  }
+  columnSort = { key, kind, direction: kind === "number" ? "desc" : "asc" };
+}
+
+export function locationText(lead, key) {
+  const direct = String(lead?.[key] || "").trim();
+  if (direct) return direct;
+  for (const [name, value] of Object.entries(lead?.fields || {})) {
+    if (name.trim().toLowerCase() === key) return String(value || "").trim();
+  }
+  return "";
+}
+
+export function splitName(name) {
+  const text = String(name || "").trim();
+  if (!text) return { first: "", last: "" };
+  const space = text.indexOf(" ");
+  if (space < 0) return { first: text, last: "" };
+  return { first: text.slice(0, space), last: text.slice(space + 1).trim() };
+}
+
+export function fieldText(lead, ...aliases) {
+  const wanted = new Set(aliases.map((alias) => alias.trim().toLowerCase()));
+  for (const [name, value] of Object.entries(lead?.fields || {})) {
+    if (wanted.has(name.trim().toLowerCase())) return String(value || "").trim();
+  }
+  return "";
+}
+
+function pitchSegmentFieldKey(name) {
+  return String(name || "").trim().toLowerCase().replace(/[\s_]+/g, "");
+}
+
+export function pitchSegmentText(lead) {
+  const direct = String(lead?.pitch_segment || "").trim();
+  if (direct) return direct;
+  for (const [name, value] of Object.entries(lead?.fields || {})) {
+    if (pitchSegmentFieldKey(name) === "pitchsegment") return String(value || "").trim();
+  }
+  return "";
+}
+
+export function importedColumns() {
+  const columns = [];
+  const standard = /^(name|full name|contact|first name|last name|prospect|business type|industry|business|company|organization|organisation|pitch segment|state|city|phone(?: number| e\.?164)?|mobile|cell|telephone|business phone|time\s?zone|tz|linkedin(?: profile| url)?|website|url|call.?status|status|notes|note|total reviews|reviews \(last 30 days\)|days since last review|30-day %|recency source|fit)$/i;
+  for (const lead of state.leads) {
+    for (const key of Object.keys(lead.fields || {})) {
+      if (!standard.test(key) && !columns.includes(key)) columns.push(key);
+    }
+  }
+  return columns;
+}
+
+export function syncStateFilter() {
+  const select = byId("stateFilter");
+  if (!select) return;
+  const current = select.value;
+  const states = [...new Set(state.leads.map((lead) => locationText(lead, "state")).filter(Boolean))];
+  states.sort((left, right) => left.localeCompare(right, undefined, { sensitivity: "base" }));
+  const wanted = ["", ...states];
+  const existing = [...select.options].map((option) => option.value);
+  if (existing.join("\0") === wanted.join("\0")) return;
+  select.replaceChildren();
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "All states";
+  select.append(all);
+  for (const code of states) {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = code;
+    select.append(option);
+  }
+  select.value = wanted.includes(current) ? current : "";
+}
+
+export function filteredLeads() {
+  const query = byId("searchInput").value.trim().toLocaleLowerCase();
+  const filter = byId("statusFilter").value;
+  const stateFilter = (byId("stateFilter")?.value || "").trim().toUpperCase();
+  const minTotal = bound("minTotalReviews");
+  const maxTotal = bound("maxTotalReviews");
+  const minRecent = bound("minRecentReviews");
+  const leads = state.leads.filter((lead) => {
+    if (filter !== "all" && lead.status !== filter) return false;
+    if (stateFilter && locationText(lead, "state").trim().toUpperCase() !== stateFilter) return false;
+    const total = numberOrNull(lead.review_count);
+    const recent = numberOrNull(lead.reviews_last_30_days);
+    if (minTotal != null && (total == null || total < minTotal)) return false;
+    if (maxTotal != null && (total == null || total > maxTotal)) return false;
+    if (minRecent != null && (recent == null || recent < minRecent)) return false;
+    if (!query) return true;
+    const { first, last } = splitName(lead.name);
+    const values = [
+      lead.business_type, lead.timezone, first, last, lead.business, pitchSegmentText(lead),
+      locationText(lead, "city"), locationText(lead, "state"), lead.phone,
+      fieldText(lead, "LinkedIn profile", "LinkedIn", "linkedin profile", "linkedin"),
+      fieldText(lead, "Website", "website", "url"),
+      lead.status, lead.review_count,
+      lead.recency_source, lead.reviews_last_30_days, lead.days_since_last_review, lead.review_pct_30_days,
+      ...Object.values(lead.fields || {}),
+    ];
+    return values.some((value) => String(value ?? "").toLocaleLowerCase().includes(query));
+  });
+  if (!columnSort) return leads;
+  return leads.sort(compareLeads);
+}
+
+export function crmTableSignature() {
+  const filter = {
+    q: byId("searchInput")?.value?.trim() ?? "",
+    status: byId("statusFilter")?.value ?? "all",
+    state: byId("stateFilter")?.value ?? "",
+    minTotal: byId("minTotalReviews")?.value ?? "",
+    maxTotal: byId("maxTotalReviews")?.value ?? "",
+    minRecent: byId("minRecentReviews")?.value ?? "",
+  };
+  return JSON.stringify({
+    lv: state.leads_version,
+    pr: state.pipeline_revision ?? 0,
+    sort: columnSort,
+    filter,
+    pendingId: state.pending_outcome?.id ?? null,
+    pendingStatus: state.pending_outcome?.status ?? null,
+    activeId: state.active_lead?.id ?? null,
+    activeStatus: state.active_lead?.status ?? null,
+    leadCount: state.leads.length,
+    selectionSize: selectedLeadIds?.size ?? 0,
+  });
+}
+
+function columnKind(key) {
+  const column = [...LEAD_COLUMNS, ...TRAILING_COLUMNS].find((item) => item.key === key);
+  return column?.kind || "text";
+}
+
+function bound(id) {
+  const raw = byId(id)?.value.trim() ?? "";
+  if (raw === "") return null;
+  const number = Number(raw);
+  return Number.isFinite(number) ? number : null;
+}
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function compareLeads(left, right) {
+  const direction = columnSort.direction === "desc" ? -1 : 1;
+  const leftValue = sortValue(left);
+  const rightValue = sortValue(right);
+  if (leftValue == null && rightValue == null) return tieBreak(left, right);
+  if (leftValue == null) return 1;
+  if (rightValue == null) return -1;
+  if (typeof leftValue === "number" && typeof rightValue === "number") {
+    return leftValue === rightValue ? tieBreak(left, right) : (leftValue - rightValue) * direction;
+  }
+  const compared = String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true, sensitivity: "base" });
+  return compared ? compared * direction : tieBreak(left, right);
+}
+
+function sortValue(lead) {
+  const key = columnSort.key;
+  if (columnSort.kind === "number") {
+    if (key === "transcript") return lead.transcript?.length || 0;
+    return numberOrNull(lead[key]);
+  }
+  if (key === "first_name" || key === "last_name") {
+    const part = splitName(lead.name)[key === "first_name" ? "first" : "last"];
+    return part || null;
+  }
+  if (key === "linkedin") {
+    return fieldText(lead, "LinkedIn profile", "LinkedIn", "linkedin profile", "linkedin") || null;
+  }
+  if (key === "website") {
+    return fieldText(lead, "Website", "website", "url") || null;
+  }
+  if (key === "pitch_segment") {
+    return pitchSegmentText(lead) || null;
+  }
+  if (key === "notes") {
+    return fieldText(lead, "Notes", "notes", "note") || null;
+  }
+  if (key === "state" || key === "city") {
+    return locationText(lead, key) || null;
+  }
+  if (key.startsWith("field:")) {
+    return String(lead.fields?.[key.slice(6)] || "").trim() || null;
+  }
+  return String(lead[key] || "").trim() || null;
+}
+
+function tieBreak(left, right) {
+  return String(left.name || left.business || "").localeCompare(String(right.name || right.business || ""), undefined, { sensitivity: "base" });
+}

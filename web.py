@@ -6,7 +6,7 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler
 
 from _web.respond import HandlerMixin
-from features import ai_voice_routes, dialer, metrics, prospects, settings
+from features import ai_voice_routes, campaigns, dialer, metrics, prospects, settings
 from features.accounts import resolve_account
 from shared.config import read_env
 from shared.infra import debug_event
@@ -67,7 +67,12 @@ SYSTEM_ROUTES = [
 ]
 
 FEATURE_ROUTES = (
-    settings.ROUTES + metrics.ROUTES + prospects.ROUTES + dialer.ROUTES + ai_voice_routes.ROUTES
+    settings.ROUTES
+    + metrics.ROUTES
+    + prospects.ROUTES
+    + campaigns.ROUTES
+    + dialer.ROUTES
+    + ai_voice_routes.ROUTES
 )
 
 

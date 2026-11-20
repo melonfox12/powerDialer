@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090a">
+  <title>GoDial</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/01-tokens.css">
+  <link rel="stylesheet" href="css/02-layout.css">
+  <link rel="stylesheet" href="css/03-controls.css">
+  <link rel="stylesheet" href="css/06-dialogs.css">
+  <link rel="stylesheet" href="css/07-responsive.css">
+  <link rel="stylesheet" href="css/09-shell.css">
+  <link rel="stylesheet" href="css/linear/shell.css">
+  <link rel="stylesheet" href="css/linear/document.css">
+  <link rel="stylesheet" href="css/linear/controls.css">
+  <link rel="stylesheet" href="css/linear/pipeline.css">
+  <link rel="stylesheet" href="css/linear/workflow.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
+  <script type="module" src="main.js"></script>
+<script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"agent_use","label":"Agent use","color":"--muted","className":"neutral"},{"key":"dialed","label":"Dialed","color":"--callback","className":"callback"},{"key":"contact_engaged","label":"Contact (engaged)","color":"--blue","className":"info"},{"key":"qualified","label":"Qualified","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"proposal_sent","label":"Proposal sent","color":"--success","className":"positive"},{"key":"closed","label":"Closed","color":"--red","className":"negative"}],"crmStatusKeys":["new","agent_use","dialed","contact_engaged","qualified","booked","proposal_sent","closed"],"userSelectableCrmStatusKeys":["new","dialed","contact_engaged","qualified","booked","proposal_sent","closed"],"crmStatusLabels":{"new":"New","agent_use":"Agent use","dialed":"Dialed","contact_engaged":"Contact (engaged)","qualified":"Qualified","booked":"Booked","proposal_sent":"Proposal sent","closed":"Closed"},"agentUseStatus":"agent_use","agentReservedNameField":"agent_reserved_name","agentReservedIdField":"agent_reserved_id","neverDialStatuses":["booked","proposal_sent","closed"],"dialPoolStatuses":["new","contact_engaged"],"dialPoolStatusLabels":{"new":"New","contact_engaged":"Contact (engaged)"},"defaultDialPoolStatus":"new","dialBusinessTypeOptions":[{"key":"pest control","label":"Pest control"},{"key":"hvac","label":"HVAC"}],"dispositions":{"booked":"booked","callback":"dialed","send_info":"contact_engaged","not_interested":"closed","no_answer":"dialed","do_not_call":"closed"},"outcomeMetric":{"dialed":"call_later","contact_engaged":"interested","qualified":"interested","booked":"booked","proposal_sent":"interested","closed":"disqualified"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":30,"defaultDailyConversationGoal":30,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"callerIdGroups":[{"key":"eastern","label":"Eastern"},{"key":"central","label":"Central"},{"key":"mountain","label":"Mountain"},{"key":"pacific","label":"Pacific"}],"defaultCallerIdGroup":"eastern","callbackStatusHours":2,"pipelineSteps":[{"key":"dialed","label":"Dialed","wait_hours":0},{"key":"call_1","label":"Contacted (engaged)","wait_hours":0},{"key":"email_1","label":"Email 1","wait_hours":36},{"key":"linkedin_add","label":"LinkedIn add request","wait_hours":36},{"key":"call_2","label":"Call 2","wait_hours":36},{"key":"email_2","label":"Email 2","wait_hours":36},{"key":"linkedin_message","label":"LinkedIn message","wait_hours":36},{"key":"call_3","label":"Call 3","wait_hours":36},{"key":"email_3","label":"Email 3","wait_hours":36},{"key":"any_channel","label":"Any channel (every 60\u201390 days)","wait_hours":1800}],"pipelineFirstStep":"dialed","pipelineDialedStep":"dialed","pipelineSendInfoStep":"call_1","pipelineCrmStatusKeys":[],"settingKeys":["PIPELINE_CUSTOM_STEPS_JSON","SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","CAMPAIGN_COST_PER_MINUTE","OPENING_SCRIPT","AI_AGENT_POOLS_JSON","AI_AGENT_PLAYBOOKS_JSON","AI_BRIDGE_WSS_URL","AI_BRIDGE_APP_URL","AI_BRIDGE_SECRET","AI_BRIDGE_EMBEDDED","AI_BRIDGE_HOST","AI_BRIDGE_PORT","CARTESIA_API_KEY","CARTESIA_VOICE_ID","CARTESIA_TTS_MODEL","OPENAI_API_KEY","AI_LLM_MODEL","AI_VOICEMAIL_DROP","AI_VOICEMAIL_MESSAGE","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"},{"id":"aiBridgeSecretInput","label":"bridge secret"},{"id":"openaiKeyInput","label":"OpenAI key"},{"id":"cartesiaKeyInput","label":"Cartesia key"}],"marketingTouchesField":"Marketing touches"}</script></head>
+<body>
+  <div id="loginGate" class="login-gate" hidden>
+    <div class="login-card">
+      <div class="login-brand"><svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M8 1.4a6.6 6.6 0 1 0 0 13.2a6.6 6.6 0 1 0 0-13.2Zm0 6.6L4.5 2.45 11.5 2.45Z"/></svg><span>GoDial</span></div>
+      <h1>Sign in with Google</h1>
+      <p>Each Gmail account has its own prospects, settings, and call history. You do not enter Supabase keys in the app.</p>
+      <button id="googleSignInButton" class="button button-primary" type="button">Continue with Google</button>
+      <p id="loginError" class="form-footnote" hidden></p>
+    </div>
+  </div>
+  <div class="app-shell" hidden>
+    <header class="app-top-chrome">
+      <a class="brand app-top-brand" href="#crm" aria-label="GoDial home">
+        <svg class="brand-mark" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" fill-rule="evenodd" d="M8 1.4a6.6 6.6 0 1 0 0 13.2a6.6 6.6 0 1 0 0-13.2Zm0 6.6L4.5 2.45 11.5 2.45Z"/></svg>
+        <span class="brand-name">GoDial</span>
+      </a>
+      <div class="app-top-tabs-wrap">
+        <div class="dashboard-tabs app-top-tabs" role="tablist" aria-label="Workspace pages">
+          <button id="prospectsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects">Global CRM <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
+          <button id="workflowTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="workflowTabPanel" tabindex="-1" data-dashboard-tab="workflow">Workflow</button>
+          <button id="pipelineTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="pipelineTabPanel" tabindex="-1" data-dashboard-tab="pipeline">Pipeline</button>
+        </div>
+      </div>
+      <div class="app-top-utilities top-actions">
+        <span id="connectionState" class="connection-state"><span class="connection-dot"></span><span>Ready</span></span>
+        <span id="accountEmail" class="account-email" hidden></span>
+        <button id="settingsButton" class="app-top-utility-button" type="button" aria-haspopup="dialog">Settings</button>
+        <button id="signOutButton" class="app-top-utility-button" type="button" hidden>Sign out</button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section id="crmView" class="view active-view" aria-labelledby="pageTitle">
+        <header class="page-heading">
+          <h1 id="pageTitle">Global CRM</h1>
+          <button id="headingImportButton" class="button button-secondary heading-import-button" type="button" hidden>Import CSV</button>
+        </header>
+
+        <div class="dashboard-stack">
+          <div class="dashboard-top-row"><div id="workflowTabPanel" class="dashboard-tab-panel workflow-tab-panel" role="tabpanel" aria-labelledby="workflowTabButton" hidden>
+  <div class="workflow-shell">
+    <h2 class="visually-hidden">Campaign workflow</h2>
+    <div class="workflow-main-row">
+      <aside id="workflowCampaignCrm" class="workflow-node-library workflow-campaign-crm" aria-label="CRM" style="--workflow-library-width: 272px">
+        <header class="workflow-library-header">
+          <span class="workflow-library-title">CRM</span>
+        </header>
+        <div class="workflow-crm-filter">
+          <label class="workflow-crm-filter-label" for="workflowCrmFilterField">Filter by</label>
+          <div class="workflow-crm-filter-row">
+            <select id="workflowCrmFilterField" class="workflow-crm-filter-select" aria-label="CRM attribute to filter by">
+              <option value="business_type">Business type</option>
+              <option value="status">Status</option>
+              <option value="state">State</option>
+            </select>
+            <select id="workflowCrmFilterValueSelect" class="workflow-crm-filter-select" aria-label="Filter value" hidden></select>
+            <input id="workflowCrmFilterValueInput" type="text" class="workflow-crm-filter-input" placeholder="Value…" autocomplete="off" aria-label="Filter value">
+          </div>
+          <p id="workflowCrmFilterActive" class="workflow-crm-filter-active" hidden></p>
+          <label class="workflow-crm-filter-label" for="workflowCrmSearchInput">Search</label>
+          <input id="workflowCrmSearchInput" type="search" class="workflow-crm-filter-input" placeholder="Name, phone, business…" autocomplete="off" aria-label="Search CRM">
+        </div>
+        <div class="workflow-crm-list-toolbar">
+          <span id="workflowCrmListMeta" class="workflow-crm-list-meta">0 prospects</span>
+          <button id="workflowCrmSelectAllMatching" type="button" class="button button-quiet workflow-crm-select-all" hidden>Select all matching</button>
+        </div>
+        <div id="workflowCrmLeadList" class="workflow-crm-lead-list" role="list" aria-label="Prospects for campaign import"></div>
+        <button id="workflowCrmLoadMore" type="button" class="button button-quiet workflow-crm-load-more" hidden>Load more</button>
+        <footer class="workflow-crm-footer">
+          <span id="workflowCrmSelectedCount" class="workflow-crm-selected-count">Selected 0</span>
+          <button id="workflowCrmImportBtn" type="button" class="button button-primary workflow-crm-import" disabled>Import</button>
+        </footer>
+        <div id="workflowCrmResizer" class="workflow-library-resizer" role="separator" aria-orientation="vertical" aria-label="Resize CRM panel" title="Drag to resize"></div>
+      </aside>
+
+      <div class="workflow-center-column">
+        <div class="workflow-campaign-toolbar" role="toolbar" aria-label="Campaign controls">
+          <label class="workflow-campaign-field">
+            <span class="visually-hidden">Campaign</span>
+            <select id="workflowCampaignSelect" class="workflow-campaign-select" aria-label="Campaign"></select>
+          </label>
+          <button id="workflowCampaignCreateBtn" type="button" class="button button-quiet workflow-campaign-create">New campaign</button>
+          <span class="workflow-campaign-meta workflow-campaign-members">
+            <span class="workflow-campaign-meta-label">Members</span>
+            <strong id="workflowCampaignMemberCount">0</strong>
+          </span>
+          <div class="workflow-campaign-transport" aria-label="Campaign run controls">
+            <button type="button" class="button button-primary workflow-campaign-btn" disabled>Start</button>
+            <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Pause</button>
+            <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Stop</button>
+          </div>
+          <div class="workflow-campaign-meta">
+            <span class="workflow-campaign-meta-label">Parallel agents</span>
+            <span class="workflow-campaign-stepper" aria-disabled="true">8 / 10</span>
+          </div>
+          <div class="workflow-campaign-meta workflow-campaign-hours" id="workflowCallingHours" title="Calling window from account settings">
+            <span class="workflow-campaign-meta-label">Calling hours</span>
+            <span id="workflowCallingHoursValue">—</span>
+          </div>
+        </div>
+
+        <div class="workflow-canvas-column">
+          <div class="workflow-toolbar" role="toolbar" aria-label="Workflow canvas tools">
+            <button id="workflowToolPan" type="button" class="workflow-toolbar-btn is-selected" data-workflow-tool="pan" aria-pressed="true" title="Hand — drag canvas, two-finger scroll to pan, pinch or Ctrl+scroll to zoom">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.2a1 1 0 0 1 1.4 0l1.1 1.1V3.3a1 1 0 1 1 2 0v3.1l2.1 2.1a2.2 2.2 0 0 1 .6 1.5v2.7a1 1 0 0 1-1.7.7L8.2 11.2l-2.9 2.3a1 1 0 0 1-1.6-.8V7.4c0-.6.2-1.1.6-1.5l1.3-1.3V4.2a1 1 0 0 1 0-1.4Z" fill="currentColor"/></svg>
+              <span>Hand</span>
+            </button>
+            <button id="workflowToolAnchor" type="button" class="workflow-toolbar-btn" data-workflow-tool="anchor" aria-pressed="false" title="Anchor editor — drag connection points">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M3 13 L8.1 7.9" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+                <path d="M11.2 3.6 8.1 7.9 10.15 9.05Z" fill="currentColor" />
+              </svg>
+              <span>Anchor editor</span>
+            </button>
+            <button id="workflowToolResize" type="button" class="workflow-toolbar-btn" data-workflow-tool="resize" aria-pressed="false" title="Size — drag node edges or corner to resize">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="2.5" y="5" width="9" height="7.5" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.15" stroke-dasharray="2.4 1.6"/>
+                <path d="M6.5 9.2 10.2 6.4 M10.2 6.4 H7.7 M10.2 6.4 V8.9" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Size</span>
+            </button>
+          </div>
+          <div id="workflowViewport" class="workflow-viewport is-tool-pan" tabindex="0" aria-label="Workflow canvas">
+            <div class="workflow-viewport-live" aria-live="polite">
+              <span class="workflow-viewport-live-dot" aria-hidden="true"></span>
+              <span class="workflow-viewport-live-label">Live</span>
+              <span id="workflowLiveMinutes" class="workflow-viewport-live-meta">0 call min</span>
+              <span class="workflow-viewport-live-sep" aria-hidden="true">·</span>
+              <span id="workflowLiveCost" class="workflow-viewport-live-meta">$0.00</span>
+            </div>
+            <div id="workflowWorld" class="workflow-world">
+              <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
+              <div id="workflowNodeLayer" class="workflow-node-layer"></div>
+              <svg id="workflowEdgeArrows" class="workflow-edge-arrows" aria-hidden="true"></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside id="workflowNodeView" class="workflow-node-view" aria-label="Node view">
+        <header class="workflow-node-view-header">
+          <h3 id="workflowNodeViewTitle" class="workflow-node-view-title">Node view</h3>
+        </header>
+        <div id="workflowNodeViewBody" class="workflow-node-view-body">
+          <p class="workflow-node-view-empty">Select a node, edge, or lead on the canvas to inspect it here.</p>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="workflow-funnel-bar" aria-label="Campaign funnel">
+      <div class="workflow-funnel-scope">
+        <button type="button" class="workflow-funnel-toggle is-active" data-funnel-scope="campaign" aria-pressed="true">Campaign</button>
+        <button type="button" class="workflow-funnel-toggle" data-funnel-scope="today" aria-pressed="false">Today</button>
+      </div>
+      <div class="workflow-funnel-steps" role="list">
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Dial = call placed to a campaign member.">Dials</span>
+          <strong id="workflowFunnelDials" class="workflow-funnel-step-value">0</strong>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Pickup = answered by a person (not voicemail).">Pickups</span>
+          <strong id="workflowFunnelPickups" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRatePickups">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Conversation = stayed on the line past the first question.">Conversations</span>
+          <strong id="workflowFunnelConversations" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateConversations">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Qualified = meets your criteria and is ready for a human callback.">Qualified</span>
+          <strong id="workflowFunnelQualified" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateQualified">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Booked = walkthrough scheduled (CRM stage, not set by AI).">Booked</span>
+          <strong id="workflowFunnelBooked" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateBooked">—</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <dialog id="workflowCampaignImportDialog" class="workflow-agent-dialog workflow-import-dialog" aria-labelledby="workflowCampaignImportTitle">
+    <form method="dialog" class="workflow-agent-dialog-form workflow-import-form">
+      <h3 id="workflowCampaignImportTitle">Import into campaign</h3>
+      <p id="workflowCampaignImportSummary" class="workflow-import-summary"></p>
+      <div class="workflow-import-warnings-wrap" hidden>
+        <h4 class="workflow-import-warnings-heading">Warnings</h4>
+        <ul id="workflowCampaignImportWarnings" class="workflow-import-warnings"></ul>
+      </div>
+      <div class="workflow-agent-dialog-actions">
+        <button id="workflowCampaignImportCancel" class="button button-quiet" type="button">Cancel</button>
+        <button id="workflowCampaignImportConfirm" class="button button-primary" type="button">Import</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="workflowNodeInfoDialog" class="workflow-agent-dialog workflow-node-info-dialog">
+    <form method="dialog" class="workflow-agent-dialog-form">
+      <h3 id="workflowNodeInfoTitle">Node</h3>
+      <div id="workflowNodeInfoBody" class="workflow-node-info-body"></div>
+      <div class="workflow-agent-dialog-actions">
+        <button class="button button-quiet" value="cancel">Close</button>
+      </div>
+    </form>
+  </dialog>
+</div>            <div id="pipelineTabPanel" class="dashboard-tab-panel pool-tab-panel pipeline-tab-panel" role="tabpanel" aria-labelledby="pipelineTabButton" hidden>
+              <section class="pipeline-board-panel" aria-label="Send info pipeline">
+                <div class="pipeline-board-toolbar">
+                  <div>
+                    <h2 id="pipelineViewHeading">Pipeline</h2>
+                    <p class="pipeline-board-lede">Callbacks sit in Dialed, Send info in Contacted (engaged), then follow the sequence. Drag cards to move steps; timers restart on each move.</p>
+                  </div>
+                  <span id="pipelineBoardSummary" class="pool-table-summary" aria-live="polite">0 on board</span>
+                </div>
+                <details id="pipelineStepsEditor" class="pipeline-steps-editor">
+                  <summary>Edit steps after Contacted (engaged)</summary>
+                  <p class="pipeline-editor-hint">Dialed and Contacted (engaged) stay fixed. Add, remove, rename, or set wait hours (timer before the card is “ready” and can move forward). Key turns into a safe id for you (e.g. <span class="pipeline-key-example">Follow up #2</span> → <span class="pipeline-key-example">follow_up_2</span>) when you leave the field or save. Saving updates columns for everyone on this account.</p>
+                  <div id="pipelineStepsEditorList" class="pipeline-editor-list" aria-label="Custom pipeline steps"></div>
+                  <div class="pipeline-editor-actions">
+                    <button id="pipelineAddStepButton" class="button button-quiet" type="button">Add step</button>
+                    <label class="pipeline-migrate-label"><input id="pipelineMigrateLeadsInput" type="checkbox"> Move prospects off columns you remove (Callbacks → Dialed, Send info → Contacted (engaged))</label>
+                    <button id="pipelineSaveStepsButton" class="button button-primary" type="button">Save pipeline</button>
+                  </div>
+                </details>
+                <div id="pipelineBoard" class="pipeline-board" role="list"></div>
+                <div id="pipelineBoardEmpty" class="empty-state pipeline-board-empty" hidden>
+                  <h2>No Send info prospects yet</h2>
+                  <p>Callbacks appear in Dialed. Send info prospects appear in Contacted (engaged).</p>
+                </div>
+              </section>
+            </div>
+              <div id="prospectsTabPanel" class="dashboard-tab-panel prospects-tab-panel" role="tabpanel" aria-labelledby="prospectsTabButton" hidden>
+                <section class="crm-table-panel" aria-label="Prospect table">
+                  <div class="table-toolbar">
+                    <div class="toolbar-leading">
+                      <label class="search-box">
+                        <span class="search-icon" aria-hidden="true"></span>
+                        <input id="searchInput" type="search" placeholder="Search prospects" autocomplete="off">
+                      </label>
+                      <select id="statusFilter" class="filter-select" aria-label="Filter by status">
+                        <option value="all">All statuses</option>
+                        <option value="new">New</option>
+                        <option value="dialed">Dialed (2 hour timer)</option>
+                        <option value="contact_engaged">Contact (engaged)</option>
+                        <option value="qualified">Qualified</option>
+                        <option value="booked">Booked</option>
+                        <option value="proposal_sent">Proposal sent</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                      <select id="stateFilter" class="filter-select" aria-label="Filter by state">
+                        <option value="">All states</option>
+                      </select>
+                      <label class="metric-filter"><span>Total reviews</span><input id="minTotalReviews" class="metric-input" type="number" min="0" step="1" placeholder="Min" aria-label="Minimum total reviews"><input id="maxTotalReviews" class="metric-input" type="number" min="0" step="1" placeholder="Max" aria-label="Maximum total reviews"></label>
+                      <label class="metric-filter"><span>Last 30 days</span><input id="minRecentReviews" class="metric-input" type="number" min="0" step="1" placeholder="Min" aria-label="Minimum reviews in the last 30 days"></label>
+                    </div>
+                    <div class="toolbar-actions">
+                      <input id="csvInput" type="file" accept=".csv,.tsv,.txt,text/csv" hidden>
+                      <button id="addProspectButton" class="button button-light" type="button">Add prospect</button>
+                      <button id="importButton" class="button button-secondary" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
+                      <button id="exportButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↓</span>Export</button>
+                    </div>
+                  </div>
+                  <div class="table-scroll" role="region" aria-label="Prospects table" tabindex="0">
+                    <table id="crmTable">
+                      <thead><tr id="tableHead"></tr></thead>
+                      <tbody id="tableBody"></tbody>
+                    </table>
+                    <div id="emptyState" class="empty-state">
+                      <span class="empty-glyph" aria-hidden="true">＋</span>
+                      <h2>Your CRM starts here</h2>
+                      <p>Import a CSV or add a prospect to start your workspace.</p>
+                    </div>
+                  </div>
+                  <button id="crmTableLoadMore" type="button" class="button button-quiet crm-table-load-more" hidden>Load more</button>
+                  <div class="table-footer"><span id="tableSummary">0 prospects</span><button id="deleteSelectedButton" class="button button-danger-quiet table-delete-button" type="button" hidden>Delete selected</button><span id="saveState">All changes saved</span></div>
+                </section>
+              </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+<dialog id="addProspectDialog" class="add-prospect-dialog" aria-labelledby="addProspectTitle">
+      <form id="addProspectForm">
+        <div class="dialog-heading"><div><div class="eyebrow">PROSPECT</div><h2 id="addProspectTitle">Add prospect</h2></div><button id="closeAddProspect" class="dialog-close" type="button" aria-label="Close add prospect">×</button></div>
+        <div id="addProspectFields"></div>
+        <p id="addProspectError" class="form-footnote add-prospect-error" hidden></p>
+        <div class="dialog-actions"><button id="cancelAddProspect" class="button button-quiet" type="button">Cancel</button><button id="saveAddProspect" class="button button-primary" type="submit">Add prospect</button></div>
+      </form>
+    </dialog><dialog id="transcriptDialog" class="transcript-dialog">
+      <section class="transcript-dialog-content" aria-labelledby="transcriptDialogTitle">
+        <div class="dialog-heading"><div><div class="eyebrow">CALL RECORD</div><h2 id="transcriptDialogTitle">Call transcript</h2><p id="transcriptDialogMeta" class="transcript-dialog-meta"></p></div><div class="transcript-dialog-actions"><button id="downloadTranscriptButton" class="button button-secondary" type="button">Download .txt</button><button id="closeTranscript" class="dialog-close" type="button" aria-label="Close transcript">×</button></div></div>
+        <div id="transcriptDialogBody" class="transcript-dialog-body"></div>
+      </section>
+    </dialog><dialog id="settingsDialog" class="settings-dialog">
+      <form id="settingsForm" method="dialog">
+        <div class="dialog-heading"><div><div class="eyebrow">ACCOUNT</div><h2>Workspace settings</h2></div><button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">×</button></div>
+
+        <section class="settings-api-stack" aria-labelledby="settingsIntegrationsTitle">
+          <div class="audio-section-heading"><div class="eyebrow">INTEGRATIONS</div><h3 id="settingsIntegrationsTitle">APIs &amp; advanced</h3></div>
+          <p class="form-footnote settings-api-hint">Twilio and AI keys are saved to your account. Expand a section only when you need to change it.</p>
+          <details class="settings-collapsible">
+            <summary>Twilio &amp; callbacks</summary>
+            <div class="arcade-settings-content">
+              <label class="form-field"><span>Twilio Account SID</span><input id="accountSidInput" name="account_sid" autocomplete="off" required></label>
+              <label class="form-field"><span>Twilio Auth Token</span><span class="secret-field"><input id="authTokenInput" name="auth_token" type="password" autocomplete="off" spellcheck="false" readonly><button class="button button-quiet secret-reveal" type="button" data-reveal="authTokenInput" aria-pressed="false" aria-label="Show auth token">Show</button></span></label>
+              <label class="form-field"><span>Twilio API Key SID</span><input id="apiKeyInput" name="api_key" autocomplete="off" required></label>
+              <label class="form-field"><span>Twilio API Key Secret</span><span class="secret-field"><input id="apiSecretInput" name="api_secret" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="apiSecretInput" aria-pressed="false" aria-label="Show API key secret">Show</button></span></label>
+              <label class="form-field"><span>Twilio TwiML App SID</span><input id="twimlAppSidInput" name="twiml_app_sid" autocomplete="off" required></label>
+              <label class="form-field"><span>Public HTTPS callback URL</span><input id="publicUrlInput" name="public_base_url" type="url" placeholder="https://your-tunnel.example" autocomplete="off" required></label>
+              <p class="form-footnote">These load from your Google account each time the app starts. The auth token stays saved unless you type a new one. API secrets stay masked until you click Show.</p>
+            </div>
+          </details>
+          <details class="settings-collapsible ai-voice-settings">
+            <summary>OpenAI, Cartesia &amp; AI bridge</summary>
+            <div class="arcade-settings-content">
+              <p class="form-footnote">Paste your <strong>Cartesia API key</strong> below, then click <strong>Save settings</strong>. GoDial stores it as <code>CARTESIA_API_KEY</code> and uses it on every AI live call for speech (TTS). Optional voice id selects the speaker; leave blank to use the default voice.</p>
+              <label class="form-field"><span>Bridge WSS URL (public)</span><input id="aiBridgeWssInput" name="ai_bridge_wss_url" type="url" placeholder="wss://your-tunnel/stream" autocomplete="off"></label>
+              <label class="form-field"><span>Bridge app URL</span><input id="aiBridgeAppInput" name="ai_bridge_app_url" type="url" placeholder="http://127.0.0.1:8000" autocomplete="off"></label>
+              <label class="form-field"><span>Bridge secret</span><span class="secret-field"><input id="aiBridgeSecretInput" name="ai_bridge_secret" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="aiBridgeSecretInput" aria-pressed="false" aria-label="Show bridge secret">Show</button></span></label>
+              <label class="form-field"><span>OpenAI API key</span><span class="secret-field"><input id="openaiKeyInput" name="openai_api_key" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="openaiKeyInput" aria-pressed="false" aria-label="Show OpenAI key">Show</button></span></label>
+              <label class="form-field"><span>LLM model</span><input id="aiLlmModelInput" name="ai_llm_model" autocomplete="off" placeholder="gpt-4o-mini"></label>
+              <label class="form-field"><span>Cartesia API key</span><span class="secret-field"><input id="cartesiaKeyInput" name="cartesia_api_key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste from cartesia.ai → API keys"><button class="button button-quiet secret-reveal" type="button" data-reveal="cartesiaKeyInput" aria-pressed="false" aria-label="Show Cartesia key">Show</button></span></label>
+              <label class="form-field"><span>Cartesia voice id</span><input id="cartesiaVoiceInput" name="cartesia_voice_id" autocomplete="off" placeholder="Optional voice UUID from Cartesia"></label>
+              <label class="sound-setting"><input id="aiBridgeEmbeddedInput" type="checkbox"> Run media bridge inside <code>server.py</code> (<code>AI_BRIDGE_EMBEDDED</code>)</label>
+              <label class="sound-setting"><input id="aiVoicemailDropInput" type="checkbox"> Leave a short Twilio message on voicemail (AMD)</label>
+              <label class="form-field"><span>Voicemail line</span><input id="aiVoicemailMessageInput" name="ai_voicemail_message" maxlength="240" autocomplete="off" placeholder="Optional custom line"></label>
+              <p class="form-footnote">Expose the bridge WSS (tunnel or embedded on port 8766). Same secret here and on the bridge process.</p>
+            </div>
+          </details>
+        </section>
+
+        <div class="dialog-actions"><button id="cancelSettings" class="button button-quiet" type="button">Cancel</button><button class="button button-primary" type="submit">Save settings</button></div>
+      </form>
+    </dialog>    
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </div>
+</body>
+</html>

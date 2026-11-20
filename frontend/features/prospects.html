@@ -1,0 +1,64 @@
+              <div id="prospectsTabPanel" class="dashboard-tab-panel prospects-tab-panel" role="tabpanel" aria-labelledby="prospectsTabButton" hidden>
+                <section class="crm-table-panel" aria-label="Prospect table">
+                  <div class="table-toolbar">
+                    <div class="toolbar-leading">
+                      <label class="search-box">
+                        <span class="search-icon" aria-hidden="true"></span>
+                        <input id="searchInput" type="search" placeholder="Search prospects" autocomplete="off">
+                      </label>
+                      <select id="statusFilter" class="filter-select" aria-label="Filter by status">
+                        <option value="all">All statuses</option>
+                        <option value="new">New</option>
+                        <option value="dialed">Dialed (2 hour timer)</option>
+                        <option value="contact_engaged">Contact (engaged)</option>
+                        <option value="qualified">Qualified</option>
+                        <option value="booked">Booked</option>
+                        <option value="proposal_sent">Proposal sent</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                      <select id="stateFilter" class="filter-select" aria-label="Filter by state">
+                        <option value="">All states</option>
+                      </select>
+                      <label class="metric-filter"><span>Total reviews</span><input id="minTotalReviews" class="metric-input" type="number" min="0" step="1" placeholder="Min" aria-label="Minimum total reviews"><input id="maxTotalReviews" class="metric-input" type="number" min="0" step="1" placeholder="Max" aria-label="Maximum total reviews"></label>
+                      <label class="metric-filter"><span>Last 30 days</span><input id="minRecentReviews" class="metric-input" type="number" min="0" step="1" placeholder="Min" aria-label="Minimum reviews in the last 30 days"></label>
+                    </div>
+                    <div class="toolbar-actions">
+                      <input id="csvInput" type="file" accept=".csv,.tsv,.txt,text/csv" hidden>
+                      <button id="addProspectButton" class="button button-light" type="button">Add prospect</button>
+                      <button id="importButton" class="button button-secondary" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
+                      <button id="exportButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↓</span>Export</button>
+                    </div>
+                  </div>
+                  <div class="table-scroll" role="region" aria-label="Prospects table" tabindex="0">
+                    <table id="crmTable">
+                      <thead><tr id="tableHead"></tr></thead>
+                      <tbody id="tableBody"></tbody>
+                    </table>
+                    <div id="emptyState" class="empty-state">
+                      <span class="empty-glyph" aria-hidden="true">＋</span>
+                      <h2>Your CRM starts here</h2>
+                      <p>Import a CSV or add a prospect to start your workspace.</p>
+                    </div>
+                  </div>
+                  <button id="crmTableLoadMore" type="button" class="button button-quiet crm-table-load-more" hidden>Load more</button>
+                  <div class="table-footer"><span id="tableSummary">0 prospects</span><button id="deleteSelectedButton" class="button button-danger-quiet table-delete-button" type="button" hidden>Delete selected</button><span id="saveState">All changes saved</span></div>
+                </section>
+              </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+<dialog id="addProspectDialog" class="add-prospect-dialog" aria-labelledby="addProspectTitle">
+      <form id="addProspectForm">
+        <div class="dialog-heading"><div><div class="eyebrow">PROSPECT</div><h2 id="addProspectTitle">Add prospect</h2></div><button id="closeAddProspect" class="dialog-close" type="button" aria-label="Close add prospect">×</button></div>
+        <div id="addProspectFields"></div>
+        <p id="addProspectError" class="form-footnote add-prospect-error" hidden></p>
+        <div class="dialog-actions"><button id="cancelAddProspect" class="button button-quiet" type="button">Cancel</button><button id="saveAddProspect" class="button button-primary" type="submit">Add prospect</button></div>
+      </form>
+    </dialog><dialog id="transcriptDialog" class="transcript-dialog">
+      <section class="transcript-dialog-content" aria-labelledby="transcriptDialogTitle">
+        <div class="dialog-heading"><div><div class="eyebrow">CALL RECORD</div><h2 id="transcriptDialogTitle">Call transcript</h2><p id="transcriptDialogMeta" class="transcript-dialog-meta"></p></div><div class="transcript-dialog-actions"><button id="downloadTranscriptButton" class="button button-secondary" type="button">Download .txt</button><button id="closeTranscript" class="dialog-close" type="button" aria-label="Close transcript">×</button></div></div>
+        <div id="transcriptDialogBody" class="transcript-dialog-body"></div>
+      </section>
+    </dialog>

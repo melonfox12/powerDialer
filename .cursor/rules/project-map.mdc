@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Project map
 
-Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `static/shell.html`, `static/features/dialer.html`, `static/features/ai-dialer-agent.html`, `static/features/session-summary-dialog.html`, `static/features/performance.html`, `static/features/pipeline.html`, `static/features/workflow.html`, `static/features/prospects.html`, `static/features/settings.html`, `static/shell-end.html`. Tabs switch in `static/_core/navigation.js` (`setDashboardTab`). There is no router.
+Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `frontend/shell.html`, `frontend/features/app-frame.html`, `frontend/features/workflow.html`, `frontend/features/pipeline.html`, `frontend/features/prospects.html`, `frontend/features/settings.html`, `frontend/shell-end.html`. Top tabs (Global CRM, Workflow, Pipeline) switch in `frontend/_core/navigation.js`. Legacy dialer/AI/performance UI is archived under `misc/frontend-legacy/`.
 
 ## Folders
 
@@ -15,38 +15,39 @@ Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_pa
 - `features/_prospects/` — CSV import/export and local/Supabase storage
 - `shared/` — `config.py`, `vocabulary.py` (constants only), `dial_policy.py` (pool, caps, connect, callbacks), `infra.py`; `shared/_infra/` is Supabase and file helpers
 - `_web/` — `respond.py` (page, static, JSON) and `hooks.py` (Twilio webhook)
-- `static/` — `main.js` boot, `core.js` re-exports, shell partials
-- `static/_core/` — browser `state`, API client, navigation, format helpers
-- `static/features/` — page partials and feature entry scripts
-- `static/features/_dialer/`, `_prospects/`, `_performance/`, `_arcade/` — feature parts
-- `static/css/` — base styles `01`–`09`; `static/css/linear/` loads after and overrides
-- `tests/`, `scripts/`, `docs/` — tests, checks, design notes (`docs/` describes an older target tree)
+- `frontend/` — `main.js` boot, `core.js` re-exports, shell partials
+- `frontend/_core/` — browser `state`, API client, navigation, format helpers
+- `frontend/features/` — page partials and feature entry scripts
+- `frontend/features/_dialer/`, `_prospects/`, `_performance/`, `_arcade/` — feature parts
+- `frontend/css/` — base styles `01`–`09`; `frontend/css/linear/` loads after and overrides (`FRONTEND_DIR` in `shared/config.py`)
+- `tests/`, `scripts/` — tests and `check_static.py`
+- `misc/` — design docs, one-off scripts, unused frontend modules (not served)
 
 ## Pages
 
-- Dialer: `static/features/dialer.html` `#dialerTabPanel`; JS `static/features/dialer.js` and `static/features/_dialer/`
-- AI Dialer Agent: `static/features/ai-dialer-agent.html` `#aiDialerAgentTabPanel` (fleet + per-seat UI). Human dialer DOM lives only under `#dialerTabPanel`; use `dialerEl` / `setDialerText` in `static/_core/format.js` for human chrome. AI tab uses `aiDialerAgent-*` ids and `static/features/_ai_dialer/*` renderers.
-- Session summary modal: `static/features/session-summary-dialog.html`
-- Prospects: `static/features/prospects.html` `#prospectsTabPanel`; JS `static/features/prospects.js` and `static/features/_prospects/`
-- Caller pool: `#poolTabPanel` is in `static/features/prospects.html`; render `static/features/_dialer/pool-view.js`; timezone `static/features/_dialer/pool.js`
-- Performance: `static/features/performance.html` `#metricsPanel` wraps only `#performanceTabPanel`. JS `static/features/performance.js`. `setDashboardTab` shows `#metricsPanel` only on the Performance tab; Prospects/Pool/Dials panels are siblings in `#dashboard-top-row`.
-- Workflow: `static/features/workflow.html` `#workflowTabPanel`. JS `static/features/workflow.js`. Styles `static/css/linear/workflow.css`. Visual node canvas (preview); drag layout persisted in `localStorage`.
+- Dialer: `frontend/features/dialer.html` `#dialerTabPanel`; JS `frontend/features/dialer.js` and `frontend/features/_dialer/`
+- AI Dialer Agent: `frontend/features/ai-dialer-agent.html` `#aiDialerAgentTabPanel` (fleet + per-seat UI). Human dialer DOM lives only under `#dialerTabPanel`; use `dialerEl` / `setDialerText` in `frontend/_core/format.js` for human chrome. AI tab uses `aiDialerAgent-*` ids and `frontend/features/_ai_dialer/*` renderers.
+- Session summary modal: `frontend/features/session-summary-dialog.html`
+- Prospects: `frontend/features/prospects.html` `#prospectsTabPanel`; JS `frontend/features/prospects.js` and `frontend/features/_prospects/`
+- Caller pool: `#poolTabPanel` is in `frontend/features/prospects.html`; render `frontend/features/_dialer/pool-view.js`; timezone `frontend/features/_dialer/pool.js`
+- Performance: `frontend/features/performance.html` `#metricsPanel` wraps only `#performanceTabPanel`. JS `frontend/features/performance.js`. `setDashboardTab` shows `#metricsPanel` only on the Performance tab; Prospects/Pool/Dials panels are siblings in `#dashboard-top-row`.
+- Workflow: `frontend/features/workflow.html` `#workflowTabPanel`. JS `frontend/features/workflow.js`. Styles `frontend/css/linear/workflow.css`. Visual node canvas (preview); drag layout persisted in `localStorage`.
 
 ## Layout, tokens, charts
 
-- Chrome: `static/shell.html` (`.app-shell`, `.side-nav`, `#loginGate`). Page frame (`main`, `#crmView`, `.page-heading`, `.dashboard-stack`) opens in `static/features/dialer.html` and closes in `static/features/prospects.html`.
-- Layout CSS: `static/css/02-layout.css`, `static/css/09-shell.css`. Overrides: `static/css/linear/shell.css`, `static/css/linear/document.css`.
-- Tokens: `static/css/01-tokens.css` `:root` (`--ink`, `--canvas`, `--primary`, radii). That file also has shell rules; do not add more there.
-- Charts: `static/features/_performance/charts.js` (`buildMetricsLineChart`, `buildStatusPieChart`, `buildConnectionPieChart`). Markup in `static/features/performance.html`. Styles `static/css/05-charts.css`, then `static/css/linear/metrics.css`.
+- Chrome: `frontend/shell.html` (`.app-shell`, `.side-nav`, `#loginGate`). Page frame (`main`, `#crmView`, `.page-heading`, `.dashboard-stack`) opens in `frontend/features/dialer.html` and closes in `frontend/features/prospects.html`.
+- Layout CSS: `frontend/css/02-layout.css`, `frontend/css/09-shell.css`. Overrides: `frontend/css/linear/shell.css`, `frontend/css/linear/document.css`.
+- Tokens: `frontend/css/01-tokens.css` `:root` (`--ink`, `--canvas`, `--primary`, radii). That file also has shell rules; do not add more there.
+- Charts: `frontend/features/_performance/charts.js` (`buildMetricsLineChart`, `buildStatusPieChart`, `buildConnectionPieChart`). Markup in `frontend/features/performance.html`. Styles `frontend/css/05-charts.css`, then `frontend/css/linear/metrics.css`.
 
 ## Styling
 
-Plain CSS. Link order in `static/shell.html` is the cascade: `01-tokens.css` through `09-shell.css`, then `css/linear/*`. Numbered files use `var(--*)`. `linear/` repeats those colors as hex and wins on equal specificity. Edit the rule that currently wins, and use a token from `01-tokens.css` instead of a new hex. Reuse classes already on the nodes (`side-link`, `dialer-document`, `stat-tile`, `button-primary`).
+Plain CSS. Link order in `frontend/shell.html` is the cascade: `01-tokens.css` through `09-shell.css`, then `css/linear/*`. Numbered files use `var(--*)`. `linear/` repeats those colors as hex and wins on equal specificity. Edit the rule that currently wins, and use a token from `01-tokens.css` instead of a new hex. Reuse classes already on the nodes (`side-link`, `dialer-document`, `stat-tile`, `button-primary`).
 
 ## Dialer and metrics state
 
-- Snapshot: `static/_core/state.js` `state` (`leads`, `pool`, `metrics`, dialer flags) and `S` (poll clock, tab, voice, session UI).
-- Fetch: `static/features/_dialer/poller.js` `refreshState` every 1.5s — `GET /api/live`, `GET /api/leads` when `leads_version` changes (not full `/api/state`), `GET /api/metrics` every 15s into `state.metrics`. Client merge helpers: `static/_core/sync-state.js`. Then `render()` in `static/_core/render.js` → `runRenderers()` in `static/_core/registry.js` runs only tab-scoped painters (`dialer`, `aiDialerAgent`, `prospects`, `pool`, etc.).
-- Dialer paint: `static/features/_dialer/render-dialer.js`, registered from `static/features/dialer.js`.
-- Metrics paint: `static/features/performance.js` `renderMetrics`.
+- Snapshot: `frontend/_core/state.js` `state` (`leads`, `pool`, `metrics`, dialer flags) and `S` (poll clock, tab, voice, session UI).
+- Fetch: `frontend/features/_dialer/poller.js` `refreshState` every 1.5s — `GET /api/live`, `GET /api/leads` when `leads_version` changes (not full `/api/state`), `GET /api/metrics` every 15s into `state.metrics`. Client merge helpers: `frontend/_core/sync-state.js`. Then `render()` in `frontend/_core/render.js` → `runRenderers()` in `frontend/_core/registry.js` runs only tab-scoped painters (`dialer`, `aiDialerAgent`, `prospects`, `pool`, etc.).
+- Dialer paint: `frontend/features/_dialer/render-dialer.js`, registered from `frontend/features/dialer.js`.
+- Metrics paint: `frontend/features/performance.js` `renderMetrics`.
 - Server: `features/dialer.py` `GET /api/state` (dialer snapshot, no lead rows), `GET /api/leads` (CRM table + pool), `GET /api/live`. `features/metrics.py` `GET /api/metrics`.

@@ -1,0 +1,71 @@
+import { request } from "../../_core/api.js";
+import { arcadeSensory } from "../arcade.js";
+import { S, seenSensoryActivity, state } from "../../_core/state.js";
+import { byId } from "../../_core/format.js";
+import { showToast } from "../../_core/notify.js";
+import {
+  leadsCatalogIsStale,
+  mergeLiveLeadPatches,
+  mergeLiveState,
+  refreshLeadsCatalogForTab,
+} from "../../_core/sync-state.js";
+import { render } from "../../core.js";
+import { maybeRejoinVoice } from "./connect.js";
+
+export function processSensoryActivity(activity) {
+  const keyFor = (entry) => `${entry.timestamp || ""}:${entry.source || ""}:${entry.message || ""}`;
+  if (!S.sensoryActivityPrimed) {
+    activity.forEach((entry) => seenSensoryActivity.add(keyFor(entry)));
+    S.sensoryActivityPrimed = true;
+    return;
+  }
+  for (const entry of activity) {
+    const key = keyFor(entry);
+    if (seenSensoryActivity.has(key)) continue;
+    seenSensoryActivity.add(key);
+    const failedCall = /call request failed|call failed|busy signal/i.test(entry.message || "");
+    if (failedCall && ["call", "error"].includes(entry.source)) arcadeSensory.reset();
+  }
+  if (seenSensoryActivity.size > 160) {
+    const recent = activity.map(keyFor);
+    seenSensoryActivity.clear();
+    recent.forEach((key) => seenSensoryActivity.add(key));
+  }
+}
+
+export async function refreshState() {
+  if (S.pollBusy) return;
+  S.pollBusy = true;
+  try {
+    const live = await request("/api/live");
+    const prevVersion = state.leads_version;
+    mergeLiveState(live);
+    if (leadsCatalogIsStale(live.leads_version) || live.leads_version !== prevVersion) {
+      await refreshLeadsCatalogForTab();
+    } else {
+      mergeLiveLeadPatches(live);
+    }
+    if (Date.now() - S.metricsFetchedAt > 15000) {
+      S.metricsFetchedAt = Date.now();
+      const metricsResult = await request("/api/metrics").catch(() => null);
+      if (metricsResult) state.metrics = metricsResult;
+    }
+    processSensoryActivity(state.activity_log || []);
+    if (state.running && !state.agent_ready) {
+      maybeRejoinVoice().catch(() => {});
+    }
+    render();
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    S.pollBusy = false;
+  }
+}
+
+let pollingStarted = false;
+
+export function startPolling() {
+  if (pollingStarted) return;
+  pollingStarted = true;
+  setInterval(() => { if (!byId("loginGate").hidden) return; refreshState(); }, 1500);
+}

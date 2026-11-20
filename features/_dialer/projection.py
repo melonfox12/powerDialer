@@ -42,6 +42,48 @@ def crm_catalog(state, leads=None):
     }
 
 
+def _lead_field_text(fields, *names):
+    if not isinstance(fields, dict):
+        return ""
+    wanted = {str(name).strip().casefold() for name in names}
+    for key, value in fields.items():
+        if str(key).strip().casefold() in wanted:
+            return str(value or "").strip()
+    return ""
+
+
+def summarize_lead(lead):
+    """Light row for pickers (workflow CRM sidebar) without transcript/call_log."""
+    fields = lead.get("fields") or {}
+    business_type = str(lead.get("business_type") or "").strip()
+    if not business_type:
+        business_type = _lead_field_text(fields, "Business Type", "business type", "industry")
+    return {
+        "id": lead.get("id"),
+        "name": lead.get("name") or "",
+        "business": lead.get("business") or "",
+        "phone": lead.get("phone") or "",
+        "status": lead.get("status") or "new",
+        "timezone": lead.get("timezone") or "",
+        "business_type": business_type,
+        "state": _lead_field_text(fields, "State", "state"),
+        "scheduled_until": lead.get("scheduled_until"),
+    }
+
+
+def leads_summary_catalog(state, leads=None):
+    """Slim lead list for GET /api/leads/summary (no transcripts or call logs)."""
+    catalog = crm_catalog(state, leads)
+    return {
+        "leads_version": catalog["leads_version"],
+        "pipeline_steps": catalog["pipeline_steps"],
+        "pipeline_revision": catalog["pipeline_revision"],
+        "counts": catalog["counts"],
+        "leads": [summarize_lead(lead) for lead in catalog["leads"]],
+        "business_type_options": catalog.get("business_type_options") or [],
+    }
+
+
 def leads_catalog(state):
     """Full CRM table payload for GET /api/leads."""
     catalog = crm_catalog(state)

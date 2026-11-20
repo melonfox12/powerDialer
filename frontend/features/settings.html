@@ -1,0 +1,41 @@
+<dialog id="settingsDialog" class="settings-dialog">
+      <form id="settingsForm" method="dialog">
+        <div class="dialog-heading"><div><div class="eyebrow">ACCOUNT</div><h2>Workspace settings</h2></div><button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">×</button></div>
+
+        <section class="settings-api-stack" aria-labelledby="settingsIntegrationsTitle">
+          <div class="audio-section-heading"><div class="eyebrow">INTEGRATIONS</div><h3 id="settingsIntegrationsTitle">APIs &amp; advanced</h3></div>
+          <p class="form-footnote settings-api-hint">Twilio and AI keys are saved to your account. Expand a section only when you need to change it.</p>
+          <details class="settings-collapsible">
+            <summary>Twilio &amp; callbacks</summary>
+            <div class="arcade-settings-content">
+              <label class="form-field"><span>Twilio Account SID</span><input id="accountSidInput" name="account_sid" autocomplete="off" required></label>
+              <label class="form-field"><span>Twilio Auth Token</span><span class="secret-field"><input id="authTokenInput" name="auth_token" type="password" autocomplete="off" spellcheck="false" readonly><button class="button button-quiet secret-reveal" type="button" data-reveal="authTokenInput" aria-pressed="false" aria-label="Show auth token">Show</button></span></label>
+              <label class="form-field"><span>Twilio API Key SID</span><input id="apiKeyInput" name="api_key" autocomplete="off" required></label>
+              <label class="form-field"><span>Twilio API Key Secret</span><span class="secret-field"><input id="apiSecretInput" name="api_secret" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="apiSecretInput" aria-pressed="false" aria-label="Show API key secret">Show</button></span></label>
+              <label class="form-field"><span>Twilio TwiML App SID</span><input id="twimlAppSidInput" name="twiml_app_sid" autocomplete="off" required></label>
+              <label class="form-field"><span>Public HTTPS callback URL</span><input id="publicUrlInput" name="public_base_url" type="url" placeholder="https://your-tunnel.example" autocomplete="off" required></label>
+              <p class="form-footnote">These load from your Google account each time the app starts. The auth token stays saved unless you type a new one. API secrets stay masked until you click Show.</p>
+            </div>
+          </details>
+          <details class="settings-collapsible ai-voice-settings">
+            <summary>OpenAI, Cartesia &amp; AI bridge</summary>
+            <div class="arcade-settings-content">
+              <p class="form-footnote">Paste your <strong>Cartesia API key</strong> below, then click <strong>Save settings</strong>. GoDial stores it as <code>CARTESIA_API_KEY</code> and uses it on every AI live call for speech (TTS). Optional voice id selects the speaker; leave blank to use the default voice.</p>
+              <label class="form-field"><span>Bridge WSS URL (public)</span><input id="aiBridgeWssInput" name="ai_bridge_wss_url" type="url" placeholder="wss://your-tunnel/stream" autocomplete="off"></label>
+              <label class="form-field"><span>Bridge app URL</span><input id="aiBridgeAppInput" name="ai_bridge_app_url" type="url" placeholder="http://127.0.0.1:8000" autocomplete="off"></label>
+              <label class="form-field"><span>Bridge secret</span><span class="secret-field"><input id="aiBridgeSecretInput" name="ai_bridge_secret" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="aiBridgeSecretInput" aria-pressed="false" aria-label="Show bridge secret">Show</button></span></label>
+              <label class="form-field"><span>OpenAI API key</span><span class="secret-field"><input id="openaiKeyInput" name="openai_api_key" type="password" autocomplete="off" spellcheck="false"><button class="button button-quiet secret-reveal" type="button" data-reveal="openaiKeyInput" aria-pressed="false" aria-label="Show OpenAI key">Show</button></span></label>
+              <label class="form-field"><span>LLM model</span><input id="aiLlmModelInput" name="ai_llm_model" autocomplete="off" placeholder="gpt-4o-mini"></label>
+              <label class="form-field"><span>Cartesia API key</span><span class="secret-field"><input id="cartesiaKeyInput" name="cartesia_api_key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste from cartesia.ai → API keys"><button class="button button-quiet secret-reveal" type="button" data-reveal="cartesiaKeyInput" aria-pressed="false" aria-label="Show Cartesia key">Show</button></span></label>
+              <label class="form-field"><span>Cartesia voice id</span><input id="cartesiaVoiceInput" name="cartesia_voice_id" autocomplete="off" placeholder="Optional voice UUID from Cartesia"></label>
+              <label class="sound-setting"><input id="aiBridgeEmbeddedInput" type="checkbox"> Run media bridge inside <code>server.py</code> (<code>AI_BRIDGE_EMBEDDED</code>)</label>
+              <label class="sound-setting"><input id="aiVoicemailDropInput" type="checkbox"> Leave a short Twilio message on voicemail (AMD)</label>
+              <label class="form-field"><span>Voicemail line</span><input id="aiVoicemailMessageInput" name="ai_voicemail_message" maxlength="240" autocomplete="off" placeholder="Optional custom line"></label>
+              <p class="form-footnote">Expose the bridge WSS (tunnel or embedded on port 8766). Same secret here and on the bridge process.</p>
+            </div>
+          </details>
+        </section>
+
+        <div class="dialog-actions"><button id="cancelSettings" class="button button-quiet" type="button">Cancel</button><button class="button button-primary" type="submit">Save settings</button></div>
+      </form>
+    </dialog>
