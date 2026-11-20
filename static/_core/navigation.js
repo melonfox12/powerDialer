@@ -8,6 +8,7 @@ import {
 } from "./sync-state.js";
 import { wireSetDashboardTab } from "./dashboard-tab.js";
 import { S } from "./state.js";
+import { readTabFromUrl, syncWorkflowUrlToLocation } from "../features/_workflow/workflow-url.js";
 
 /** Loaded on demand so navigation does not import feature modules that re-import `core.js` (cycle breaks tab binds). */
 function releaseProspectsTableDomIfLoaded() {
@@ -210,6 +211,7 @@ export function setDashboardTab(name, moveFocus = false) {
     import("../features/performance.js").then((module) => module.repaintPerformanceChart());
   }
   if (moveFocus && selectedButton) selectedButton.focus();
+  syncWorkflowUrlToLocation();
 }
 
 export function setPerformanceMode(mode) {
@@ -244,7 +246,7 @@ export function bindNavigation() {
     modeButton.addEventListener("click", () => setPerformanceMode(modeButton.dataset.performanceMode));
   }
   window.addEventListener("resize", syncPerformanceDocumentHeight);
-  setDashboardTab(savedDashboardTab());
+  setDashboardTab(readTabFromUrl() || savedDashboardTab());
   requestAnimationFrame(() => {
     syncPerformanceDocumentHeight();
   });

@@ -3,6 +3,13 @@ import { drawProspectWaveform, refreshState } from "./dialer.js";
 import { applySavedSettings } from "./settings.js";
 
 let supabaseClient = null;
+let appBooted = false;
+
+/** @type {() => void} */
+let resolveAuthReady = () => {};
+export const authReady = new Promise((resolve) => {
+  resolveAuthReady = resolve;
+});
 
 setUnauthorizedHandler(showLoginGate);
 
@@ -35,6 +42,8 @@ export function syncAccountChrome(session) {
 
 export async function bootApp() {
   hideLoginGate();
+  if (appBooted) return;
+  appBooted = true;
   drawProspectWaveform(0);
   S.performanceFetchedAt = 0;
   refreshState();
@@ -47,29 +56,45 @@ export async function bootApp() {
 }
 
 export async function initAuth() {
-  const config = await fetch("/api/auth/config").then((response) => response.json());
-  S.googleAuthEnabled = Boolean(config.google && window.supabase?.createClient);
-  if (!S.googleAuthEnabled) {
-    await bootApp();
-    return;
-  }
-  supabaseClient = window.supabase.createClient(config.url, config.anonKey);
-  supabaseClient.auth.onAuthStateChange((_event, session) => {
+  S.authBootstrapping = true;
+  try {
+    const config = await fetch("/api/auth/config").then((response) => response.json());
+    S.googleAuthEnabled = Boolean(config.google && window.supabase?.createClient);
+    if (!S.googleAuthEnabled) {
+      await bootApp();
+      return;
+    }
+    supabaseClient = window.supabase.createClient(config.url, config.anonKey);
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      S.accessToken = session?.access_token || null;
+      syncAccountChrome(session);
+      if (session?.access_token) {
+        hideLoginGate();
+        if (!appBooted) void bootApp();
+      } else if (appBooted && !S.authBootstrapping) {
+        showLoginGate();
+      }
+      if (session?.access_token && S.dashboardTab === "performance") {
+        S.performanceFetchedAt = 0;
+        render();
+      }
+    });
+    let session = (await supabaseClient.auth.getSession()).data.session;
+    if (!session?.access_token) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      session = (await supabaseClient.auth.getSession()).data.session;
+    }
     S.accessToken = session?.access_token || null;
     syncAccountChrome(session);
-    if (session?.access_token && S.dashboardTab === "performance") {
-      S.performanceFetchedAt = 0;
-      render();
+    if (session?.access_token) {
+      await bootApp();
+      return;
     }
-  });
-  const { data: { session } } = await supabaseClient.auth.getSession();
-  S.accessToken = session?.access_token || null;
-  syncAccountChrome(session);
-  if (session) {
-    await bootApp();
-    return;
+    showLoginGate();
+  } finally {
+    S.authBootstrapping = false;
+    resolveAuthReady();
   }
-  showLoginGate();
 }
 
 export function bindAuth() {
@@ -83,6 +108,7 @@ export function bindAuth() {
   });
   byId("signOutButton").addEventListener("click", async () => {
     S.accessToken = null;
+    appBooted = false;
     await supabaseClient?.auth.signOut();
     showLoginGate();
   });

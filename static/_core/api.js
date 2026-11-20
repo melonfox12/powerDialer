@@ -45,7 +45,7 @@ export async function request(path, options = {}) {
   const type = response.headers.get("content-type") || "";
   const result = type.includes("application/json") ? await response.json() : await response.text();
   if (response.status === 401 && S.googleAuthEnabled) {
-    if (sentAuth) {
+    if (!S.authBootstrapping && sentAuth) {
       onUnauthorized(result?.error || "Sign in with Google to continue.");
     }
     throw new Error(result?.error || "Sign in with Google to continue.");

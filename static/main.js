@@ -18,7 +18,6 @@ bindClientMemoryLifecycle();
 bindDebugListeners();
 startStatusClock();
 startArcade();
-bindNavigation();
 bindWorkflow();
 bindDialogs();
 bindProspects();
@@ -49,5 +48,9 @@ byId("arcadeShakeInput").addEventListener("change", (event) => arcadeSensory.upd
 byId("arcadeHapticsInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ haptics: event.target.checked }));
 bindVoice();
 bindAuth();
-initAuth().catch((error) => showLoginGate(error.message || "Could not start sign-in."));
-startPolling();
+initAuth()
+  .catch((error) => showLoginGate(error.message || "Could not start sign-in."))
+  .finally(() => {
+    bindNavigation();
+    startPolling();
+  });

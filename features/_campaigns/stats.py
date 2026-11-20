@@ -95,9 +95,8 @@ def _funnel_from_telemetry(row):
 
 
 def _today_metrics_bucket(metrics_store):
-    with metrics_store.lock:
-        today_key = metrics_store._today()
-        return dict(metrics_store.data.get("daily", {}).get(today_key, {}))
+    snap = metrics_store.snapshot(days=1)
+    return dict((snap or {}).get("today") or {})
 
 
 def _funnel_today(metrics_store, settings):

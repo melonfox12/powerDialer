@@ -19,6 +19,7 @@ import {
   selectWorkflowNode,
 } from "./_workflow/node-view.js";
 import { flushWorkflowSelectionRender } from "./_workflow/selection.js";
+import { applyWorkflowStateFromUrl, bindWorkflowUrl } from "./_workflow/workflow-url.js";
 import { buildWorkflowNodeElement } from "./_workflow/node-factory.js";
 import { bindWorkflowConnections, isWorkflowWiring } from "./_workflow/connections.js";
 import { bindCampaignChrome, refreshCampaignCatalog } from "./_workflow/campaign-chrome.js";
@@ -973,6 +974,7 @@ export function bindWorkflow() {
   bindCampaignFlow();
   bindCampaignStats();
   bindWorkflowNodeView();
+  bindWorkflowUrl();
   bindCampaignImportDialog();
   bindWorkflowConnections({
     getSocketLayerPoint: socketPoint,
@@ -1011,5 +1013,6 @@ export function initWorkflowTab() {
   void refreshCampaignCatalog().then(async () => {
     await refreshCampaignFlow();
     await refreshCampaignStats();
+    await applyWorkflowStateFromUrl();
   });
 }

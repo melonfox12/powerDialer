@@ -90,6 +90,8 @@ export const S = {
   sensoryActivityPrimed: false,
   accessToken: null,
   googleAuthEnabled: false,
+  /** True while `initAuth` is resolving; suppresses 401 login flashes. */
+  authBootstrapping: true,
   dialsSubView: "current",
   selectedDialRecordId: null,
   selectedDialRecord: null,

@@ -77,6 +77,7 @@ async function setActiveCampaign(campaignId) {
     const { refreshCampaignStats } = await import("./campaign-stats.js");
     await refreshCampaignFlow();
     await refreshCampaignStats();
+    void import("./workflow-url.js").then((module) => module.syncWorkflowUrlToLocation());
   } catch (error) {
     showToast(error.message, true);
     await refreshCampaignCatalog();

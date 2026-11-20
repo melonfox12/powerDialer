@@ -76,6 +76,7 @@ function buildViewToggle(activeMode) {
     btn.addEventListener("click", () => {
       memberViewMode = /** @type {"list" | "kanban"} */ (mode);
       saveViewMode();
+      void import("./workflow-url.js").then((module) => module.syncWorkflowUrlToLocation({ push: true }));
       renderWorkflowNodeView();
     });
     row.append(btn);
