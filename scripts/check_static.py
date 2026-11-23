@@ -12,6 +12,12 @@ PARTIALS = (
     STATIC / "features" / "dialer.html",
     STATIC / "features" / "ai-dialer-agent.html",
     STATIC / "features" / "session-summary-dialog.html",
+<<<<<<< HEAD
+=======
+    STATIC / "features" / "performance.html",
+    STATIC / "features" / "pipeline.html",
+    STATIC / "features" / "workflow.html",
+>>>>>>> 1f6194cd2ae87ec7fff49dab3cbd173c490ead53
     STATIC / "features" / "prospects.html",
     STATIC / "features" / "settings.html",
     STATIC / "shell-end.html",

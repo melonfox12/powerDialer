@@ -1,5 +1,6 @@
 import { state } from "../../_core/state.js";
 import { byId } from "../../_core/format.js";
+import { selectedLeadIds } from "./selection.js";
 
 export const LEAD_COLUMNS = [
   { label: "Business Type", key: "business_type", kind: "text" },
@@ -146,37 +147,26 @@ export function filteredLeads() {
 }
 
 export function crmTableSignature() {
-  return JSON.stringify([
-    columnSort,
-    byId("stateFilter")?.value || "",
-    byId("minTotalReviews")?.value || "",
-    byId("maxTotalReviews")?.value || "",
-    byId("minRecentReviews")?.value || "",
-    state.pending_outcome?.id || null,
-    state.leads.map((lead) => {
-      const { first, last } = splitName(lead.name);
-      return [
-        lead.id,
-        lead.business_type,
-        lead.timezone,
-        first,
-        last,
-        lead.business,
-        pitchSegmentText(lead),
-        locationText(lead, "city"),
-        locationText(lead, "state"),
-        lead.phone,
-        fieldText(lead, "LinkedIn profile", "LinkedIn", "linkedin profile", "linkedin"),
-        fieldText(lead, "Website", "website", "url"),
-        lead.review_count,
-        lead.status,
-        lead.scheduled_until,
-        lead.fields,
-        fieldText(lead, "Notes", "notes", "note"),
-        lead.transcript?.length || 0,
-      ];
-    }),
-  ]);
+  const filter = {
+    q: byId("searchInput")?.value?.trim() ?? "",
+    status: byId("statusFilter")?.value ?? "all",
+    state: byId("stateFilter")?.value ?? "",
+    minTotal: byId("minTotalReviews")?.value ?? "",
+    maxTotal: byId("maxTotalReviews")?.value ?? "",
+    minRecent: byId("minRecentReviews")?.value ?? "",
+  };
+  return JSON.stringify({
+    lv: state.leads_version,
+    pr: state.pipeline_revision ?? 0,
+    sort: columnSort,
+    filter,
+    pendingId: state.pending_outcome?.id ?? null,
+    pendingStatus: state.pending_outcome?.status ?? null,
+    activeId: state.active_lead?.id ?? null,
+    activeStatus: state.active_lead?.status ?? null,
+    leadCount: state.leads.length,
+    selectionSize: selectedLeadIds?.size ?? 0,
+  });
 }
 
 function columnKind(key) {

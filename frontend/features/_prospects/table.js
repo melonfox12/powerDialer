@@ -1,17 +1,64 @@
-import { state } from "../../_core/state.js";
+import { S, state } from "../../_core/state.js";
 import { selectedLeadIds, selection } from "./selection.js";
 import { byId, setText } from "../../_core/format.js";
-import { setDashboardTab } from "../../core.js";
+import { setDashboardTab } from "../../_core/dashboard-tab.js";
 import { appendLeadRows } from "./rows.js";
 import { LEAD_COLUMNS, TRAILING_COLUMNS, crmTableSignature, currentColumnSort, filteredLeads, importedColumns, setColumnSort, syncStateFilter, toggleColumnSort } from "./query.js";
 
+const PAGE_SIZE = 50;
+let visibleRowCount = PAGE_SIZE;
 let lastCrmTableSignature = null;
+let lastFilterSignature = null;
+let loadMoreBound = false;
+
+function crmPagingSignature(dataSignature = crmTableSignature()) {
+  const payload = JSON.parse(dataSignature);
+  return JSON.stringify({ filter: payload.filter, sort: payload.sort });
+}
+
+function tableRenderSignature(dataSignature = crmTableSignature()) {
+  return `${dataSignature}\u0004${visibleRowCount}`;
+}
+
+function resetCrmTablePaging() {
+  visibleRowCount = PAGE_SIZE;
+}
+
+function bindCrmLoadMore() {
+  if (loadMoreBound) return;
+  loadMoreBound = true;
+  byId("crmTableLoadMore")?.addEventListener("click", () => {
+    visibleRowCount += PAGE_SIZE;
+    renderTable();
+  });
+}
+
+bindCrmLoadMore();
+
+/** Drop CRM table DOM when leaving Global CRM to free memory. */
+export function releaseProspectsTableDom() {
+  lastCrmTableSignature = null;
+  lastFilterSignature = null;
+  resetCrmTablePaging();
+  byId("tableHead")?.replaceChildren();
+  byId("tableBody")?.replaceChildren();
+  const loadMore = byId("crmTableLoadMore");
+  if (loadMore) loadMore.hidden = true;
+}
 
 export function focusProspect(leadId) {
   if (!leadId) return;
   setDashboardTab("prospects");
   queueMicrotask(() => {
-    const row = document.querySelector(`#tableBody tr[data-lead-id="${leadId}"]`);
+    let row = document.querySelector(`#tableBody tr[data-lead-id="${leadId}"]`);
+    if (!row) {
+      const index = filteredLeads().findIndex((lead) => lead.id === leadId);
+      if (index >= 0) {
+        visibleRowCount = Math.max(visibleRowCount, index + 1);
+        renderTable();
+        row = document.querySelector(`#tableBody tr[data-lead-id="${leadId}"]`);
+      }
+    }
     if (!row) return;
     row.scrollIntoView({ block: "nearest", behavior: "smooth" });
     row.classList.add("prospect-menu-target");
@@ -21,7 +68,7 @@ export function focusProspect(leadId) {
 
 export function renderTableIfStale() {
   if (fieldEditorFocused()) return;
-  if (crmTableSignature() !== lastCrmTableSignature) renderTable();
+  if (tableRenderSignature() !== lastCrmTableSignature) renderTable();
 }
 
 document.addEventListener("prospect-field-blur", () => {
@@ -46,6 +93,7 @@ function headerCell(column) {
   const sort = () => {
     toggleColumnSort(column.key);
     if (sortMenu) sortMenu.hidden = true;
+    resetCrmTablePaging();
     renderTable();
   };
   cell.addEventListener("click", sort);
@@ -88,6 +136,7 @@ function openColumnSortMenu(column, x, y) {
     button.addEventListener("click", () => {
       setColumnSort(key, direction);
       menu.hidden = true;
+      resetCrmTablePaging();
       renderTable();
     });
     menu.append(button);
@@ -131,11 +180,20 @@ function fieldEditorFocused() {
 }
 
 export function renderTable() {
+  if (S.dashboardTab !== "prospects") return;
   syncStateFilter();
-  lastCrmTableSignature = crmTableSignature();
+  const dataSignature = crmTableSignature();
+  const pagingSignature = crmPagingSignature(dataSignature);
+  if (lastFilterSignature !== null && pagingSignature !== lastFilterSignature) {
+    resetCrmTablePaging();
+  }
+  lastFilterSignature = pagingSignature;
+  lastCrmTableSignature = tableRenderSignature(dataSignature);
   const head = byId("tableHead");
   const body = byId("tableBody");
+  if (!head || !body) return;
   const leads = filteredLeads();
+  const visibleLeads = leads.slice(0, visibleRowCount);
   const extras = importedColumns();
   const currentLeadIds = new Set(state.leads.map((lead) => lead.id));
   for (const id of selectedLeadIds) {
@@ -152,11 +210,11 @@ export function renderTable() {
   selectAll.type = "checkbox";
   selectAll.className = "prospect-checkbox";
   selectAll.setAttribute("aria-label", "Select all visible prospects");
-  const selectedVisibleCount = leads.filter((lead) => selectedLeadIds.has(lead.id)).length;
-  selectAll.checked = leads.length > 0 && selectedVisibleCount === leads.length;
-  selectAll.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < leads.length;
+  const selectedVisibleCount = visibleLeads.filter((lead) => selectedLeadIds.has(lead.id)).length;
+  selectAll.checked = visibleLeads.length > 0 && selectedVisibleCount === visibleLeads.length;
+  selectAll.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < visibleLeads.length;
   selectAll.addEventListener("change", () => {
-    for (const lead of leads) {
+    for (const lead of visibleLeads) {
       if (selectAll.checked) selectedLeadIds.add(lead.id);
       else selectedLeadIds.delete(lead.id);
     }
@@ -168,7 +226,7 @@ export function renderTable() {
   for (const column of LEAD_COLUMNS) head.append(headerCell(column));
   for (const column of extras) head.append(headerCell({ label: column, key: `field:${column}`, kind: "text" }));
   for (const column of TRAILING_COLUMNS) head.append(headerCell(column));
-  appendLeadRows(body, leads, extras, renderTable);
+  appendLeadRows(body, visibleLeads, extras, renderTable);
   const empty = byId("emptyState");
   empty.classList.toggle("visible", leads.length === 0);
   empty.querySelector("h2").textContent = state.leads.length === 0 ? "Your CRM starts here" : "No matching prospects";
@@ -176,8 +234,29 @@ export function renderTable() {
     ? "Import a CSV or add a prospect to start your workspace."
     : "Change the search or filters to see more rows.";
   byId("crmTable").hidden = state.leads.length === 0;
-  const summary = `${leads.length} of ${state.leads.length} prospect${state.leads.length === 1 ? "" : "s"}`;
+  const showing = Math.min(visibleRowCount, leads.length);
+  const matched = leads.length;
+  const total = state.leads.length;
+  let summary;
+  if (matched === 0) {
+    summary = `0 of ${total} prospect${total === 1 ? "" : "s"}`;
+  } else if (showing < matched) {
+    summary = `Showing ${showing} of ${matched} matching (${total} total)`;
+  } else if (matched < total) {
+    summary = `${matched} of ${total} prospect${total === 1 ? "" : "s"}`;
+  } else {
+    summary = `${total} prospect${total === 1 ? "" : "s"}`;
+  }
   setText("tableSummary", selectedLeadIds.size ? `${selectedLeadIds.size} selected · ${summary}` : summary);
+  const loadMore = byId("crmTableLoadMore");
+  if (loadMore) {
+    const more = matched > showing;
+    loadMore.hidden = !more || state.leads.length === 0;
+    if (more) {
+      const next = Math.min(PAGE_SIZE, matched - showing);
+      loadMore.textContent = `Load ${next} more`;
+    }
+  }
   const deleteButton = byId("deleteSelectedButton");
   deleteButton.hidden = selectedLeadIds.size === 0;
   deleteButton.textContent = `Delete ${selectedLeadIds.size} selected`;

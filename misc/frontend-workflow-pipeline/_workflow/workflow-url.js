@@ -9,7 +9,20 @@ import {
 import { activeCampaignId, applyCampaignCatalog } from "./campaign-chrome.js";
 import { renderWorkflowNodeView } from "./node-view.js";
 
+<<<<<<< HEAD:misc/frontend-workflow-pipeline/_workflow/workflow-url.js
 const DASHBOARD_TABS = ["prospects", "workflow", "pipeline"];
+=======
+const DASHBOARD_TABS = [
+  "prospects",
+  "workflow",
+  "pipeline",
+  "dialer",
+  "aiDialerAgent",
+  "performance",
+  "pool",
+  "dials",
+];
+>>>>>>> 1f6194cd2ae87ec7fff49dab3cbd173c490ead53:static/features/_workflow/workflow-url.js
 
 const PARAM_TAB = "tab";
 const PARAM_CAMPAIGN = "campaign";

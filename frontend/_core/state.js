@@ -40,7 +40,7 @@ export const S = {
   pollBusy: false,
   metricsFetchedAt: 0,
   outcomeSubmitting: false,
-  dashboardTab: "dialer",
+  dashboardTab: "prospects",
   /** `null` = AI call-center fleet grid; otherwise selected agent id. */
   aiDialerSelectedAgentId: null,
   aiWorkspaceTabs: [{ id: "desk", label: "Desk", closable: false }],

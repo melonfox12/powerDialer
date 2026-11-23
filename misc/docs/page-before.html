@@ -24,6 +24,7 @@
   <link rel="stylesheet" href="css/linear/metrics.css">
   <link rel="stylesheet" href="css/linear/performance.css">
   <link rel="stylesheet" href="css/linear/ai-dialer-agent.css">
+  <link rel="stylesheet" href="css/linear/workflow.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script type="module" src="main.js"></script>
@@ -46,12 +47,25 @@
       </a>
       <div class="app-top-tabs-wrap">
         <div class="dashboard-tabs app-top-tabs" role="tablist" aria-label="Workspace pages">
+<<<<<<< HEAD:misc/docs/page-before.html
           <button id="dialerTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="dialerTabPanel" tabindex="-1" data-dashboard-tab="dialer">Dialer</button>
           <button id="dialsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="dialsTabPanel" tabindex="-1" data-dashboard-tab="dials">Call log <span id="dialsTabCount" class="dashboard-tab-count">0</span></button>
           <button id="prospectsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects">Global CRM <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
         </div>
         <div id="legacyDashboardTabButtons" class="legacy-dashboard-tab-buttons" hidden>
           <button type="button" id="poolTabButton" tabindex="-1" aria-hidden="true"><span id="poolTabCount">0</span></button>
+=======
+          <button id="prospectsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects">Global CRM <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
+          <button id="workflowTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="workflowTabPanel" tabindex="-1" data-dashboard-tab="workflow">Workflow</button>
+          <button id="pipelineTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="pipelineTabPanel" tabindex="-1" data-dashboard-tab="pipeline">Pipeline</button>
+        </div>
+        <div id="legacyDashboardTabButtons" class="legacy-dashboard-tab-buttons" hidden>
+          <button type="button" id="dialerTabButton" tabindex="-1" aria-hidden="true"></button>
+          <button type="button" id="aiDialerAgentTabButton" tabindex="-1" aria-hidden="true"></button>
+          <button type="button" id="performanceTabButton" tabindex="-1" aria-hidden="true"></button>
+          <button type="button" id="poolTabButton" tabindex="-1" aria-hidden="true"><span id="poolTabCount">0</span></button>
+          <button type="button" id="dialsTabButton" tabindex="-1" aria-hidden="true"><span id="dialsTabCount">0</span></button>
+>>>>>>> 1f6194cd2ae87ec7fff49dab3cbd173c490ead53:docs/page-before.html
         </div>
       </div>
       <div class="app-top-utilities top-actions">
@@ -407,7 +421,279 @@
         <div class="dialog-actions"><button id="startNewSession" class="button button-primary" type="button">Start new session</button></div>
       </section>
     </dialog>
+<<<<<<< HEAD:misc/docs/page-before.html
 <div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
+=======
+            <section id="metricsPanel" class="metrics-panel dialer-run-panel" aria-labelledby="metricsTitle" hidden>
+              <div id="performanceTabPanel" class="dashboard-tab-panel performance-tab-panel" role="tabpanel" aria-labelledby="performanceTabButton" hidden>
+                <div class="dialer-document performance-document">
+                  <header class="performance-header">
+                    <h2 id="metricsTitle" class="visually-hidden">Performance</h2>
+                    <div class="performance-daily-goals" aria-label="Conversation and talk-time goals">
+                      <div class="performance-goal-block">
+                        <div class="performance-goal-head">
+                          <span id="dailyConversationLabel" class="performance-goal-label">Conversations this week</span>
+                          <span class="performance-goal-value">
+                            <strong id="dailyConversationsValue">0</strong>
+                            <span class="performance-goal-sep">/</span>
+                            <button id="dailyConversationGoalButton" class="performance-goal-edit" type="button" aria-label="Edit conversation goal">30</button>
+                          </span>
+                        </div>
+                        <div id="dailyConversationTrack" class="performance-goal-track" role="progressbar" aria-labelledby="dailyConversationGoalButton" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0">
+                          <div id="dailyConversationFill" class="performance-goal-fill performance-goal-fill-conversations"></div>
+                        </div>
+                      </div>
+                      <div class="performance-goal-block">
+                        <div class="performance-goal-head">
+                          <span id="dailyTalkLabel" class="performance-goal-label">Talk time this week</span>
+                          <span class="performance-goal-value">
+                            <strong id="dailyTalkValue">0m</strong>
+                            <span class="performance-goal-sep">/</span>
+                            <button id="dailyTalkGoalButton" class="performance-goal-edit" type="button" aria-label="Edit talk time goal in minutes">60m</button>
+                          </span>
+                        </div>
+                        <div id="dailyTalkTrack" class="performance-goal-track" role="progressbar" aria-labelledby="dailyTalkGoalButton" aria-valuemin="0" aria-valuemax="60" aria-valuenow="0">
+                          <div id="dailyTalkFill" class="performance-goal-fill performance-goal-fill-talk"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </header>
+
+                  <section class="performance-chart-section" aria-labelledby="performanceChartTitle">
+                    <div class="performance-chart-toolbar">
+                      <h3 id="performanceChartTitle" class="performance-section-label">Activity</h3>
+                      <div class="performance-mode-control" role="group" aria-label="Chart time range">
+                        <button id="rangeDayButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-range="day">Day</button>
+                        <button id="rangeWeekButton" class="performance-mode-button active" type="button" aria-pressed="true" data-performance-range="week">Week</button>
+                        <button id="rangeMonthButton" class="performance-mode-button" type="button" aria-pressed="false" data-performance-range="month">Month</button>
+                      </div>
+                    </div>
+                    <div id="performanceChartLegend" class="performance-line-legend" role="group" aria-label="Chart series"></div>
+                    <div id="performanceLineChart" class="line-chart performance-line-chart" role="img" aria-label="Dials, pickups, and booked over time"></div>
+                    <p id="performanceChartEmpty" class="performance-chart-empty" role="status" hidden>No activity in this range</p>
+                  </section>
+
+                  <section class="performance-funnel-row" aria-label="Period totals and conversion rates">
+                    <article class="performance-funnel-card performance-funnel-card-dials">
+                      <span class="performance-funnel-label">Dials</span>
+                      <strong id="funnelCountDials" class="performance-funnel-value">0</strong>
+                    </article>
+                    <article class="performance-funnel-card performance-funnel-card-pickups">
+                      <span class="performance-funnel-label">Pickups</span>
+                      <strong id="funnelRatePickups" class="performance-funnel-value">—</strong>
+                      <span id="funnelDetailPickups" class="performance-funnel-detail"></span>
+                      <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRatePickupsBar"></span></div>
+                    </article>
+                    <article class="performance-funnel-card performance-funnel-card-booked">
+                      <span class="performance-funnel-label">Booked</span>
+                      <strong id="funnelRateBooked" class="performance-funnel-value">—</strong>
+                      <span id="funnelDetailBooked" class="performance-funnel-detail"></span>
+                      <div class="performance-funnel-bar" aria-hidden="true"><span id="funnelRateBookedBar"></span></div>
+                    </article>
+                  </section>
+                </div>
+              </div>
+            </section>
+            <div id="pipelineTabPanel" class="dashboard-tab-panel pool-tab-panel pipeline-tab-panel" role="tabpanel" aria-labelledby="pipelineTabButton" hidden>
+              <section class="pipeline-board-panel" aria-label="Send info pipeline">
+                <div class="pipeline-board-toolbar">
+                  <div>
+                    <h2 id="pipelineViewHeading">Pipeline</h2>
+                    <p class="pipeline-board-lede">Callbacks sit in Dialed, Send info in Contacted (engaged), then follow the sequence. Drag cards to move steps; timers restart on each move.</p>
+                  </div>
+                  <span id="pipelineBoardSummary" class="pool-table-summary" aria-live="polite">0 on board</span>
+                </div>
+                <details id="pipelineStepsEditor" class="pipeline-steps-editor">
+                  <summary>Edit steps after Contacted (engaged)</summary>
+                  <p class="pipeline-editor-hint">Dialed and Contacted (engaged) stay fixed. Add, remove, rename, or set wait hours (timer before the card is “ready” and can move forward). Key turns into a safe id for you (e.g. <span class="pipeline-key-example">Follow up #2</span> → <span class="pipeline-key-example">follow_up_2</span>) when you leave the field or save. Saving updates columns for everyone on this account.</p>
+                  <div id="pipelineStepsEditorList" class="pipeline-editor-list" aria-label="Custom pipeline steps"></div>
+                  <div class="pipeline-editor-actions">
+                    <button id="pipelineAddStepButton" class="button button-quiet" type="button">Add step</button>
+                    <label class="pipeline-migrate-label"><input id="pipelineMigrateLeadsInput" type="checkbox"> Move prospects off columns you remove (Callbacks → Dialed, Send info → Contacted (engaged))</label>
+                    <button id="pipelineSaveStepsButton" class="button button-primary" type="button">Save pipeline</button>
+                  </div>
+                </details>
+                <div id="pipelineBoard" class="pipeline-board" role="list"></div>
+                <div id="pipelineBoardEmpty" class="empty-state pipeline-board-empty" hidden>
+                  <h2>No Send info prospects yet</h2>
+                  <p>Callbacks appear in Dialed. Send info prospects appear in Contacted (engaged).</p>
+                </div>
+              </section>
+            </div>
+<div id="workflowTabPanel" class="dashboard-tab-panel workflow-tab-panel" role="tabpanel" aria-labelledby="workflowTabButton" hidden>
+  <div class="workflow-shell">
+    <h2 class="visually-hidden">Campaign workflow</h2>
+    <div class="workflow-main-row">
+      <aside id="workflowCampaignCrm" class="workflow-node-library workflow-campaign-crm" aria-label="CRM" style="--workflow-library-width: 272px">
+        <header class="workflow-library-header">
+          <span class="workflow-library-title">CRM</span>
+        </header>
+        <div class="workflow-crm-filter">
+          <label class="workflow-crm-filter-label" for="workflowCrmFilterField">Filter by</label>
+          <div class="workflow-crm-filter-row">
+            <select id="workflowCrmFilterField" class="workflow-crm-filter-select" aria-label="CRM attribute to filter by">
+              <option value="business_type">Business type</option>
+              <option value="status">Status</option>
+              <option value="state">State</option>
+            </select>
+            <select id="workflowCrmFilterValueSelect" class="workflow-crm-filter-select" aria-label="Filter value" hidden></select>
+            <input id="workflowCrmFilterValueInput" type="text" class="workflow-crm-filter-input" placeholder="Value…" autocomplete="off" aria-label="Filter value">
+          </div>
+          <p id="workflowCrmFilterActive" class="workflow-crm-filter-active" hidden></p>
+          <label class="workflow-crm-filter-label" for="workflowCrmSearchInput">Search</label>
+          <input id="workflowCrmSearchInput" type="search" class="workflow-crm-filter-input" placeholder="Name, phone, business…" autocomplete="off" aria-label="Search CRM">
+        </div>
+        <div class="workflow-crm-list-toolbar">
+          <span id="workflowCrmListMeta" class="workflow-crm-list-meta">0 prospects</span>
+          <button id="workflowCrmSelectAllMatching" type="button" class="button button-quiet workflow-crm-select-all" hidden>Select all matching</button>
+        </div>
+        <div id="workflowCrmLeadList" class="workflow-crm-lead-list" role="list" aria-label="Prospects for campaign import"></div>
+        <button id="workflowCrmLoadMore" type="button" class="button button-quiet workflow-crm-load-more" hidden>Load more</button>
+        <footer class="workflow-crm-footer">
+          <span id="workflowCrmSelectedCount" class="workflow-crm-selected-count">Selected 0</span>
+          <button id="workflowCrmImportBtn" type="button" class="button button-primary workflow-crm-import" disabled>Import</button>
+        </footer>
+        <div id="workflowCrmResizer" class="workflow-library-resizer" role="separator" aria-orientation="vertical" aria-label="Resize CRM panel" title="Drag to resize"></div>
+      </aside>
+
+      <div class="workflow-center-column">
+        <div class="workflow-campaign-toolbar" role="toolbar" aria-label="Campaign controls">
+          <label class="workflow-campaign-field">
+            <span class="visually-hidden">Campaign</span>
+            <select id="workflowCampaignSelect" class="workflow-campaign-select" aria-label="Campaign"></select>
+          </label>
+          <button id="workflowCampaignCreateBtn" type="button" class="button button-quiet workflow-campaign-create">New campaign</button>
+          <span class="workflow-campaign-meta workflow-campaign-members">
+            <span class="workflow-campaign-meta-label">Members</span>
+            <strong id="workflowCampaignMemberCount">0</strong>
+          </span>
+          <div class="workflow-campaign-transport" aria-label="Campaign run controls">
+            <button type="button" class="button button-primary workflow-campaign-btn" disabled>Start</button>
+            <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Pause</button>
+            <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Stop</button>
+          </div>
+          <div class="workflow-campaign-meta">
+            <span class="workflow-campaign-meta-label">Parallel agents</span>
+            <span class="workflow-campaign-stepper" aria-disabled="true">8 / 10</span>
+          </div>
+          <div class="workflow-campaign-meta workflow-campaign-hours" id="workflowCallingHours" title="Calling window from account settings">
+            <span class="workflow-campaign-meta-label">Calling hours</span>
+            <span id="workflowCallingHoursValue">—</span>
+          </div>
+        </div>
+
+        <div class="workflow-canvas-column">
+          <div class="workflow-toolbar" role="toolbar" aria-label="Workflow canvas tools">
+            <button id="workflowToolPan" type="button" class="workflow-toolbar-btn is-selected" data-workflow-tool="pan" aria-pressed="true" title="Hand — drag canvas, two-finger scroll to pan, pinch or Ctrl+scroll to zoom">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.2a1 1 0 0 1 1.4 0l1.1 1.1V3.3a1 1 0 1 1 2 0v3.1l2.1 2.1a2.2 2.2 0 0 1 .6 1.5v2.7a1 1 0 0 1-1.7.7L8.2 11.2l-2.9 2.3a1 1 0 0 1-1.6-.8V7.4c0-.6.2-1.1.6-1.5l1.3-1.3V4.2a1 1 0 0 1 0-1.4Z" fill="currentColor"/></svg>
+              <span>Hand</span>
+            </button>
+            <button id="workflowToolAnchor" type="button" class="workflow-toolbar-btn" data-workflow-tool="anchor" aria-pressed="false" title="Anchor editor — drag connection points">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M3 13 L8.1 7.9" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+                <path d="M11.2 3.6 8.1 7.9 10.15 9.05Z" fill="currentColor" />
+              </svg>
+              <span>Anchor editor</span>
+            </button>
+            <button id="workflowToolResize" type="button" class="workflow-toolbar-btn" data-workflow-tool="resize" aria-pressed="false" title="Size — drag node edges or corner to resize">
+              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="2.5" y="5" width="9" height="7.5" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.15" stroke-dasharray="2.4 1.6"/>
+                <path d="M6.5 9.2 10.2 6.4 M10.2 6.4 H7.7 M10.2 6.4 V8.9" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Size</span>
+            </button>
+          </div>
+          <div id="workflowViewport" class="workflow-viewport is-tool-pan" tabindex="0" aria-label="Workflow canvas">
+            <div class="workflow-viewport-live" aria-live="polite">
+              <span class="workflow-viewport-live-dot" aria-hidden="true"></span>
+              <span class="workflow-viewport-live-label">Live</span>
+              <span id="workflowLiveMinutes" class="workflow-viewport-live-meta">0 call min</span>
+              <span class="workflow-viewport-live-sep" aria-hidden="true">·</span>
+              <span id="workflowLiveCost" class="workflow-viewport-live-meta">$0.00</span>
+            </div>
+            <div id="workflowWorld" class="workflow-world">
+              <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
+              <div id="workflowNodeLayer" class="workflow-node-layer"></div>
+              <svg id="workflowEdgeArrows" class="workflow-edge-arrows" aria-hidden="true"></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside id="workflowNodeView" class="workflow-node-view" aria-label="Node view">
+        <header class="workflow-node-view-header">
+          <h3 id="workflowNodeViewTitle" class="workflow-node-view-title">Node view</h3>
+        </header>
+        <div id="workflowNodeViewBody" class="workflow-node-view-body">
+          <p class="workflow-node-view-empty">Select a node, edge, or lead on the canvas to inspect it here.</p>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="workflow-funnel-bar" aria-label="Campaign funnel">
+      <div class="workflow-funnel-scope">
+        <button type="button" class="workflow-funnel-toggle is-active" data-funnel-scope="campaign" aria-pressed="true">Campaign</button>
+        <button type="button" class="workflow-funnel-toggle" data-funnel-scope="today" aria-pressed="false">Today</button>
+      </div>
+      <div class="workflow-funnel-steps" role="list">
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Dial = call placed to a campaign member.">Dials</span>
+          <strong id="workflowFunnelDials" class="workflow-funnel-step-value">0</strong>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Pickup = answered by a person (not voicemail).">Pickups</span>
+          <strong id="workflowFunnelPickups" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRatePickups">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Conversation = stayed on the line past the first question.">Conversations</span>
+          <strong id="workflowFunnelConversations" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateConversations">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Qualified = meets your criteria and is ready for a human callback.">Qualified</span>
+          <strong id="workflowFunnelQualified" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateQualified">—</span>
+        </div>
+        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
+        <div class="workflow-funnel-step" role="listitem">
+          <span class="workflow-funnel-step-label" title="Booked = walkthrough scheduled (CRM stage, not set by AI).">Booked</span>
+          <strong id="workflowFunnelBooked" class="workflow-funnel-step-value">0</strong>
+          <span class="workflow-funnel-rate" id="workflowFunnelRateBooked">—</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <dialog id="workflowCampaignImportDialog" class="workflow-agent-dialog workflow-import-dialog" aria-labelledby="workflowCampaignImportTitle">
+    <form method="dialog" class="workflow-agent-dialog-form workflow-import-form">
+      <h3 id="workflowCampaignImportTitle">Import into campaign</h3>
+      <p id="workflowCampaignImportSummary" class="workflow-import-summary"></p>
+      <div class="workflow-import-warnings-wrap" hidden>
+        <h4 class="workflow-import-warnings-heading">Warnings</h4>
+        <ul id="workflowCampaignImportWarnings" class="workflow-import-warnings"></ul>
+      </div>
+      <div class="workflow-agent-dialog-actions">
+        <button id="workflowCampaignImportCancel" class="button button-quiet" type="button">Cancel</button>
+        <button id="workflowCampaignImportConfirm" class="button button-primary" type="button">Import</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="workflowNodeInfoDialog" class="workflow-agent-dialog workflow-node-info-dialog">
+    <form method="dialog" class="workflow-agent-dialog-form">
+      <h3 id="workflowNodeInfoTitle">Node</h3>
+      <div id="workflowNodeInfoBody" class="workflow-node-info-body"></div>
+      <div class="workflow-agent-dialog-actions">
+        <button class="button button-quiet" value="cancel">Close</button>
+      </div>
+    </form>
+  </dialog>
+</div><div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
+>>>>>>> 1f6194cd2ae87ec7fff49dab3cbd173c490ead53:docs/page-before.html
                 <section class="pool-table-panel" aria-label="Total dials">
                   <div class="pool-table-toolbar">
                     <div>
@@ -491,6 +777,7 @@
                       <p>Import a CSV or add a prospect to start your workspace.</p>
                     </div>
                   </div>
+                  <button id="crmTableLoadMore" type="button" class="button button-quiet crm-table-load-more" hidden>Load more</button>
                   <div class="table-footer"><span id="tableSummary">0 prospects</span><button id="deleteSelectedButton" class="button button-danger-quiet table-delete-button" type="button" hidden>Delete selected</button><span id="saveState">All changes saved</span></div>
                 </section>
               </div>

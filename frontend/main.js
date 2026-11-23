@@ -7,11 +7,21 @@ import { bindSettings } from "./features/settings.js";
 import { arcadeSensory, startArcade } from "./features/arcade.js";
 import { byId, setDialerText, startStatusClock } from "./_core/format.js";
 import { bindClientMemoryLifecycle } from "./_core/memory.js";
+<<<<<<< HEAD:frontend/main.js
 
+=======
+import { wipeClientCatalogMemory } from "./_core/sync-state.js";
+
+wipeClientCatalogMemory();
+>>>>>>> 1f6194cd2ae87ec7fff49dab3cbd173c490ead53:static/main.js
 bindClientMemoryLifecycle();
 bindDebugListeners();
 startStatusClock();
 startArcade();
+<<<<<<< HEAD:frontend/main.js
+=======
+bindWorkflow();
+>>>>>>> 1f6194cd2ae87ec7fff49dab3cbd173c490ead53:static/main.js
 bindDialogs();
 bindProspects();
 bindAddProspect();
@@ -44,4 +54,8 @@ initAuth()
   .finally(() => {
     bindNavigation();
     startPolling();
+<<<<<<< HEAD:frontend/main.js
   });
+=======
+  });
+>>>>>>> 1f6194cd2ae87ec7fff49dab3cbd173c490ead53:static/main.js

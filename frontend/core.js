@@ -66,7 +66,11 @@ export {
   renderCallerPool,
 } from "./_core/registry.js";
 export { render } from "./_core/render.js";
+<<<<<<< HEAD:frontend/core.js
 export { bindNavigation } from "./_core/navigation.js";
+=======
+export { bindNavigation, setPerformanceMode } from "./_core/navigation.js";
+>>>>>>> 1f6194cd2ae87ec7fff49dab3cbd173c490ead53:static/core.js
 export { setDashboardTab } from "./_core/dashboard-tab.js";
 
 export {
