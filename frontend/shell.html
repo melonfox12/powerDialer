@@ -11,15 +11,21 @@
   <link rel="stylesheet" href="css/01-tokens.css">
   <link rel="stylesheet" href="css/02-layout.css">
   <link rel="stylesheet" href="css/03-controls.css">
+  <link rel="stylesheet" href="css/04-call-monitor.css">
+  <link rel="stylesheet" href="css/05-charts.css">
   <link rel="stylesheet" href="css/06-dialogs.css">
   <link rel="stylesheet" href="css/07-responsive.css">
+  <link rel="stylesheet" href="css/08-arcade.css">
   <link rel="stylesheet" href="css/09-shell.css">
   <link rel="stylesheet" href="css/linear/shell.css">
   <link rel="stylesheet" href="css/linear/document.css">
   <link rel="stylesheet" href="css/linear/controls.css">
-  <link rel="stylesheet" href="css/linear/pipeline.css">
-  <link rel="stylesheet" href="css/linear/workflow.css">
+  <link rel="stylesheet" href="css/linear/monitor.css">
+  <link rel="stylesheet" href="css/linear/metrics.css">
+  <link rel="stylesheet" href="css/linear/performance.css">
+  <link rel="stylesheet" href="css/linear/ai-dialer-agent.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script type="module" src="main.js"></script>
 </head>
 <body>
@@ -40,9 +46,12 @@
       </a>
       <div class="app-top-tabs-wrap">
         <div class="dashboard-tabs app-top-tabs" role="tablist" aria-label="Workspace pages">
+          <button id="dialerTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="dialerTabPanel" tabindex="-1" data-dashboard-tab="dialer">Dialer</button>
+          <button id="dialsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="dialsTabPanel" tabindex="-1" data-dashboard-tab="dials">Call log <span id="dialsTabCount" class="dashboard-tab-count">0</span></button>
           <button id="prospectsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects">Global CRM <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
-          <button id="workflowTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="workflowTabPanel" tabindex="-1" data-dashboard-tab="workflow">Workflow</button>
-          <button id="pipelineTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="pipelineTabPanel" tabindex="-1" data-dashboard-tab="pipeline">Pipeline</button>
+        </div>
+        <div id="legacyDashboardTabButtons" class="legacy-dashboard-tab-buttons" hidden>
+          <button type="button" id="poolTabButton" tabindex="-1" aria-hidden="true"><span id="poolTabCount">0</span></button>
         </div>
       </div>
       <div class="app-top-utilities top-actions">

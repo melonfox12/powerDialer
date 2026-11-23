@@ -1,0 +1,114 @@
+/* file-boundary: static/css/08-arcade.css */
+.performance-chart-panel.has-no-data .line-chart {
+  display: grid;
+  min-height: 90px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.session-momentum { display: grid; flex: none; gap: 8px; margin: 0 0 12px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+.session-goal > div:first-child { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 6px; }
+.session-goal > div:first-child > span:first-child { color: var(--ink-secondary); font-size: 13px; }
+.session-goal strong { color: var(--ink); font-size: 18px; font-weight: 600; }
+.session-goal strong.goal-pulse { animation: goal-pulse 300ms ease; }
+@keyframes goal-pulse { 50% { transform: scale(1.1); } }
+.session-halfway { color: var(--success); font-size: 13px; font-weight: 510; }
+.session-halfway[hidden] { display: none; }
+.goal-track { width: 100%; height: 12px; overflow: hidden; border-radius: var(--radius-full); background: var(--line-strong); }
+.goal-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--success); transition: width 400ms ease-out; }
+.session-streak { margin: 0; color: var(--success); font-size: 13px; }
+.session-streak[hidden] { display: none; }
+.stat-tile.stat-flash { animation: stat-flash 400ms ease-out; }
+@keyframes stat-flash { 40% { background: var(--success-soft); } }
+.meeting-highlight { animation: meeting-flash .7s ease-out; }
+@keyframes meeting-flash { 50% { color: var(--success); text-shadow: 0 0 12px var(--success); transform: scale(1.12); } }
+.break-nudge { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding-top: 7px; border-top: 1px solid var(--line); }
+.break-nudge[hidden] { display: none; }
+.break-nudge > span { flex: 1 1 100%; color: var(--ink-secondary); font-size: 13px; }
+.break-nudge .button { min-height: 32px; padding: 0 8px; font-size: 12px; }
+.call-stage { display: flex; min-height: 112px; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: 7px; margin-top: 11px; padding: 15px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--canvas); color: var(--ink-secondary); }
+.call-stage strong { color: var(--ink); font-size: 16px; font-weight: 590; }
+.call-stage span { font-size: 14px; line-height: 1.45; }
+.call-prospect-name { margin: 0; color: var(--ink); font-size: 22px; font-weight: 600; line-height: 1.2; }
+.call-prospect-business { color: var(--ink-secondary); font-size: 15px; }
+.call-prospect-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13px; }
+.call-prospect-notes { max-height: 5.8em; overflow: auto; font-size: 14px; line-height: 1.45; }
+.call-stage-script { max-height: 4.35em; overflow: auto; color: var(--muted); font-size: 14px; }
+.call-stage[data-stage="dialing"] strong, .call-stage[data-stage="ringing"] strong { color: var(--amber); }
+.arcade-viewport { position: relative; display: flex; min-height: 112px; align-items: center; justify-content: center; gap: 18px; margin-top: 8px; padding: 14px; overflow: hidden; border: 1px solid rgba(225, 183, 109, .28); border-radius: var(--radius-md); background: radial-gradient(ellipse at center, rgba(225, 183, 109, .08), var(--canvas) 72%); transition: opacity .3s ease, border-color .15s ease; }
+.arcade-viewport[hidden] { display: none; }
+.arcade-viewport.is-resetting { opacity: .2; }
+.arcade-viewport.is-near-miss { border-color: rgba(235, 87, 87, .75); }
+.arcade-viewport.is-match { border-color: rgba(76, 195, 138, .72); box-shadow: 0 0 24px rgba(76, 195, 138, .12); }
+.arcade-reels { display: flex; gap: 5px; perspective: 520px; }
+.arcade-reel-window { position: relative; width: 54px; height: 58px; overflow: hidden; border: 1px solid rgba(225, 183, 109, .38); border-radius: 5px; background: linear-gradient(180deg, rgba(0,0,0,.58), rgba(225,183,109,.09) 48%, rgba(0,0,0,.58)); box-shadow: inset 0 0 10px rgba(0, 0, 0, .6); }
+.arcade-reel-window::after { position: absolute; inset: 0; content: ""; pointer-events: none; border-top: 1px solid rgba(255,255,255,.08); border-bottom: 1px solid rgba(255,255,255,.08); }
+.arcade-reel-rotor { position: absolute; inset: 0; transform-style: preserve-3d; }
+.arcade-reel-window.is-spinning .arcade-reel-rotor { animation: arcade-reel-spin .19s linear infinite; }
+.arcade-reel-window.is-locking .arcade-reel-rotor { transition: transform .48s cubic-bezier(.12,.78,.22,1); }
+.arcade-reel-symbol { position: absolute; inset: 0; display: grid; place-items: center; backface-visibility: hidden; color: var(--amber); font: 28px/1 "Segoe UI Symbol", "Apple Color Emoji", sans-serif; text-shadow: 0 0 12px rgba(225,183,109,.28); transform: rotateX(var(--symbol-angle)) translateZ(34px); }
+.arcade-feedback { min-width: 0; display: grid; gap: 5px; color: var(--muted); font-size: 10px; }
+.arcade-feedback strong { color: var(--success); font: 600 16px var(--mono); }
+.arcade-viewport.is-match .arcade-feedback strong { animation: arcade-value-pop .25s ease-out; }
+.arcade-viewport.is-near-miss .arcade-feedback > span { color: var(--red); }
+.arcade-reels-disabled .arcade-reels { display: none; }
+.arcade-particles { position: fixed; z-index: 1000; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.arcade-settings { margin-top: 17px; border-top: 1px solid var(--line); color: var(--ink-secondary); font-size: 11px; }
+.arcade-settings > summary { padding: 14px 0 3px; color: var(--ink); cursor: pointer; font-weight: 590; }
+.arcade-settings-content { padding: 3px 0 4px; }
+.arcade-settings-content .form-footnote { margin: 8px 0 12px; }
+.arcade-settings-content input[type="range"] { width: 100%; accent-color: var(--success); }
+@keyframes arcade-reel-spin { from { transform: rotateX(0deg); } to { transform: rotateX(360deg); } }
+@keyframes arcade-value-pop { 50% { transform: scale(1.12); } }
+.dialer-run-panel.arcade-shake { animation: arcade-shake .38s ease-in-out; }
+.dialer-run-panel { position: relative; }
+.dialer-run-panel.arcade-failure-flash { border-color: rgba(235, 87, 87, .9); }
+.dialer-run-panel.arcade-failure-flash::after { position: absolute; z-index: 5; inset: 0; content: ""; pointer-events: none; border-radius: inherit; background: radial-gradient(ellipse at center, transparent 32%, rgba(190, 35, 48, .22) 100%); animation: arcade-vignette .15s ease-out both; }
+@keyframes arcade-vignette { from { opacity: 1; } to { opacity: 0; } }
+@keyframes arcade-shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  20% { transform: translate3d(-4px, 1px, 0); }
+  40% { transform: translate3d(4px, -1px, 0); }
+  60% { transform: translate3d(-3px, 0, 0); }
+  80% { transform: translate3d(3px, 1px, 0); }
+}
+@media (max-width: 560px) {
+  .arcade-viewport { min-height: 100px; gap: 10px; padding: 10px; }
+  .arcade-reel-window { width: 46px; height: 52px; }
+  .arcade-reel-symbol { font-size: 24px; }
+}
+.call-stage[data-stage="paused"] strong { color: var(--ink-secondary); }
+.call-stage-live { border-color: rgba(235, 87, 87, .45); background: var(--red-soft); }
+.call-stage-live strong { color: var(--red); font-size: 20px; letter-spacing: .08em; }
+.call-stage-live[data-stage="connected"] { min-height: 138px; }
+.call-stage-script { padding-top: 7px; border-top: 1px solid rgba(235, 87, 87, .2); color: var(--ink-secondary); }
+.call-stage[data-stage="dialing"], .call-stage[data-stage="ringing"] { animation: dial-pulse 1.8s ease-in-out infinite; }
+@keyframes dial-pulse { 50% { border-color: rgba(225, 183, 109, .48); } }
+.stage-enter { animation: stage-enter .2s ease-out both; }
+@keyframes stage-enter { from { opacity: .55; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.dialer-run-panel { min-height: 0; }
+.dialer-controls { flex: none; }
+.dialer-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+.dialer-controls .button { min-height: 40px; font-size: 13px; }
+.dialer-controls .shortcut-help { grid-column: 1 / -1; justify-self: end; }
+.call-stage { flex: 1 1 auto; }
+.call-stage[hidden] { display: none; }
+.call-stage { flex: 0 1 auto; min-height: 88px; }
+.call-monitor-disclosure[open] { min-height: 0; flex: 1 1 auto; }
+.call-monitor-disclosure[open] .call-monitor { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; overflow: hidden; }
+.call-monitor-disclosure[open] .monitor-transcript-block { flex: 0 0 auto; }
+.call-monitor-disclosure[open] .live-transcript { height: 96px; min-height: 72px; max-height: 110px; flex: 0 0 auto; }
+.dialed-prospect {
+  display: flex;
+  min-height: 120px;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 2px 8px;
+  border-top: 1px solid var(--line);
+}
+.activity-log-disclosure { flex: 0 0 auto; }

@@ -11,15 +11,21 @@
   <link rel="stylesheet" href="css/01-tokens.css">
   <link rel="stylesheet" href="css/02-layout.css">
   <link rel="stylesheet" href="css/03-controls.css">
+  <link rel="stylesheet" href="css/04-call-monitor.css">
+  <link rel="stylesheet" href="css/05-charts.css">
   <link rel="stylesheet" href="css/06-dialogs.css">
   <link rel="stylesheet" href="css/07-responsive.css">
+  <link rel="stylesheet" href="css/08-arcade.css">
   <link rel="stylesheet" href="css/09-shell.css">
   <link rel="stylesheet" href="css/linear/shell.css">
   <link rel="stylesheet" href="css/linear/document.css">
   <link rel="stylesheet" href="css/linear/controls.css">
-  <link rel="stylesheet" href="css/linear/pipeline.css">
-  <link rel="stylesheet" href="css/linear/workflow.css">
+  <link rel="stylesheet" href="css/linear/monitor.css">
+  <link rel="stylesheet" href="css/linear/metrics.css">
+  <link rel="stylesheet" href="css/linear/performance.css">
+  <link rel="stylesheet" href="css/linear/ai-dialer-agent.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2.18.5/dist/twilio.min.js" defer></script>
   <script type="module" src="main.js"></script>
 <script type="application/json" id="vocabulary">{"statuses":[{"key":"new","label":"New","color":"--muted","className":"neutral"},{"key":"agent_use","label":"Agent use","color":"--muted","className":"neutral"},{"key":"dialed","label":"Dialed","color":"--callback","className":"callback"},{"key":"contact_engaged","label":"Contact (engaged)","color":"--blue","className":"info"},{"key":"qualified","label":"Qualified","color":"--blue","className":"info"},{"key":"booked","label":"Booked","color":"--success","className":"positive"},{"key":"proposal_sent","label":"Proposal sent","color":"--success","className":"positive"},{"key":"closed","label":"Closed","color":"--red","className":"negative"}],"crmStatusKeys":["new","agent_use","dialed","contact_engaged","qualified","booked","proposal_sent","closed"],"userSelectableCrmStatusKeys":["new","dialed","contact_engaged","qualified","booked","proposal_sent","closed"],"crmStatusLabels":{"new":"New","agent_use":"Agent use","dialed":"Dialed","contact_engaged":"Contact (engaged)","qualified":"Qualified","booked":"Booked","proposal_sent":"Proposal sent","closed":"Closed"},"agentUseStatus":"agent_use","agentReservedNameField":"agent_reserved_name","agentReservedIdField":"agent_reserved_id","neverDialStatuses":["booked","proposal_sent","closed"],"dialPoolStatuses":["new","contact_engaged"],"dialPoolStatusLabels":{"new":"New","contact_engaged":"Contact (engaged)"},"defaultDialPoolStatus":"new","dialBusinessTypeOptions":[{"key":"pest control","label":"Pest control"},{"key":"hvac","label":"HVAC"}],"dispositions":{"booked":"booked","callback":"dialed","send_info":"contact_engaged","not_interested":"closed","no_answer":"dialed","do_not_call":"closed"},"outcomeMetric":{"dialed":"call_later","contact_engaged":"interested","qualified":"interested","booked":"booked","proposal_sent":"interested","closed":"disqualified"},"defaultOutcomeMetric":"disqualified","metricKeys":["booked","call_later","connected","disqualified","interested","dials","failed","talk_seconds","voicemail"],"callOutcomes":[{"key":"not_interested","label":"Disqualified"},{"key":"gatekeeper","label":"Gatekeeper"},{"key":"send_info","label":"Send info"},{"key":"call_back","label":"Call back"},{"key":"booked","label":"Booked"}],"performanceRanges":["day","week","month"],"defaultPerformanceRange":"week","conversationMinSeconds":30,"defaultDailyConversationGoal":30,"defaultDailyTalkGoalMinutes":60,"heatmapUnlockDials":100,"heatmapMinBucketDials":10,"stages":["idle","dialing","ringing","connected","wrapup","paused"],"callStates":["creating","calling agent","ringing","live","cancelled","ended","skipped"],"timezones":{"Eastern":"America/New_York","Central":"America/Chicago","Mountain":"America/Denver","Pacific":"America/Los_Angeles","Alaska":"America/Anchorage","Hawaii":"Pacific/Honolulu"},"callerIdGroups":[{"key":"eastern","label":"Eastern"},{"key":"central","label":"Central"},{"key":"mountain","label":"Mountain"},{"key":"pacific","label":"Pacific"}],"defaultCallerIdGroup":"eastern","callbackStatusHours":2,"pipelineSteps":[{"key":"dialed","label":"Dialed","wait_hours":0},{"key":"call_1","label":"Contacted (engaged)","wait_hours":0},{"key":"email_1","label":"Email 1","wait_hours":36},{"key":"linkedin_add","label":"LinkedIn add request","wait_hours":36},{"key":"call_2","label":"Call 2","wait_hours":36},{"key":"email_2","label":"Email 2","wait_hours":36},{"key":"linkedin_message","label":"LinkedIn message","wait_hours":36},{"key":"call_3","label":"Call 3","wait_hours":36},{"key":"email_3","label":"Email 3","wait_hours":36},{"key":"any_channel","label":"Any channel (every 60\u201390 days)","wait_hours":1800}],"pipelineFirstStep":"dialed","pipelineDialedStep":"dialed","pipelineSendInfoStep":"call_1","pipelineCrmStatusKeys":[],"settingKeys":["PIPELINE_CUSTOM_STEPS_JSON","SESSION_GOAL","CONVERSATION_THRESHOLD_SECONDS","AUTO_ADVANCE_DELAY_SECONDS","SOUNDS_ENABLED","SOUND_VOLUME","BREAK_NUDGE_MINUTES","CALLING_START_HOUR","CALLING_END_HOUR","CAMPAIGN_COST_PER_MINUTE","OPENING_SCRIPT","AI_AGENT_POOLS_JSON","AI_AGENT_PLAYBOOKS_JSON","AI_BRIDGE_WSS_URL","AI_BRIDGE_APP_URL","AI_BRIDGE_SECRET","AI_BRIDGE_EMBEDDED","AI_BRIDGE_HOST","AI_BRIDGE_PORT","CARTESIA_API_KEY","CARTESIA_VOICE_ID","CARTESIA_TTS_MODEL","OPENAI_API_KEY","AI_LLM_MODEL","AI_VOICEMAIL_DROP","AI_VOICEMAIL_MESSAGE","DAILY_GOAL_MINUTES","DAILY_CONVERSATION_GOAL","DAILY_GOAL_WEEKLY_STEP_MINUTES","DAILY_GOAL_ANCHOR"],"secretInputs":[{"id":"authTokenInput","label":"auth token"},{"id":"apiSecretInput","label":"API key secret"},{"id":"aiBridgeSecretInput","label":"bridge secret"},{"id":"openaiKeyInput","label":"OpenAI key"},{"id":"cartesiaKeyInput","label":"Cartesia key"}],"marketingTouchesField":"Marketing touches"}</script></head>
 <body>
@@ -40,9 +46,12 @@
       </a>
       <div class="app-top-tabs-wrap">
         <div class="dashboard-tabs app-top-tabs" role="tablist" aria-label="Workspace pages">
+          <button id="dialerTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="dialerTabPanel" tabindex="-1" data-dashboard-tab="dialer">Dialer</button>
+          <button id="dialsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="dialsTabPanel" tabindex="-1" data-dashboard-tab="dials">Call log <span id="dialsTabCount" class="dashboard-tab-count">0</span></button>
           <button id="prospectsTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="prospectsTabPanel" tabindex="-1" data-dashboard-tab="prospects">Global CRM <span id="prospectTabCount" class="dashboard-tab-count">0</span></button>
-          <button id="workflowTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="workflowTabPanel" tabindex="-1" data-dashboard-tab="workflow">Workflow</button>
-          <button id="pipelineTabButton" class="dashboard-tab" type="button" role="tab" aria-selected="false" aria-controls="pipelineTabPanel" tabindex="-1" data-dashboard-tab="pipeline">Pipeline</button>
+        </div>
+        <div id="legacyDashboardTabButtons" class="legacy-dashboard-tab-buttons" hidden>
+          <button type="button" id="poolTabButton" tabindex="-1" aria-hidden="true"><span id="poolTabCount">0</span></button>
         </div>
       </div>
       <div class="app-top-utilities top-actions">
@@ -56,209 +65,390 @@
     <main class="app-main">
       <section id="crmView" class="view active-view" aria-labelledby="pageTitle">
         <header class="page-heading">
-          <h1 id="pageTitle">Global CRM</h1>
+          <h1 id="pageTitle">Dialer</h1>
           <button id="headingImportButton" class="button button-secondary heading-import-button" type="button" hidden>Import CSV</button>
         </header>
 
         <div class="dashboard-stack">
-          <div class="dashboard-top-row"><div id="workflowTabPanel" class="dashboard-tab-panel workflow-tab-panel" role="tabpanel" aria-labelledby="workflowTabButton" hidden>
-  <div class="workflow-shell">
-    <h2 class="visually-hidden">Campaign workflow</h2>
-    <div class="workflow-main-row">
-      <aside id="workflowCampaignCrm" class="workflow-node-library workflow-campaign-crm" aria-label="CRM" style="--workflow-library-width: 272px">
-        <header class="workflow-library-header">
-          <span class="workflow-library-title">CRM</span>
-        </header>
-        <div class="workflow-crm-filter">
-          <label class="workflow-crm-filter-label" for="workflowCrmFilterField">Filter by</label>
-          <div class="workflow-crm-filter-row">
-            <select id="workflowCrmFilterField" class="workflow-crm-filter-select" aria-label="CRM attribute to filter by">
-              <option value="business_type">Business type</option>
-              <option value="status">Status</option>
-              <option value="state">State</option>
-            </select>
-            <select id="workflowCrmFilterValueSelect" class="workflow-crm-filter-select" aria-label="Filter value" hidden></select>
-            <input id="workflowCrmFilterValueInput" type="text" class="workflow-crm-filter-input" placeholder="Value…" autocomplete="off" aria-label="Filter value">
-          </div>
-          <p id="workflowCrmFilterActive" class="workflow-crm-filter-active" hidden></p>
-          <label class="workflow-crm-filter-label" for="workflowCrmSearchInput">Search</label>
-          <input id="workflowCrmSearchInput" type="search" class="workflow-crm-filter-input" placeholder="Name, phone, business…" autocomplete="off" aria-label="Search CRM">
-        </div>
-        <div class="workflow-crm-list-toolbar">
-          <span id="workflowCrmListMeta" class="workflow-crm-list-meta">0 prospects</span>
-          <button id="workflowCrmSelectAllMatching" type="button" class="button button-quiet workflow-crm-select-all" hidden>Select all matching</button>
-        </div>
-        <div id="workflowCrmLeadList" class="workflow-crm-lead-list" role="list" aria-label="Prospects for campaign import"></div>
-        <button id="workflowCrmLoadMore" type="button" class="button button-quiet workflow-crm-load-more" hidden>Load more</button>
-        <footer class="workflow-crm-footer">
-          <span id="workflowCrmSelectedCount" class="workflow-crm-selected-count">Selected 0</span>
-          <button id="workflowCrmImportBtn" type="button" class="button button-primary workflow-crm-import" disabled>Import</button>
-        </footer>
-        <div id="workflowCrmResizer" class="workflow-library-resizer" role="separator" aria-orientation="vertical" aria-label="Resize CRM panel" title="Drag to resize"></div>
-      </aside>
+          <div class="dashboard-top-row">
+            <section id="dialerTabPanel" class="dialer-run-panel dialer-workspace dashboard-tab-panel" role="tabpanel" aria-labelledby="dialerTabButton liveTitle" tabindex="0">
+              <div class="dialer-workspace-main">
+              <div class="dialer-document">
+                <div class="issue-meta">
+                  <span class="live-indicator"><i></i><span id="liveLabel">Standby</span></span>
+                  <span id="lineCount" class="line-count">0 of 0 dialed</span>
+                  <div id="callerIdLine" class="caller-id-line" hidden>Caller ID <span></span></div>
+                  <div class="dialer-pool-filter"><select id="dialerPoolStatusFilter" class="dialer-pool-status-select" aria-label="Dial prospects with CRM status"></select><select id="dialerBusinessTypeFilter" class="dialer-business-type-select" aria-label="Dial prospects by industry"></select><select id="dialerCallerIdGroup" class="dialer-caller-id-select" aria-label="Caller ID numbers"></select><span class="visually-hidden" id="dialerTimezoneLabel">Dial from</span><select id="dialerTimezoneFilter" aria-labelledby="dialerTimezoneLabel" aria-hidden="true" tabindex="-1"><option value="">All time zones</option></select><div class="timezone-menu"><button id="dialerTimezoneButton" class="timezone-menu-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="dialerTimezoneList">All time zones</button><ul id="dialerTimezoneList" class="timezone-menu-list" role="listbox" aria-labelledby="dialerTimezoneLabel" hidden></ul></div></div>
+                </div>
 
-      <div class="workflow-center-column">
-        <div class="workflow-campaign-toolbar" role="toolbar" aria-label="Campaign controls">
-          <label class="workflow-campaign-field">
-            <span class="visually-hidden">Campaign</span>
-            <select id="workflowCampaignSelect" class="workflow-campaign-select" aria-label="Campaign"></select>
-          </label>
-          <button id="workflowCampaignCreateBtn" type="button" class="button button-quiet workflow-campaign-create">New campaign</button>
-          <span class="workflow-campaign-meta workflow-campaign-members">
-            <span class="workflow-campaign-meta-label">Members</span>
-            <strong id="workflowCampaignMemberCount">0</strong>
-          </span>
-          <div class="workflow-campaign-transport" aria-label="Campaign run controls">
-            <button type="button" class="button button-primary workflow-campaign-btn" disabled>Start</button>
-            <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Pause</button>
-            <button type="button" class="button button-quiet workflow-campaign-btn" disabled>Stop</button>
-          </div>
-          <div class="workflow-campaign-meta">
-            <span class="workflow-campaign-meta-label">Parallel agents</span>
-            <span class="workflow-campaign-stepper" aria-disabled="true">8 / 10</span>
-          </div>
-          <div class="workflow-campaign-meta workflow-campaign-hours" id="workflowCallingHours" title="Calling window from account settings">
-            <span class="workflow-campaign-meta-label">Calling hours</span>
-            <span id="workflowCallingHoursValue">—</span>
-          </div>
-        </div>
+                <section class="queue-strip" aria-label="Call queue">
+                  <div id="activeCall" class="power-lines"></div>
+                </section>
+                <p id="dialerIssueLede" class="issue-lede">Three lines dial at once. The first answer stays on the line.</p>
 
-        <div class="workflow-canvas-column">
-          <div class="workflow-toolbar" role="toolbar" aria-label="Workflow canvas tools">
-            <button id="workflowToolPan" type="button" class="workflow-toolbar-btn is-selected" data-workflow-tool="pan" aria-pressed="true" title="Hand — drag canvas, two-finger scroll to pan, pinch or Ctrl+scroll to zoom">
-              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.2 3.2a1 1 0 0 1 1.4 0l1.1 1.1V3.3a1 1 0 1 1 2 0v3.1l2.1 2.1a2.2 2.2 0 0 1 .6 1.5v2.7a1 1 0 0 1-1.7.7L8.2 11.2l-2.9 2.3a1 1 0 0 1-1.6-.8V7.4c0-.6.2-1.1.6-1.5l1.3-1.3V4.2a1 1 0 0 1 0-1.4Z" fill="currentColor"/></svg>
-              <span>Hand</span>
-            </button>
-            <button id="workflowToolAnchor" type="button" class="workflow-toolbar-btn" data-workflow-tool="anchor" aria-pressed="false" title="Anchor editor — drag connection points">
-              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M3 13 L8.1 7.9" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
-                <path d="M11.2 3.6 8.1 7.9 10.15 9.05Z" fill="currentColor" />
-              </svg>
-              <span>Anchor editor</span>
-            </button>
-            <button id="workflowToolResize" type="button" class="workflow-toolbar-btn" data-workflow-tool="resize" aria-pressed="false" title="Size — drag node edges or corner to resize">
-              <svg class="workflow-toolbar-icon" viewBox="0 0 16 16" aria-hidden="true">
-                <rect x="2.5" y="5" width="9" height="7.5" rx="0.8" fill="none" stroke="currentColor" stroke-width="1.15" stroke-dasharray="2.4 1.6"/>
-                <path d="M6.5 9.2 10.2 6.4 M10.2 6.4 H7.7 M10.2 6.4 V8.9" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span>Size</span>
-            </button>
-          </div>
-          <div id="workflowViewport" class="workflow-viewport is-tool-pan" tabindex="0" aria-label="Workflow canvas">
-            <div class="workflow-viewport-live" aria-live="polite">
-              <span class="workflow-viewport-live-dot" aria-hidden="true"></span>
-              <span class="workflow-viewport-live-label">Live</span>
-              <span id="workflowLiveMinutes" class="workflow-viewport-live-meta">0 call min</span>
-              <span class="workflow-viewport-live-sep" aria-hidden="true">·</span>
-              <span id="workflowLiveCost" class="workflow-viewport-live-meta">$0.00</span>
-            </div>
-            <div id="workflowWorld" class="workflow-world">
-              <svg id="workflowEdges" class="workflow-edges" aria-hidden="true"></svg>
-              <div id="workflowNodeLayer" class="workflow-node-layer"></div>
-              <svg id="workflowEdgeArrows" class="workflow-edge-arrows" aria-hidden="true"></svg>
-            </div>
-          </div>
-        </div>
+                <div class="session-momentum" aria-label="Current session progress">
+                  <div class="session-goal">
+                    <div><span>Session</span><strong id="sessionGoalLabel">0 / 20 conversations</strong><span id="sessionHalfway" class="session-halfway" hidden>Halfway</span><p id="sessionStreak" class="session-streak" hidden></p></div>
+                    <div id="sessionGoalTrack" class="goal-track" role="progressbar" aria-label="Session conversation goal" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><span id="sessionGoalProgress"></span></div>
+                  </div>
+                  <div id="breakNudge" class="break-nudge" hidden><span>Good work. Consider a 5-minute break.</span><button id="breakDismissButton" class="button button-quiet" type="button">Dismiss</button></div>
+                </div>
+                <div id="dialerMessage" class="dialer-message" role="status" hidden></div>
+                <h2 id="liveTitle" class="visually-hidden">Call desk</h2>
+
+                <div class="dialer-controls" data-controls="idle">
+                  <button id="startButton" class="button button-primary" type="button"><svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.8v8.4L13 8 6 3.8Z"/></svg>Start dialing<kbd>Space</kbd></button>
+                  <button id="stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
+                </div>
+
+                <section class="crm-status" aria-labelledby="crmStatusLabel">
+                  <div class="outcome-label" id="crmStatusLabel">CRM status <span id="crmStatusTarget"></span></div>
+                  <div id="crmStatusButtons" class="outcome-buttons" role="group" aria-label="CRM status"></div>
+                </section>
+
+                <section id="callStage" class="call-stage" data-stage="idle" aria-live="off" tabindex="0" aria-label="Call stage"></section>
+                <section id="arcadeViewport" class="arcade-viewport" aria-label="Call feedback" aria-live="off" hidden>
+                  <div class="arcade-reels" aria-hidden="true">
+                    <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                    <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                    <div class="arcade-reel-window"><div class="arcade-reel-rotor"></div></div>
+                  </div>
+                  <div class="arcade-feedback">
+                    <span id="arcadeStatus" role="status" aria-live="polite">Preparing next call</span>
+                    <strong id="arcadeValue" aria-live="off" hidden></strong>
+                  </div>
+                </section>
+                <span id="stageAnnouncer" class="visually-hidden" role="status" aria-live="polite"></span>
+                <div id="advanceControls" class="advance-controls" hidden>
+                  <p id="autoAdvance" class="auto-advance" hidden></p>
+                </div>
+
+              <details id="callMonitorDisclosure" class="call-monitor-disclosure" open>
+                <summary class="call-monitor-summary">
+                  <span id="callMonitorTitle" class="call-monitor-title">Activity</span>
+                  <span id="monitorActivity" class="monitor-activity" data-state="idle" aria-hidden="true">
+                    <svg class="monitor-spinner" viewBox="0 0 24 24" focusable="false">
+                      <circle cx="12" cy="3" r="1.8"/><circle cx="18.4" cy="5.6" r="1.8"/>
+                      <circle cx="21" cy="12" r="1.8"/><circle cx="18.4" cy="18.4" r="1.8"/>
+                      <circle cx="12" cy="21" r="1.8"/><circle cx="5.6" cy="18.4" r="1.8"/>
+                      <circle cx="3" cy="12" r="1.8"/><circle cx="5.6" cy="5.6" r="1.8"/>
+                    </svg>
+                    <span id="monitorStatus" class="monitor-status">Waiting</span>
+                  </span>
+                </summary>
+                <section class="call-monitor" aria-labelledby="callMonitorTitle">
+                  <div id="dialedProspect" class="dialed-prospect is-empty" aria-live="polite">
+                    <strong id="dialedProspectName">No one is being dialed</strong>
+                    <span id="dialedProspectBusiness" hidden></span>
+                  </div>
+                  <div class="monitor-waveform-block">
+                    <div class="monitor-subheading"><span>Prospect audio</span><output id="prospectAudioLevel">0%</output></div>
+                    <canvas id="prospectWaveform" height="42" role="img" aria-label="Live waveform for prospect audio"></canvas>
+                  </div>
+                  <div class="monitor-transcript-block">
+                    <div class="monitor-subheading"><span>Live transcript</span><span id="transcriptLiveStatus">Waiting for a pickup</span></div>
+                    <div id="liveTranscript" class="live-transcript" role="log" aria-live="polite" aria-relevant="additions text"><p class="transcript-empty">Transcript appears here as the prospect and agent speak.</p></div>
+                  </div>
+                  <details class="activity-log-disclosure">
+                    <summary class="monitor-subheading"><span>Recent activity</span><span id="activityCount">0 events</span></summary>
+                    <ol id="activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
+                  </details>
+                </section>
+              </details>
+              </div>
+              </div>
+              <aside id="prospectNotesShell" class="prospect-notes-shell" aria-label="Notes sidebar">
+                <button id="prospectNotesExpandTab" class="prospect-notes-expand-tab" type="button" hidden aria-label="Show notes panel">Notes</button>
+                <div id="prospectNotesResizeHandle" class="prospect-notes-resize-handle" role="separator" aria-orientation="vertical" aria-label="Drag to resize notes panel" tabindex="0"></div>
+                <div class="prospect-notes-inner">
+                  <div class="prospect-notes-shell-head">
+                    <span class="prospect-notes-shell-label">Notes</span>
+                    <button id="prospectNotesCollapse" class="prospect-notes-collapse" type="button" aria-expanded="true" aria-controls="prospectNotesPanel" aria-label="Collapse notes panel" title="Collapse notes panel">›</button>
+                  </div>
+              <div id="prospectNotesPanel" class="prospect-notes-panel">
+                <section class="prospect-notes-active" aria-labelledby="prospectNotesTitle">
+                  <div class="prospect-notes-panel-head">
+                    <h3 id="prospectNotesTitle">Notes</h3>
+                    <span id="prospectNotesSaveState" class="prospect-notes-save-state" aria-live="polite"></span>
+                  </div>
+                  <p id="prospectNotesTarget" class="prospect-notes-target">No prospect on the line</p>
+                  <textarea id="prospectNotesEditor" class="prospect-notes-editor" rows="10" placeholder="Notes for the active prospect…"></textarea>
+                </section>
+                <section class="send-info-tracker" aria-labelledby="sendInfoNotesTitle">
+                  <div class="send-info-tracker-head">
+                    <h3 id="sendInfoNotesTitle">Send info</h3>
+                    <span id="sendInfoProspectsCount" class="send-info-prospects-count" aria-live="polite"></span>
+                  </div>
+                  <div id="sendInfoProspectsList" class="send-info-prospects-list" role="list"></div>
+                </section>
+              </div>
+                </div>
+              </aside>
+            </section>﻿<section id="aiDialerAgentTabPanel" class="ai-call-center dashboard-tab-panel" role="tabpanel" aria-labelledby="aiDialerAgentTabButton" tabindex="0" hidden>
+  <div class="ai-call-center-fleet" id="aiDialerAgent-fleetView">
+    <header class="ai-call-center-fleet-head">
+      <div>
+        <h2 class="ai-call-center-title">AI call center</h2>
+        <p class="ai-call-center-lede">Each tile is a dialer agent seat. Open one to run the desk, live conversation, and agent prompt.</p>
       </div>
-
-      <aside id="workflowNodeView" class="workflow-node-view" aria-label="Node view">
-        <header class="workflow-node-view-header">
-          <h3 id="workflowNodeViewTitle" class="workflow-node-view-title">Node view</h3>
-        </header>
-        <div id="workflowNodeViewBody" class="workflow-node-view-body">
-          <p class="workflow-node-view-empty">Select a node, edge, or lead on the canvas to inspect it here.</p>
-        </div>
-      </aside>
-    </div>
-
-    <footer class="workflow-funnel-bar" aria-label="Campaign funnel">
-      <div class="workflow-funnel-scope">
-        <button type="button" class="workflow-funnel-toggle is-active" data-funnel-scope="campaign" aria-pressed="true">Campaign</button>
-        <button type="button" class="workflow-funnel-toggle" data-funnel-scope="today" aria-pressed="false">Today</button>
-      </div>
-      <div class="workflow-funnel-steps" role="list">
-        <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label" title="Dial = call placed to a campaign member.">Dials</span>
-          <strong id="workflowFunnelDials" class="workflow-funnel-step-value">0</strong>
-        </div>
-        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
-        <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label" title="Pickup = answered by a person (not voicemail).">Pickups</span>
-          <strong id="workflowFunnelPickups" class="workflow-funnel-step-value">0</strong>
-          <span class="workflow-funnel-rate" id="workflowFunnelRatePickups">—</span>
-        </div>
-        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
-        <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label" title="Conversation = stayed on the line past the first question.">Conversations</span>
-          <strong id="workflowFunnelConversations" class="workflow-funnel-step-value">0</strong>
-          <span class="workflow-funnel-rate" id="workflowFunnelRateConversations">—</span>
-        </div>
-        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
-        <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label" title="Qualified = meets your criteria and is ready for a human callback.">Qualified</span>
-          <strong id="workflowFunnelQualified" class="workflow-funnel-step-value">0</strong>
-          <span class="workflow-funnel-rate" id="workflowFunnelRateQualified">—</span>
-        </div>
-        <span class="workflow-funnel-arrow" aria-hidden="true">→</span>
-        <div class="workflow-funnel-step" role="listitem">
-          <span class="workflow-funnel-step-label" title="Booked = walkthrough scheduled (CRM stage, not set by AI).">Booked</span>
-          <strong id="workflowFunnelBooked" class="workflow-funnel-step-value">0</strong>
-          <span class="workflow-funnel-rate" id="workflowFunnelRateBooked">—</span>
-        </div>
-      </div>
-    </footer>
+      <button type="button" id="aiDialerAgent-newAgentButton" class="button button-primary">New agent</button>
+    </header>
+    <div id="aiDialerAgent-fleetGrid" class="ai-agent-fleet-grid" role="list" aria-label="AI dialer agents"></div>
   </div>
 
-  <dialog id="workflowCampaignImportDialog" class="workflow-agent-dialog workflow-import-dialog" aria-labelledby="workflowCampaignImportTitle">
-    <form method="dialog" class="workflow-agent-dialog-form workflow-import-form">
-      <h3 id="workflowCampaignImportTitle">Import into campaign</h3>
-      <p id="workflowCampaignImportSummary" class="workflow-import-summary"></p>
-      <div class="workflow-import-warnings-wrap" hidden>
-        <h4 class="workflow-import-warnings-heading">Warnings</h4>
-        <ul id="workflowCampaignImportWarnings" class="workflow-import-warnings"></ul>
+  <div class="ai-call-center-detail" id="aiDialerAgent-detailView" hidden>
+    <header class="ai-agent-detail-head">
+      <button type="button" id="aiDialerAgent-backToFleet" class="button button-quiet ai-back-fleet">← All agents</button>
+      <div class="ai-agent-detail-titles">
+        <h2 id="aiDialerAgent-detailAgentName" class="ai-call-center-title">Agent</h2>
+        <p id="aiDialerAgent-detailAgentTitle" class="ai-call-center-lede">AI dialer</p>
       </div>
-      <div class="workflow-agent-dialog-actions">
-        <button id="workflowCampaignImportCancel" class="button button-quiet" type="button">Cancel</button>
-        <button id="workflowCampaignImportConfirm" class="button button-primary" type="button">Import</button>
+      <div class="ai-agent-detail-actions">
+        <button type="button" id="aiDialerAgent-detailDuplicate" class="button button-quiet">Duplicate</button>
+        <button type="button" id="aiDialerAgent-detailDelete" class="button button-quiet">Delete</button>
       </div>
-    </form>
-  </dialog>
+      <p id="aiDialerAgent-slotNotice" class="ai-slot-notice" hidden>This seat is a preview slot — only the live-line agent runs your Twilio session today.</p>
+    </header>
 
-  <dialog id="workflowNodeInfoDialog" class="workflow-agent-dialog workflow-node-info-dialog">
-    <form method="dialog" class="workflow-agent-dialog-form">
-      <h3 id="workflowNodeInfoTitle">Node</h3>
-      <div id="workflowNodeInfoBody" class="workflow-node-info-body"></div>
-      <div class="workflow-agent-dialog-actions">
-        <button class="button button-quiet" value="cancel">Close</button>
+    <div class="ai-workspace" id="aiDialerAgent-workspace">
+      <div class="ai-workspace-tabbar" role="tablist" aria-label="Agent workspace" id="aiDialerAgent-workspaceTablist"></div>
+      <div class="ai-workspace-panels" id="aiDialerAgent-workspacePanels">
+
+        <section
+          class="ai-workspace-panel"
+          id="aiDialerAgent-panel-desk"
+          role="tabpanel"
+          aria-labelledby="aiDialerAgent-tab-desk"
+          data-workspace-tab="desk"
+        >
+          <div class="ai-agent-detail-layout">
+            <aside class="ai-desk-frame dialer-document" aria-label="Agent desk">
+              <section class="ai-desk-compact ai-dialer-menu" aria-label="Dialer controls">
+                <div class="ai-desk-compact-head">
+                  <span class="live-indicator"><i></i><span id="aiDialerAgent-liveLabel">Standby</span></span>
+                  <span id="aiDialerAgent-dialerStatusHeadline" class="ai-desk-status">Ready to start</span>
+                </div>
+                <div id="aiDialerAgent-dialerMessage" class="dialer-message ai-desk-message" role="status" hidden></div>
+                <div class="ai-desk-compact-controls dialer-controls" data-controls="idle">
+                  <button id="aiDialerAgent-startButton" class="button button-primary" type="button" disabled>Start</button>
+                  <button id="aiDialerAgent-stopButton" class="button button-quiet" type="button" disabled hidden>Stop</button>
+                </div>
+                <details class="ai-desk-more">
+                  <summary>Pool &amp; lines</summary>
+                  <p class="ai-agent-pool-note">Agent pool: <strong id="aiDialerAgent-agentPoolCount">0</strong></p>
+                  <p class="ai-global-pool-note">Global pool: <strong id="aiDialerAgent-globalPoolCount">0</strong></p>
+                  <span id="aiDialerAgent-lineCount" class="line-count ai-desk-line-count">0 of 0 dialed</span>
+                  <div class="ai-desk-pool-actions">
+                    <button type="button" id="aiDialerAgent-claimPoolButton" class="button button-quiet">Claim pool</button>
+                    <button type="button" id="aiDialerAgent-releasePoolButton" class="button button-quiet">Release</button>
+                  </div>
+                  <section class="queue-strip ai-queue-strip" aria-label="Power lines">
+                    <div id="aiDialerAgent-activeCall" class="power-lines ai-power-lines"></div>
+                  </section>
+                  <ol id="aiDialerAgent-agentQueueList" class="ai-agent-queue-list" aria-label="Agent dialer pool queue"></ol>
+                </details>
+              </section>
+            </aside>
+
+            <section class="ai-live-console" aria-label="Live conversation">
+              <div class="ai-live-console-head">
+                <h3 class="ai-panel-label">Live conversation</h3>
+                <div class="ai-live-console-actions">
+                  <span id="aiDialerAgent-transcriptLiveStatus" class="ai-live-pill">Waiting for a pickup</span>
+                  <button type="button" id="aiDialerAgent-listenInButton" class="button button-quiet ai-listen-in" disabled>Listen in</button>
+                </div>
+              </div>
+
+              <div class="ai-live-viewport">
+                <div id="aiDialerAgent-chatTranscript" class="ai-chat-thread" role="log" aria-live="polite" aria-label="Live call transcript">
+                  <p class="transcript-empty">Conversation appears here as agent and prospect speak.</p>
+                </div>
+                <div class="ai-waveform-rail" aria-hidden="true">
+                  <canvas id="aiDialerAgent-prospectWaveform" height="48" width="640" role="img" aria-label="Live audio activity"></canvas>
+                  <output id="aiDialerAgent-prospectAudioLevel" class="visually-hidden">0%</output>
+                </div>
+              </div>
+
+              <details class="activity-log-disclosure ai-activity-log">
+                <summary class="monitor-subheading"><span>Recent activity</span><span id="aiDialerAgent-activityCount">0 events</span></summary>
+                <ol id="aiDialerAgent-activityLog" class="activity-log" aria-label="Recent web, API, and call events"><li class="monitor-empty">Waiting for dialer activity.</li></ol>
+              </details>
+            </section>
+          </div>
+
+          <section class="ai-today-board" aria-labelledby="aiDialerAgent-todayDialsCaption">
+            <h3 id="aiDialerAgent-todayDialsCaption" class="ai-panel-label">Prospects dialed today</h3>
+            <div class="ai-today-table-wrap">
+              <table class="crm-table ai-today-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Business</th>
+                    <th scope="col">CRM status</th>
+                    <th scope="col">Transcript</th>
+                    <th scope="col">Location</th>
+                  </tr>
+                </thead>
+                <tbody id="aiDialerAgent-todayDialsBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section
+          class="ai-workspace-panel"
+          id="aiDialerAgent-panel-playbook"
+          role="tabpanel"
+          aria-labelledby="aiDialerAgent-tab-playbook"
+          data-workspace-tab="playbook"
+          hidden
+        >
+          <form id="aiDialerAgent-playbookForm" class="ai-playbook-editor ai-prompt-editor" autocomplete="off">
+            <p id="aiDialerAgent-playbookSaveStatus" class="ai-playbook-save-status" role="status" aria-live="polite"></p>
+            <details id="aiDialerAgent-playbookBakedDetails" class="ai-playbook-baked-details" hidden>
+              <summary>Prepared instructions (what runs on calls)</summary>
+              <pre id="aiDialerAgent-playbookCompiledPreview" class="ai-playbook-step-preview"></pre>
+            </details>
+            <textarea
+              id="aiDialerAgent-playbookPrompt"
+              class="ai-prompt-surface ai-prompt-surface--full"
+              spellcheck="true"
+              aria-label="Agent call prompt"
+              placeholder="Write everything the agent should know: persona, steps, dialogue, actions, guardrails…"
+            ></textarea>
+          </form>
+        </section>
+
+        <section
+          class="ai-workspace-panel ai-sandbox-panel"
+          id="aiDialerAgent-panel-sandbox"
+          role="tabpanel"
+          aria-labelledby="aiDialerAgent-tab-sandbox"
+          data-workspace-tab="sandbox"
+          hidden
+        >
+          <header class="ai-sandbox-head">
+            <div>
+              <h3 class="ai-panel-label">Sandbox</h3>
+              <p id="aiDialerAgent-sandboxVoiceStatus" class="ai-sandbox-hint">Rehearse as the prospect — live voice or text-only chat.</p>
+            </div>
+            <div class="ai-sandbox-controls dialer-controls">
+              <button type="button" id="aiDialerAgent-sandboxStartButton" class="button button-primary">Start</button>
+              <button type="button" id="aiDialerAgent-sandboxStopButton" class="button button-quiet" disabled hidden>Stop</button>
+            </div>
+          </header>
+
+          <fieldset class="ai-sandbox-mode" id="aiDialerAgent-sandboxModeFieldset" aria-label="Sandbox interaction mode">
+            <legend class="ai-sandbox-mode-legend">Mode</legend>
+            <label class="ai-sandbox-mode-option">
+              <input type="radio" name="aiDialerAgent-sandboxMode" id="aiDialerAgent-sandboxModeVoice" value="voice" checked>
+              <span>Live voice</span>
+            </label>
+            <label class="ai-sandbox-mode-option">
+              <input type="radio" name="aiDialerAgent-sandboxMode" id="aiDialerAgent-sandboxModeText" value="text">
+              <span>Text chat (agent still speaks)</span>
+            </label>
+          </fieldset>
+
+          <section class="ai-sandbox-audio-test" id="aiDialerAgent-sandboxAudioTest" aria-label="Mic level and headphone check only">
+            <h4 class="ai-sandbox-audio-title">Mic level check (not the sandbox call)</h4>
+            <p class="ai-sandbox-hint">Use this before Start to confirm input volume and headphones. It does not talk to the agent.</p>
+            <div class="ai-sandbox-audio-actions">
+              <button type="button" id="aiDialerAgent-sandboxTestMic" class="button button-quiet">Check mic level</button>
+              <button type="button" id="aiDialerAgent-sandboxTestHeadphones" class="button button-quiet">Test headphones</button>
+            </div>
+            <p id="aiDialerAgent-sandboxAudioTestStatus" class="ai-sandbox-hint" role="status"></p>
+            <span id="aiDialerAgent-sandboxMicMeter" class="ai-sandbox-mic-pill">Input level 0%</span>
+            <audio id="aiDialerAgent-sandboxTestPlayback" class="ai-sandbox-test-playback" hidden controls></audio>
+          </section>
+          <audio id="aiDialerAgent-sandboxAgentPlayback" class="ai-sandbox-agent-playback" hidden autoplay playsinline></audio>
+
+          <div class="ai-live-viewport ai-sandbox-viewport">
+            <div id="aiDialerAgent-sandboxTranscript" class="ai-chat-thread" role="log" aria-live="polite" aria-label="Sandbox transcript">
+              <p class="transcript-empty">Start the sandbox to rehearse with the agent.</p>
+            </div>
+            <form id="aiDialerAgent-sandboxComposer" class="ai-sandbox-composer" hidden>
+              <p id="aiDialerAgent-sandboxComposerHint" class="ai-sandbox-hint">You are the prospect — type a line or use your mic.</p>
+              <div class="ai-sandbox-compose-row">
+                <textarea id="aiDialerAgent-sandboxInput" rows="2" maxlength="2000" placeholder="Type what the prospect says…" aria-label="Prospect message" disabled></textarea>
+                <div class="ai-sandbox-compose-actions">
+                  <button type="submit" id="aiDialerAgent-sandboxSend" class="button button-primary" disabled>Send</button>
+                </div>
+              </div>
+            </form>
+            <div class="ai-waveform-rail" id="aiDialerAgent-sandboxWaveformRail" aria-hidden="true">
+              <canvas id="aiDialerAgent-sandboxWaveform" height="48" width="640" role="img" aria-label="Sandbox mic activity"></canvas>
+              <output id="aiDialerAgent-sandboxAudioLevel" class="visually-hidden">0%</output>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="aiDialerAgent-createDialog" class="ai-agent-create-dialog">
+    <form id="aiDialerAgent-createForm" class="ai-agent-create-form" method="dialog">
+      <h3 class="ai-agent-create-title">New agent seat</h3>
+      <label class="form-field"><span>Name</span><input id="aiDialerAgent-createName" name="name" autocomplete="off" required maxlength="80" placeholder="e.g. Sam"></label>
+      <label class="form-field"><span>Role</span><input id="aiDialerAgent-createTitle" name="title" autocomplete="off" maxlength="120" placeholder="Appointment setter"></label>
+      <div class="ai-agent-create-actions">
+        <button type="button" id="aiDialerAgent-createCancel" class="button button-quiet">Cancel</button>
+        <button type="submit" class="button button-primary">Create</button>
       </div>
     </form>
   </dialog>
-</div>            <div id="pipelineTabPanel" class="dashboard-tab-panel pool-tab-panel pipeline-tab-panel" role="tabpanel" aria-labelledby="pipelineTabButton" hidden>
-              <section class="pipeline-board-panel" aria-label="Send info pipeline">
-                <div class="pipeline-board-toolbar">
-                  <div>
-                    <h2 id="pipelineViewHeading">Pipeline</h2>
-                    <p class="pipeline-board-lede">Callbacks sit in Dialed, Send info in Contacted (engaged), then follow the sequence. Drag cards to move steps; timers restart on each move.</p>
+</section>
+<dialog id="sessionSummaryDialog" class="session-summary-dialog" aria-labelledby="sessionSummaryTitle">
+      <section class="session-summary-content">
+        <div class="dialog-heading"><div><div class="eyebrow">SESSION COMPLETE</div><h2 id="sessionSummaryTitle">Your call session</h2></div><button id="closeSessionSummary" class="dialog-close" type="button" aria-label="Close summary">×</button></div>
+        <p id="sessionSummaryDuration" class="summary-duration"></p>
+        <div id="sessionSummaryStats" class="summary-stats"></div>
+        <p id="sessionComparison" class="session-comparison" hidden></p>
+        <div class="dialog-actions"><button id="startNewSession" class="button button-primary" type="button">Start new session</button></div>
+      </section>
+    </dialog>
+<div id="dialsTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="dialsTabButton" hidden>
+                <section class="pool-table-panel" aria-label="Total dials">
+                  <div class="pool-table-toolbar">
+                    <div>
+                      <h2 id="dialsViewHeading">Total dials</h2>
+                      <span id="dialsTableSummary" class="pool-table-summary">0 dials</span>
+                    </div>
+                    <div class="dials-subnav" role="tablist" aria-label="Total dials views">
+                      <button id="dialsCurrentViewButton" class="dials-subnav-link is-active" type="button" role="tab" aria-selected="true" data-dials-subview="current">Current record</button>
+                      <button id="dialsGalleryViewButton" class="dials-subnav-link" type="button" role="tab" aria-selected="false" data-dials-subview="gallery">Saved records</button>
+                    </div>
+                    <div class="pool-table-actions">
+                      <button id="backfillNewDialCallbacksButton" class="button button-quiet" type="button">Fix New → 2h callback</button>
+                      <button id="backfillNov5StaticCallbacksButton" class="button button-quiet" type="button">Nov 5 → static callback</button>
+                      <button id="saveDialsRecordButton" class="button button-quiet" type="button">Save &amp; new record</button>
+                      <button id="importDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↑</span>Import CSV</button>
+                      <input id="dialsCsvInput" type="file" accept=".csv,text/csv" hidden>
+                      <button id="exportDialsButton" class="button button-quiet" type="button"><span class="button-symbol" aria-hidden="true">↓</span>Export CSV</button>
+                    </div>
                   </div>
-                  <span id="pipelineBoardSummary" class="pool-table-summary" aria-live="polite">0 on board</span>
-                </div>
-                <details id="pipelineStepsEditor" class="pipeline-steps-editor">
-                  <summary>Edit steps after Contacted (engaged)</summary>
-                  <p class="pipeline-editor-hint">Dialed and Contacted (engaged) stay fixed. Add, remove, rename, or set wait hours (timer before the card is “ready” and can move forward). Key turns into a safe id for you (e.g. <span class="pipeline-key-example">Follow up #2</span> → <span class="pipeline-key-example">follow_up_2</span>) when you leave the field or save. Saving updates columns for everyone on this account.</p>
-                  <div id="pipelineStepsEditorList" class="pipeline-editor-list" aria-label="Custom pipeline steps"></div>
-                  <div class="pipeline-editor-actions">
-                    <button id="pipelineAddStepButton" class="button button-quiet" type="button">Add step</button>
-                    <label class="pipeline-migrate-label"><input id="pipelineMigrateLeadsInput" type="checkbox"> Move prospects off columns you remove (Callbacks → Dialed, Send info → Contacted (engaged))</label>
-                    <button id="pipelineSaveStepsButton" class="button button-primary" type="button">Save pipeline</button>
+                  <div id="dialsCurrentPanel" class="dials-view-panel">
+                    <div class="table-scroll pool-table-scroll" role="region" aria-label="Dial history" tabindex="0">
+                      <table id="dialsTable"><thead><tr><th>When</th><th>Prospect</th><th>Phone</th><th>Business</th><th>Reviews</th><th>Notes</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsTableBody"></tbody></table>
+                      <div id="dialsTableEmpty" class="empty-state"><h2>No dials yet</h2><p>Calls and skips show up here, newest first.</p></div>
+                    </div>
                   </div>
-                </details>
-                <div id="pipelineBoard" class="pipeline-board" role="list"></div>
-                <div id="pipelineBoardEmpty" class="empty-state pipeline-board-empty" hidden>
-                  <h2>No Send info prospects yet</h2>
-                  <p>Callbacks appear in Dialed. Send info prospects appear in Contacted (engaged).</p>
-                </div>
-              </section>
-            </div>
+                  <div id="dialsGalleryPanel" class="dials-view-panel" hidden>
+                    <div id="dialsGalleryToolbar" class="dials-gallery-toolbar" hidden>
+                      <button id="dialsGalleryBackButton" class="button button-quiet" type="button">← All saved records</button>
+                      <span id="dialsGalleryRecordTitle" class="dials-gallery-record-title"></span>
+                    </div>
+                    <div id="dialsRecordsGallery" class="dials-records-gallery" role="list" aria-label="Saved dial records"></div>
+                    <div id="dialsRecordsGalleryEmpty" class="empty-state"><h2>No saved records</h2><p>Save the current record to start a fresh dial log while keeping past lists here.</p></div>
+                    <div id="dialsSavedRecordPanel" class="dials-view-panel" hidden>
+                      <div class="table-scroll pool-table-scroll" role="region" aria-label="Saved dial record" tabindex="0">
+                        <table id="dialsSavedTable"><thead><tr><th>When</th><th>Prospect</th><th>Phone</th><th>Business</th><th>Reviews</th><th>Notes</th><th>Call transcript</th><th>Status</th></tr></thead><tbody id="dialsSavedTableBody"></tbody></table>
+                        <div id="dialsSavedTableEmpty" class="empty-state"><h2>No dials in this record</h2></div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
               <div id="prospectsTabPanel" class="dashboard-tab-panel prospects-tab-panel" role="tabpanel" aria-labelledby="prospectsTabButton" hidden>
                 <section class="crm-table-panel" aria-label="Prospect table">
                   <div class="table-toolbar">
@@ -301,8 +491,20 @@
                       <p>Import a CSV or add a prospect to start your workspace.</p>
                     </div>
                   </div>
-                  <button id="crmTableLoadMore" type="button" class="button button-quiet crm-table-load-more" hidden>Load more</button>
                   <div class="table-footer"><span id="tableSummary">0 prospects</span><button id="deleteSelectedButton" class="button button-danger-quiet table-delete-button" type="button" hidden>Delete selected</button><span id="saveState">All changes saved</span></div>
+                </section>
+              </div>
+              <div id="poolTabPanel" class="dashboard-tab-panel pool-tab-panel" role="tabpanel" aria-labelledby="poolTabButton" hidden>
+                <section class="pool-table-panel" aria-label="Eligible new prospects">
+                  <div class="pool-table-toolbar">
+                    <div><h2>Caller pool</h2><span id="poolTableSummary" class="pool-table-summary">0 new prospects</span></div>
+                    <label class="pool-status-filter"><span>Pool</span><select id="poolStatusFilter" aria-label="Filter caller pool by CRM status"></select></label>
+                    <label class="pool-timezone-filter"><span>Timezone</span><select id="poolTimezoneFilter" aria-label="Filter caller pool by timezone"><option value="">All time zones</option></select></label>
+                  </div>
+                  <div class="table-scroll pool-table-scroll" role="region" aria-label="New prospect pool table" tabindex="0">
+                    <table id="poolTable"><thead><tr><th>Prospect</th><th>Company</th><th>Phone</th><th>Timezone</th><th>Status</th><th>Notes</th><th>Transcript</th></tr></thead><tbody id="poolTableBody"></tbody></table>
+                    <div id="poolTableEmpty" class="empty-state"><h2>No eligible prospects</h2><p id="poolTableEmptyHint">Only prospects in the selected pool status appear here.</p></div>
+                  </div>
                 </section>
               </div>
           </div>
@@ -324,11 +526,46 @@
       </section>
     </dialog><dialog id="settingsDialog" class="settings-dialog">
       <form id="settingsForm" method="dialog">
-        <div class="dialog-heading"><div><div class="eyebrow">ACCOUNT</div><h2>Workspace settings</h2></div><button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">×</button></div>
+        <div class="dialog-heading"><div><div class="eyebrow">ACCOUNT</div><h2>Dialer settings</h2></div><button id="closeSettings" class="dialog-close" type="button" aria-label="Close settings">×</button></div>
+
+        <section class="audio-settings audio-settings-first" aria-labelledby="audioSettingsTitle">
+          <div class="audio-section-heading"><div class="eyebrow">COMPUTER AUDIO</div><h3 id="audioSettingsTitle">Devices &amp; test</h3></div>
+          <div class="audio-device-grid">
+            <label class="form-field"><span>Microphone</span><select id="audioInputSelect" aria-label="Microphone device"><option value="default">System default</option></select></label>
+            <label class="form-field"><span>Speakers / headphones</span><select id="audioOutputSelect" aria-label="Speaker or headphone device"><option value="default">System default</option></select></label>
+          </div>
+          <div class="audio-test-actions">
+            <button id="refreshAudioDevices" class="button button-quiet" type="button">Refresh devices</button>
+            <button id="startMicTest" class="button button-secondary" type="button">Test microphone</button>
+            <button id="stopMicTest" class="button button-quiet" type="button" disabled>Stop &amp; play back</button>
+            <button id="outputTestButton" class="button button-secondary" type="button">Test output</button>
+          </div>
+          <div class="mic-level-row"><span>Live microphone level</span><span id="micQualityStatus">Speak to test</span><output id="micLevelValue">0%</output></div>
+          <div id="microphoneLevel" class="mic-level" role="meter" aria-label="Live microphone level" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="microphoneLevelBar"></span></div>
+          <label class="form-field audio-volume-field"><span>Test playback volume <output id="testVolumeValue">70%</output></span><input id="testVolumeInput" type="range" min="10" max="100" value="70"></label>
+          <p id="audioTestStatus" class="audio-test-status" role="status">Mic samples stay in this browser. Playback uses the selected output.</p>
+          <audio id="audioPlayback" controls hidden playsinline></audio>
+          <audio id="outputTestPlayback" hidden playsinline></audio>
+        </section>
+
+        <section class="call-flow-settings" aria-labelledby="callFlowSettingsTitle">
+          <div class="audio-section-heading"><div class="eyebrow">CALL FLOW</div><h3 id="callFlowSettingsTitle">Session preferences</h3></div>
+          <label class="form-field"><span>Session conversation goal</span><input id="sessionGoalInput" type="number" min="1" max="1000"></label>
+          <label class="form-field"><span>Conversation threshold (seconds)</span><input id="conversationThresholdInput" type="number" min="1" max="3600"></label>
+          <label class="form-field"><span>Auto-advance delay (seconds)</span><input id="autoAdvanceDelayInput" type="number" min="0" max="60"></label>
+          <div class="audio-device-grid">
+            <label class="form-field"><span>Calling starts (local hour, 0–23)</span><input id="callingStartHourInput" type="number" min="0" max="23"></label>
+            <label class="form-field"><span>Calling ends (local hour, 1–24)</span><input id="callingEndHourInput" type="number" min="1" max="24"></label>
+          </div>
+          <label class="form-field"><span>Break nudge interval (minutes)</span><input id="breakNudgeInput" type="number" min="1" max="720"></label>
+          <label class="form-field"><span>Opener / talking points</span><textarea id="openingScriptInput" rows="3" maxlength="2000" placeholder="A short opener and reminders for this session"></textarea></label>
+          <label class="sound-setting"><input id="soundsEnabledInput" type="checkbox"> Connect and booked sounds</label>
+          <label class="form-field"><span>Sound volume <output id="soundVolumeValue">35%</output></span><input id="soundVolumeInput" type="range" min="0" max="100"></label>
+        </section>
 
         <section class="settings-api-stack" aria-labelledby="settingsIntegrationsTitle">
           <div class="audio-section-heading"><div class="eyebrow">INTEGRATIONS</div><h3 id="settingsIntegrationsTitle">APIs &amp; advanced</h3></div>
-          <p class="form-footnote settings-api-hint">Twilio and AI keys are saved to your account. Expand a section only when you need to change it.</p>
+          <p class="form-footnote settings-api-hint">Twilio, AI keys, and bridge settings are saved to your account. Expand a section only when you need to change it.</p>
           <details class="settings-collapsible">
             <summary>Twilio &amp; callbacks</summary>
             <div class="arcade-settings-content">
@@ -358,11 +595,32 @@
               <p class="form-footnote">Expose the bridge WSS (tunnel or embedded on port 8766). Same secret here and on the bridge process.</p>
             </div>
           </details>
+          <details class="settings-collapsible arcade-settings">
+            <summary>UI gamification</summary>
+            <div class="arcade-settings-content">
+              <p class="form-footnote">Sensory feedback runs only in this browser and never changes call timing.</p>
+              <label class="sound-setting"><input id="arcadeEnabledInput" type="checkbox"> Enable arcade feedback</label>
+              <label class="sound-setting"><input id="arcadeReelsInput" type="checkbox"> Reel animations</label>
+              <label class="sound-setting"><input id="arcadeSoundInput" type="checkbox"> Arcade sound effects</label>
+              <label class="form-field"><span>Arcade sound volume <output id="arcadeVolumeValue">35%</output></span><input id="arcadeVolumeInput" type="range" min="0" max="100" value="35"></label>
+              <label class="sound-setting"><input id="arcadeShakeInput" type="checkbox"> Screen shake</label>
+              <label class="sound-setting"><input id="arcadeHapticsInput" type="checkbox"> Haptic feedback (compatible devices)</label>
+            </div>
+          </details>
         </section>
 
         <div class="dialog-actions"><button id="cancelSettings" class="button button-quiet" type="button">Cancel</button><button class="button button-primary" type="submit">Save settings</button></div>
       </form>
     </dialog>    
+    <canvas id="arcadeParticles" class="arcade-particles" aria-hidden="true"></canvas>
+
+    
+
+    
+
+    
+
+
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 </body>

@@ -1,6 +1,8 @@
 import { byId } from "../../_core/format.js";
 import { state } from "../../_core/state.js";
 import { renderTranscriptEntries } from "../../_core/transcript.js";
+import { bindSessionSummary } from "../dialer.js";
+
 export function openTranscript(lead) {
   const entries = lead.transcript || [];
   byId("transcriptDialogTitle").textContent = `${lead.name || lead.business || lead.phone} · Transcript`;
@@ -39,4 +41,5 @@ export function bindDialogs() {
     const lead = state.leads.find((item) => item.id === byId("downloadTranscriptButton").dataset.leadId);
     if (lead) downloadTranscript(lead);
   });
+  bindSessionSummary();
 }

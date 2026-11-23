@@ -1,0 +1,46 @@
+import { postJson } from "../../_core/api.js";
+import { applyLeadsCatalog, applyMutationPayload, fetchLeadsCatalog } from "../../_core/sync-state.js";
+import { showToast } from "../../_core/notify.js";
+import { render } from "../../core.js";
+
+export async function selectTimezone(timezone) {
+  try {
+    await applyMutationPayload({ state: await postJson("/api/timezone", { timezone: timezone || "" }) });
+    render();
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+export async function selectDialPoolStatus(poolStatus) {
+  try {
+    await applyMutationPayload({ state: await postJson("/api/timezone", { pool_status: poolStatus }) });
+    applyLeadsCatalog(await fetchLeadsCatalog());
+    render();
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+export async function selectDialBusinessType(businessType) {
+  try {
+    await applyMutationPayload({
+      state: await postJson("/api/timezone", { business_type: businessType || "" }),
+    });
+    render();
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+export async function selectCallerIdGroup(group) {
+  try {
+    await applyMutationPayload({
+      state: await postJson("/api/caller-id-group", { caller_id_group: group }),
+    });
+    render();
+  } catch (error) {
+    showToast(error.message, true);
+    render();
+  }
+}

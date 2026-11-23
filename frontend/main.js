@@ -1,20 +1,17 @@
 import { bindDebugListeners } from "./_core/api.js";
 import { bindAuth, initAuth, showLoginGate } from "./features/auth.js";
 import { bindNavigation, renderTable } from "./core.js";
-import "./features/pipeline.js";
-import { bindWorkflow } from "./features/workflow.js";
+import { bindCallMonitor, bindDialer, bindKeyboard, bindSessionGoal, bindVoice, startPolling } from "./features/dialer.js";
 import { bindAddProspect, bindCsv, bindDialogs, bindProspectMenu, bindProspects } from "./features/prospects.js";
 import { bindSettings } from "./features/settings.js";
-import { byId, startStatusClock } from "./_core/format.js";
+import { arcadeSensory, startArcade } from "./features/arcade.js";
+import { byId, setDialerText, startStatusClock } from "./_core/format.js";
 import { bindClientMemoryLifecycle } from "./_core/memory.js";
-import { wipeClientCatalogMemory } from "./_core/sync-state.js";
-import { startPolling } from "./_core/poller.js";
 
-wipeClientCatalogMemory();
 bindClientMemoryLifecycle();
 bindDebugListeners();
 startStatusClock();
-bindWorkflow();
+startArcade();
 bindDialogs();
 bindProspects();
 bindAddProspect();
@@ -27,6 +24,20 @@ byId("stateFilter").addEventListener("change", renderTable);
 for (const id of ["minTotalReviews", "maxTotalReviews", "minRecentReviews"]) {
   byId(id).addEventListener("input", renderTable);
 }
+bindCallMonitor();
+bindSessionGoal();
+bindDialer();
+bindKeyboard();
+byId("arcadeEnabledInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ enabled: event.target.checked }));
+byId("arcadeReelsInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ reels: event.target.checked }));
+byId("arcadeSoundInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ sound: event.target.checked }));
+byId("arcadeVolumeInput").addEventListener("input", (event) => {
+  setDialerText("arcadeVolumeValue", `${event.target.value}%`);
+  arcadeSensory.updatePreferences({ volume: Number(event.target.value) });
+});
+byId("arcadeShakeInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ shake: event.target.checked }));
+byId("arcadeHapticsInput").addEventListener("change", (event) => arcadeSensory.updatePreferences({ haptics: event.target.checked }));
+bindVoice();
 bindAuth();
 initAuth()
   .catch((error) => showLoginGate(error.message || "Could not start sign-in."))

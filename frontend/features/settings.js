@@ -1,4 +1,5 @@
-import { postJson, render, request, SECRET_INPUTS, byId, showToast, state } from "../core.js";
+import { arcadeSensory } from "./arcade.js";
+import { postJson, refreshAudioDevices, render, request, SECRET_INPUTS, S, byId, setText, showToast, state, stopMicrophoneTest } from "../core.js";
 
 const SECRET_FIELDS = SECRET_INPUTS;
 const SAVED_SECRET_PLACEHOLDER = "Saved — leave blank to keep";
@@ -34,6 +35,13 @@ export function applySavedSettings(settings) {
   showSecretField("apiSecretInput", settings.has_api_secret);
   byId("twimlAppSidInput").value = settings.twiml_app_sid || "";
   byId("publicUrlInput").value = settings.public_base_url || "";
+  byId("sessionGoalInput").value = settings.session_goal;
+  byId("conversationThresholdInput").value = settings.conversation_threshold;
+  byId("autoAdvanceDelayInput").value = settings.auto_advance_delay;
+  byId("callingStartHourInput").value = settings.calling_start_hour;
+  byId("callingEndHourInput").value = settings.calling_end_hour;
+  byId("breakNudgeInput").value = settings.break_nudge_minutes;
+  byId("openingScriptInput").value = settings.opening_script || "";
   byId("aiBridgeWssInput").value = settings.ai_bridge_wss_url || "";
   byId("aiBridgeAppInput").value = settings.ai_bridge_app_url || "http://127.0.0.1:8000";
   byId("aiBridgeSecretInput").value = "";
@@ -49,6 +57,9 @@ export function applySavedSettings(settings) {
   byId("aiBridgeEmbeddedInput").checked = Boolean(settings.ai_bridge_embedded);
   byId("aiVoicemailDropInput").checked = Boolean(settings.ai_voicemail_drop);
   byId("aiVoicemailMessageInput").value = settings.ai_voicemail_message || "";
+  byId("soundsEnabledInput").checked = settings.sounds_enabled;
+  byId("soundVolumeInput").value = settings.sound_volume;
+  setText("soundVolumeValue", `${settings.sound_volume}%`);
 }
 
 function maskSecrets() {
@@ -63,26 +74,13 @@ function maskSecrets() {
   }
 }
 
-function preservedDialerPreferences() {
-  const settings = state.settings || {};
-  return {
-    session_goal: settings.session_goal,
-    conversation_threshold: settings.conversation_threshold,
-    auto_advance_delay: settings.auto_advance_delay,
-    calling_start_hour: settings.calling_start_hour,
-    calling_end_hour: settings.calling_end_hour,
-    break_nudge_minutes: settings.break_nudge_minutes,
-    opening_script: settings.opening_script || "",
-    sounds_enabled: settings.sounds_enabled,
-    sound_volume: settings.sound_volume,
-  };
-}
-
 export async function openSettings() {
   try {
     const settings = await request("/api/settings");
     applySavedSettings(settings);
     maskSecrets();
+    arcadeSensory.syncControls();
+    await refreshAudioDevices();
     const dialog = byId("settingsDialog");
     dialog.showModal();
     applySavedSettings(settings);
@@ -94,13 +92,19 @@ export async function openSettings() {
 
 function settingsPayload() {
   return {
-    ...preservedDialerPreferences(),
     account_sid: byId("accountSidInput").value,
     auth_token: authTokenToSave(),
     api_key: byId("apiKeyInput").value,
     api_secret: byId("apiSecretInput").value,
     twiml_app_sid: byId("twimlAppSidInput").value,
     public_base_url: byId("publicUrlInput").value,
+    session_goal: byId("sessionGoalInput").value,
+    conversation_threshold: byId("conversationThresholdInput").value,
+    auto_advance_delay: byId("autoAdvanceDelayInput").value,
+    calling_start_hour: byId("callingStartHourInput").value,
+    calling_end_hour: byId("callingEndHourInput").value,
+    break_nudge_minutes: byId("breakNudgeInput").value,
+    opening_script: byId("openingScriptInput").value,
     ai_bridge_wss_url: byId("aiBridgeWssInput").value,
     ai_bridge_app_url: byId("aiBridgeAppInput").value,
     ai_bridge_secret: byId("aiBridgeSecretInput").value,
@@ -111,6 +115,8 @@ function settingsPayload() {
     ai_bridge_embedded: byId("aiBridgeEmbeddedInput").checked,
     ai_voicemail_drop: byId("aiVoicemailDropInput").checked,
     ai_voicemail_message: byId("aiVoicemailMessageInput").value,
+    sounds_enabled: byId("soundsEnabledInput").checked,
+    sound_volume: byId("soundVolumeInput").value,
   };
 }
 
@@ -140,6 +146,11 @@ export function bindSettings() {
       button.setAttribute("aria-label", `${reveal ? "Hide" : "Show"} ${noun}`);
     });
   }
+  byId("settingsDialog").addEventListener("close", () => {
+    if (S.micTestRecorder?.state === "recording") {
+      stopMicrophoneTest().catch((error) => showToast(error.message, true));
+    }
+  });
   byId("closeSettings").addEventListener("click", () => byId("settingsDialog").close());
   byId("cancelSettings").addEventListener("click", () => byId("settingsDialog").close());
   byId("settingsForm").addEventListener("submit", async (event) => {
@@ -158,12 +169,15 @@ export function bindSettings() {
       let detail = cartesiaSaved ? " Cartesia key is on file for AI speech." : "";
       if (voiceId) detail += ` Voice id …${voiceId.slice(-8)}.`;
       showToast(
-        (settings.account_email ? `Settings saved for ${settings.account_email}` : "Workspace settings saved") + detail,
+        (settings.account_email ? `Settings saved for ${settings.account_email}` : "Dialer settings saved") + detail,
       );
     } catch (error) {
       showToast(error.message, true);
     } finally {
       submit.disabled = false;
     }
+  });
+  byId("soundVolumeInput").addEventListener("input", (event) => {
+    setText("soundVolumeValue", `${event.target.value}%`);
   });
 }

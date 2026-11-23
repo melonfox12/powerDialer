@@ -1,45 +1,29 @@
 import { byId, setText } from "./format.js";
-import { renderTable } from "./registry.js";
+import { renderCallerPool, renderTable } from "./registry.js";
 import { render } from "./render.js";
-import {
-  ensureFullLeadsCatalog,
-  maybeReleaseFullLeadsCatalog,
-  needsFullLeadsCatalog,
-} from "./sync-state.js";
-import { wireSetDashboardTab } from "./dashboard-tab.js";
 import { S } from "./state.js";
-import { readTabFromUrl, syncWorkflowUrlToLocation } from "../features/_workflow/workflow-url.js";
+import { wireSetDashboardTab } from "./dashboard-tab.js";
 
-/** Loaded on demand so navigation does not import feature modules that re-import `core.js` (cycle breaks tab binds). */
-function releaseProspectsTableDomIfLoaded() {
-  return import("../features/_prospects/table.js").then((module) => module.releaseProspectsTableDom());
-}
+/** Top chrome tabs: manual dialer, call log, CRM database. */
+const TOP_NAV_TABS = ["dialer", "dials", "prospects"];
 
-function releaseWorkflowCrmSidebarDomIfLoaded() {
-  return import("../features/_workflow/campaign-crm-sidebar.js").then((module) => module.releaseWorkflowCrmSidebarDom());
-}
+/** Hidden panels (caller pool) remain reachable for dialer renderers. */
+const DASHBOARD_TABS = [...TOP_NAV_TABS, "pool"];
 
-function releasePipelineBoardDomIfLoaded() {
-  return import("../features/_pipeline/board.js").then((module) => module.releasePipelineBoardDom());
-}
-
-/** Drop heavy in-memory CRM catalog when the active tab only needs the slim summary. */
-function releaseFullLeadsCatalogIfIdle() {
-  if (needsFullLeadsCatalog()) return;
-  void maybeReleaseFullLeadsCatalog(S.dashboardTab);
-}
-
-const DASHBOARD_TABS = ["prospects", "workflow", "pipeline"];
 const TAB_ACTIVE_KEY = "prospect-desk-dashboard-tab";
+/** Bumped when top tabs become Dialer · Call log · CRM (clears old workflow/pipeline selection). */
+const TAB_LAYOUT_KEY = "godial-tab-layout-dialer-v1";
 const TAB_BUTTONS = {
-  pipeline: "pipelineTabButton",
-  workflow: "workflowTabButton",
+  dialer: "dialerTabButton",
   prospects: "prospectsTabButton",
+  pool: "poolTabButton",
+  dials: "dialsTabButton",
 };
 const TAB_TITLES = {
-  pipeline: "Pipeline",
-  workflow: "Workflow",
+  dialer: "Dialer",
   prospects: "Global CRM",
+  pool: "Caller pool",
+  dials: "Call log",
 };
 
 function dashboardTabButtons() {
@@ -48,11 +32,19 @@ function dashboardTabButtons() {
 
 function savedDashboardTab() {
   try {
+    if (!localStorage.getItem(TAB_LAYOUT_KEY)) {
+      localStorage.setItem(TAB_LAYOUT_KEY, "1");
+      localStorage.setItem(TAB_ACTIVE_KEY, "dialer");
+      return "dialer";
+    }
     const name = localStorage.getItem(TAB_ACTIVE_KEY) || "";
-    if (DASHBOARD_TABS.includes(name)) return name;
-    return DASHBOARD_TABS[0];
+    if (TOP_NAV_TABS.includes(name)) return name;
+    if (name && !TOP_NAV_TABS.includes(name)) {
+      localStorage.setItem(TAB_ACTIVE_KEY, TOP_NAV_TABS[0]);
+    }
+    return TOP_NAV_TABS[0];
   } catch {
-    return DASHBOARD_TABS[0];
+    return TOP_NAV_TABS[0];
   }
 }
 
@@ -65,21 +57,8 @@ function rememberDashboardTab(name) {
 }
 
 export function setDashboardTab(name, moveFocus = false) {
-  const previousTab = S.dashboardTab;
-  S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : DASHBOARD_TABS[0];
+  S.dashboardTab = DASHBOARD_TABS.includes(name) ? name : TOP_NAV_TABS[0];
   rememberDashboardTab(S.dashboardTab);
-  if (previousTab === "prospects" && S.dashboardTab !== "prospects") {
-    void releaseProspectsTableDomIfLoaded();
-  }
-  if (previousTab === "workflow" && S.dashboardTab !== "workflow") {
-    void releaseWorkflowCrmSidebarDomIfLoaded();
-  }
-  if (previousTab === "pipeline" && S.dashboardTab !== "pipeline") {
-    void releasePipelineBoardDomIfLoaded();
-  }
-  if (previousTab !== S.dashboardTab) {
-    releaseFullLeadsCatalogIfIdle();
-  }
   const selectedButton = byId(TAB_BUTTONS[S.dashboardTab]);
   for (const button of dashboardTabButtons()) {
     const selected = button === selectedButton;
@@ -87,35 +66,21 @@ export function setDashboardTab(name, moveFocus = false) {
     button.setAttribute("aria-selected", String(selected));
     button.tabIndex = selected ? 0 : -1;
   }
-  for (const tab of DASHBOARD_TABS) {
+  const dialerPanel = byId("dialerTabPanel");
+  if (dialerPanel) dialerPanel.hidden = S.dashboardTab !== "dialer";
+  for (const tab of ["prospects", "pool", "dials"]) {
     const panel = byId(`${tab}TabPanel`);
     if (panel) panel.hidden = S.dashboardTab !== tab;
   }
   setText("pageTitle", TAB_TITLES[S.dashboardTab]);
-  byId("crmView")?.classList.toggle("is-workflow-view", S.dashboardTab === "workflow");
   byId("crmView")?.classList.toggle("is-global-crm-view", S.dashboardTab === "prospects");
-  byId("crmView")?.classList.toggle("is-pipeline-view", S.dashboardTab === "pipeline");
+  if (S.dashboardTab === "prospects") renderTable();
+  if (S.dashboardTab === "pool") renderCallerPool();
   render();
-  if (S.dashboardTab === "prospects") {
-    ensureFullLeadsCatalog().then(() => {
-      if (S.dashboardTab === "prospects") renderTable();
-    });
-  }
-  if (S.dashboardTab === "pipeline") {
-    ensureFullLeadsCatalog().then(() => {
-      if (S.dashboardTab !== "pipeline") return;
-      import("../features/pipeline.js").then((module) => {
-        if (S.dashboardTab !== "pipeline") return;
-        module.renderPipelineEditor();
-        module.renderPipelineBoardAndRemember();
-      });
-    });
-  }
-  if (S.dashboardTab === "workflow") {
-    import("../features/workflow.js").then((module) => module.initWorkflowTab());
+  if (S.dashboardTab === "dials") {
+    import("../features/_dialer/dials.js").then((module) => module.refreshDialsTab());
   }
   if (moveFocus && selectedButton) selectedButton.focus();
-  syncWorkflowUrlToLocation();
 }
 
 export function bindNavigation() {
@@ -134,7 +99,7 @@ export function bindNavigation() {
       setDashboardTab(tabs[next], true);
     });
   }
-  setDashboardTab(readTabFromUrl() || savedDashboardTab());
+  setDashboardTab(savedDashboardTab());
 }
 
 wireSetDashboardTab(setDashboardTab);

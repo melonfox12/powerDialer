@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Project map
 
-Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `frontend/shell.html`, `frontend/features/app-frame.html`, `frontend/features/workflow.html`, `frontend/features/pipeline.html`, `frontend/features/prospects.html`, `frontend/features/settings.html`, `frontend/shell-end.html`. Top tabs (Global CRM, Workflow, Pipeline) switch in `frontend/_core/navigation.js`. Legacy dialer/AI/performance UI is archived under `misc/frontend-legacy/`.
+Single-page app. `GET /` concatenates partials in `_web/respond.py` `send_app_page`: `frontend/shell.html`, `frontend/features/dialer.html`, `frontend/features/ai-dialer-agent.html` (DOM only), `frontend/features/session-summary-dialog.html`, `frontend/features/prospects.html`, `frontend/features/settings.html`, `frontend/shell-end.html`. Top tabs: Dialer, Call log, Global CRM (`frontend/_core/navigation.js`). Workflow/pipeline archived under `misc/frontend-workflow-pipeline/`.
 
 ## Folders
 

@@ -1,6 +1,7 @@
 import { state } from "../../_core/state.js";
 import { formatPhoneNumber } from "../../_core/phone.js";
-import { showToast } from "../../_core/notify.js";
+import { dialLead } from "../dialer.js";
+import { setDashboardTab } from "../../core.js";
 
 export function bindProspectMenu() {
   const menu = document.createElement("div");
@@ -19,6 +20,7 @@ export function bindProspectMenu() {
   document.body.append(menu);
 
   let lead = null;
+  let pending = false;
 
   function closeMenu() {
     menu.hidden = true;
@@ -31,9 +33,9 @@ export function bindProspectMenu() {
     const blocked = nextLead.status === "closed";
     const missing = !nextLead.phone;
     button.disabled = blocked || missing;
-    label.textContent = blocked ? "Disqualified" : "Phone";
+    label.textContent = blocked ? "Disqualified" : "Dial";
     phone.textContent = missing ? "No number" : formatPhoneNumber(nextLead.phone);
-    button.setAttribute("aria-label", blocked ? "Disqualified" : missing ? "No number on file" : formatPhoneNumber(nextLead.phone));
+    button.setAttribute("aria-label", blocked ? "Disqualified" : missing ? "No number to dial" : `Dial ${formatPhoneNumber(nextLead.phone)}`);
     document.querySelectorAll(".prospect-menu-target").forEach((item) => item.classList.remove("prospect-menu-target"));
     row.classList.add("prospect-menu-target");
     const sortMenu = document.getElementById("columnSortMenu");
@@ -53,7 +55,7 @@ export function bindProspectMenu() {
       return;
     }
     const row = event.target instanceof Element
-      ? event.target.closest("#tableBody tr[data-lead-id]")
+      ? event.target.closest("#tableBody tr[data-lead-id], #poolTableBody tr[data-lead-id]")
       : null;
     if (!row) {
       if (!(event.target instanceof Node) || !menu.contains(event.target)) closeMenu();
@@ -65,14 +67,19 @@ export function bindProspectMenu() {
     openMenu(next, event.clientX, event.clientY, row);
   });
 
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     const chosen = lead;
     closeMenu();
-    if (!chosen?.phone || chosen.status === "closed") return;
-    void navigator.clipboard.writeText(chosen.phone).then(
-      () => showToast("Phone number copied."),
-      () => showToast("Could not copy phone number.", true),
-    );
+    if (!chosen || pending) return;
+    pending = true;
+    try {
+      await dialLead(chosen);
+      setDashboardTab("dialer");
+    } catch {
+      // dialLead already reports the failure.
+    } finally {
+      pending = false;
+    }
   });
 
   document.addEventListener("click", (event) => {

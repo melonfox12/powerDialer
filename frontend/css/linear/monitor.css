@@ -1,0 +1,113 @@
+.dialer-document .call-monitor-disclosure {
+  flex: none;
+  max-height: none;
+  margin: 36px 0 0;
+  overflow: visible;
+  border-top: 1px solid #23252a;
+  background: transparent;
+}
+.dialer-document .call-monitor-disclosure[open] {
+  display: flex;
+  flex: none;
+  min-height: 0;
+}
+.dialer-document .call-monitor-summary {
+  position: static;
+  min-height: 40px;
+  gap: 10px;
+  padding: 4px 0 0;
+  background: transparent;
+}
+.dialer-document .call-monitor-summary::after {
+  width: 7px;
+  height: 7px;
+  margin-left: 10px;
+  border-width: 1.5px;
+}
+.dialer-document .monitor-activity { margin-left: auto; }
+.dialer-run-panel .call-monitor-title {
+  color: #f7f8f8;
+  font-size: 13px;
+  font-weight: 590;
+  letter-spacing: -0.011em;
+}
+.dialer-document .call-monitor,
+.dialer-document .call-monitor-disclosure[open] .call-monitor {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  gap: 8px 24px;
+  margin: 0;
+  padding: 0 0 8px;
+  overflow: visible;
+  border: 0;
+}
+.dialer-run-panel .monitor-header-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
+}
+.dialer-run-panel .monitor-header-actions:not(:has(.button:not([hidden]):not(:disabled))) { display: none; }
+.dialer-run-panel .dialed-prospect.is-empty { display: none; }
+.dialer-run-panel .dialed-prospect {
+  grid-column: 1 / -1;
+  flex: none;
+  min-height: 0;
+  gap: 2px;
+  padding: 0 0 6px;
+  border: 0;
+}
+.dialer-run-panel .dialed-prospect strong,
+.dialer-run-panel .dialed-prospect.is-empty strong {
+  color: #d0d6e0;
+  font-size: 13px;
+  font-weight: 510;
+  letter-spacing: 0;
+}
+.dialer-run-panel .dialed-prospect.is-empty strong { color: #8a8f98; font-weight: 400; }
+.dialer-run-panel .dialed-prospect span { font-size: 13px; }
+.dialer-run-panel .monitor-subheading {
+  margin-bottom: 6px;
+  color: #8a8f98;
+  font-size: 12px;
+  font-weight: 450;
+}
+.dialer-run-panel #prospectWaveform {
+  height: 32px;
+  border-radius: 0;
+  background: transparent;
+}
+.dialer-run-panel .monitor-transcript-block { min-height: 0; }
+.dialer-run-panel .live-transcript,
+.dialer-run-panel .call-monitor-disclosure[open] .live-transcript {
+  height: 96px;
+  min-height: 72px;
+  max-height: 140px;
+  flex: none;
+  padding: 8px 12px;
+  border: 1px solid #23252a;
+  border-radius: 8px;
+  background: #08090a;
+}
+.dialer-run-panel .live-transcript .transcript-entry p,
+.dialer-run-panel .transcript-entry p {
+  font-size: 13px;
+  line-height: 1.45;
+}
+.dialer-run-panel .transcript-entry-meta strong { font-size: 12px; }
+.dialer-run-panel .transcript-entry-meta time { font-size: 11px; }
+.dialer-run-panel .transcript-empty,
+.dialer-run-panel .monitor-empty {
+  margin: 0;
+  padding: 6px 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.dialer-run-panel .activity-log-disclosure { grid-column: 1 / -1; border-top: 0; }
+.dialer-run-panel .activity-log { max-height: 120px; margin-top: 4px; }
+.dialer-run-panel .activity-log li {
+  grid-template-columns: 52px 72px minmax(0, 1fr);
+  gap: 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+.dialer-run-panel .monitor-skip { min-height: 28px; font-size: 13px; }

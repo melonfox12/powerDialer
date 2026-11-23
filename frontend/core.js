@@ -13,12 +13,17 @@ export {
   TIMEZONE_NAMES,
   SECRET_INPUTS,
   byId,
+  dialerById,
+  dialerEl,
+  dialerEls,
+  humanDialerPanel,
+  dialerWorkspacePanel,
+  setDialerText,
   setText,
   initials,
   statusDate,
   formatMinutes,
   dayLabel,
-  startStatusClock,
 } from "./_core/format.js";
 export { showToast } from "./_core/notify.js";
 export { formatPhoneNumber } from "./_core/phone.js";
@@ -35,6 +40,21 @@ export {
   downloadTranscript,
   registerTranscriptActions,
 } from "./_core/transcript.js";
+let refreshAudioDevicesImpl = async () => {};
+let stopMicrophoneTestImpl = async () => {};
+
+export function registerAudioDevices(refresh, stop) {
+  refreshAudioDevicesImpl = refresh;
+  stopMicrophoneTestImpl = stop;
+}
+
+export function refreshAudioDevices() {
+  return refreshAudioDevicesImpl();
+}
+
+export function stopMicrophoneTest() {
+  return stopMicrophoneTestImpl();
+}
 
 export {
   registerRenderer,
@@ -42,9 +62,18 @@ export {
   rendererScopeEnabled,
   registerTable,
   renderTable,
+  registerCallerPool,
+  renderCallerPool,
 } from "./_core/registry.js";
 export { render } from "./_core/render.js";
 export { bindNavigation } from "./_core/navigation.js";
 export { setDashboardTab } from "./_core/dashboard-tab.js";
 
-export { state, S, audioInputStorageKey, audioOutputStorageKey } from "./_core/state.js";
+export {
+  state,
+  S,
+  statMemory,
+  seenSensoryActivity,
+  audioInputStorageKey,
+  audioOutputStorageKey,
+} from "./_core/state.js";

@@ -1,11 +1,11 @@
 # Frontend (browser app)
 
-**Active product:** Global CRM, Workflow, and Pipeline (`frontend/_core/navigation.js`).
+**Active tabs (top chrome):** Dialer (manual power dialer) · Call log · Global CRM.
 
-Boot: `main.js` loads `auth.js`, `prospects.js`, `workflow.js`, `pipeline.js`, `settings.js`, and `_core/poller.js` for `/api/live`.
+Dialer stack restored from git `a0d4552` (pre-legacy archive): `features/dialer.html`, `features/dialer.js`, `features/_dialer/*`, arcade, full settings, prospects + dials panels.
 
-Page partials (see `_web/respond.py`): `shell.html` → `features/app-frame.html` → workflow / pipeline / prospects panels → `settings.html` → `shell-end.html`.
+`ai-dialer-agent.html` is still concatenated into the page so untouched dialer modules keep their DOM ids; the AI tab is not wired in `main.js`.
 
-Legacy dialer UI lives in `misc/frontend-legacy/`, not served by default.
+Workflow / pipeline UI lives in `misc/frontend-workflow-pipeline/`.
 
-See `PROJECT_LAYOUT.md` at the repo root.
+Boot: `main.js` — dialer, prospects, settings, auth, arcade, poller via `features/dialer.js`.
